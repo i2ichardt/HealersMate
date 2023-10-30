@@ -1,5 +1,5 @@
 # HealersMate
-Healing Addon for designed for classic World of Warcraft.
+Healing Addon for designed for classic World of Warcraft version 1.12.
 Works for partys of 1 - 5 players.
 
 <img src="Images/UI_Example.png">
