@@ -1,9 +1,0 @@
-## Interface: 100105
-## Version: 1.0.0
-## Title: Healers Mate
-## Notes: My first addon
-## Author: Richard Truax
-## SavedVariables:
-## SavedVariablesPerCharacter: LeftClickSpell, MiddleClickSpell, RightClickSpell, ShiftLeftClickSpell, ShiftMiddleClickSpell, ShiftRightClickSpell, ControlLeftClickSpell, ControlMiddleClickSpell, ControlRightClickSpell, FreshInstall
-
-HealersMate.lua
