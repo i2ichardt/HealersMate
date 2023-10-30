@@ -2,7 +2,7 @@
 Healing Addon for designed for classic World of Warcraft.
 Works for partys of 1 - 5 players.
 
-![](Images/UI_Example.png)
+<img src="Images/UI_Example.png">
 
 Version 1.0.0 Features:
 -------------------------------------------------------------------------------------
