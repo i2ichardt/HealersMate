@@ -17,7 +17,7 @@ Optional:
 <img src="Images/UI_Example_2.png">
 <br>
 <br>
-<b>Player, and Indivdual Party Members Healing UI can be seperately moved/placed around the screen.</b><br>
+<b>Player, and Individual Party Members Healing UI can be seperately moved/placed around the screen.</b><br>
 <img src="Images/UI_Example_4.png">
 <br>
 <br>
