@@ -7,8 +7,6 @@ Works for partys of 1 - 5 players.
 Version 1.0.0 Features:
 -------------------------------------------------------------------------------------
 Includes buffs along with buff stacksizes.
-    _*Buff Name, and Description are not supported by classic wow so i'm pulling them from the default blizzard UI elements and are not relibly retrieved. So they will either appear as a tooltip when you mouseover them or they will not.
-      Stack Size will always be accurate as it is a supported addon function._
 
 You can set spells to be cast with the following key presses:
 Left Click, Shift+Left Click, Ctrl + Left Click, Middle Click, Shift + Middle Click, Ctrl + Middle Click, Right Click, Shift + Right Click, Ctrl + Right Click.
