@@ -6,10 +6,16 @@ Works for partys of 1 - 5 players.
 
 Version 1.1.0 Features:
 -------------------------------------------------------------------------------------
+<img src="Images/UI_Example_2.png">
 Includes buffs along with buff stacksizes.
 
+<img src="Images/UI_Example_3.png">
+Displays when player is offline.
+
+<img src="Images/UI_Example_4.png">
 Player, and Party Members Healing UI can be seperately moved/placed around the screen.
 
+-------------------------------------------------------------------------------------
 You can set spells to be cast with the following key presses:
 Left Click, Shift+Left Click, Ctrl + Left Click, Middle Click, Shift + Middle Click, Ctrl + Middle Click, Right Click, Shift + Right Click, Ctrl + Right Click.
 
