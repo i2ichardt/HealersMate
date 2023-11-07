@@ -4,7 +4,7 @@ Works for partys of 1 - 5 players.
 
 <img src="Images/UI_Example.png">
 
-Version 1.0.0 Features:
+Version 1.1.0 Features:
 -------------------------------------------------------------------------------------
 Includes buffs along with buff stacksizes.
 
