@@ -1,28 +1,49 @@
 # HealersMate
-Healing Addon for designed for classic World of Warcraft version 1.12.
-Works for partys of 1 - 5 players.
 
-<img src="Images/UI_Example.png">
+HealersMate is a comprehensive healing addon designed for Classic World of Warcraft version 1.12, tailored to streamline your healing experience in parties of 1 to 5 players.
 
-Version 1.1.0 Features:
--------------------------------------------------------------------------------------
-You can set spells to be cast with the following key presses:
-Left Click, Shift+Left Click, Ctrl + Left Click, Middle Click, Shift + Middle Click, Ctrl + Middle Click, Right Click, Shift + Right Click, Ctrl + Right Click.
+![HealersMate UI Example](Images/UI_Example.png)
 
-Optional:
-  You can used the words "target", "follow", "assist" in place of a spell name to perform those actions with a click on a target.
+## Version 1.1.0 Features:
 
-<br>
-<b>Includes buffs along with buff stacksizes.</b><br>
-<img src="Images/UI_Example_2.png">
-<br>
-<br>
-<b>Player, and Individual Party Members Healing UI can be seperately moved/placed around the screen.</b><br>
-<img src="Images/UI_Example_4.png">
-<br>
-<br>
-<b>Displays when player is offline.</b><br>
-<img src="Images/UI_Example_3.png">
-<br>
--------------------------------------------------------------------------------------
+### Customizable Key Bindings
+Effortlessly set spells to be cast with various key combinations, enhancing your control over healing actions. Key bindings include:
+- Left Click
+- Shift + Left Click
+- Ctrl + Left Click
+- Middle Click
+- Shift + Middle Click
+- Ctrl + Middle Click
+- Right Click
+- Shift + Right Click
+- Ctrl + Right Click
 
+Optional: Utilize the keywords "target," "follow," and "assist" in place of a spell name to seamlessly perform those actions with a simple click on a target.
+
+### Buff Tracking
+HealersMate includes a detailed display of buffs, complete with stack sizes, providing you with crucial information at a glance.
+
+![Buff Tracking UI Example](Images/UI_Example_2.png)
+
+### Customizable Healing UI
+Tailor the healing interface to your preferences by individually moving and placing UI elements for both the player and individual party members.
+
+![Customizable Healing UI Example](Images/UI_Example_4.png)
+
+### Offline Player Notification
+Stay informed even when players are offline, ensuring you have a clear overview of the party's status at all times.
+
+![Offline Player Notification Example](Images/UI_Example_3.png)
+
+---
+
+Feel free to contribute, report issues, or suggest improvements. Your feedback is valuable in making HealersMate a powerful and user-friendly healing solution for the Classic WoW community.
+
+## Installation
+1. [Download the latest release](link_to_releases).
+2. Extract the files into your WoW addons folder.
+3. Launch World of Warcraft and enjoy a smoother healing experience with HealersMate.
+
+---
+
+**Note:** This addon is designed for use in Classic World of Warcraft version 1.12. Check for updates and additional information in the official documentation and community forums.
