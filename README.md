@@ -4,7 +4,7 @@ HealersMate is a comprehensive healing addon designed for Classic World of Warcr
 
 ![HealersMate UI Example](Images/UI_Example.png)
 
-## Version 1.1.0 Features:
+## Version 1.2.0 Features:
 
 ### Customizable Key Bindings
 Effortlessly set spells to be cast with various key combinations, enhancing your control over healing actions. Key bindings include:
@@ -26,7 +26,7 @@ HealersMate includes a detailed display of buffs, complete with stack sizes, pro
 ![Buff Tracking UI Example](Images/UI_Example_2.png)
 
 ### Customizable Healing UI
-Tailor the healing interface to your preferences by individually moving and placing UI elements for both the player and individual party members.
+Tailor the healing interface to your preferences by individually moving and placing UI elements for the player, players target, and individual party members.
 
 ![Customizable Healing UI Example](Images/UI_Example_4.png)
 
