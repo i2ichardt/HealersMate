@@ -46,4 +46,4 @@ Feel free to contribute, report issues, or suggest improvements. Your feedback i
 
 ---
 
-**Note:** This addon is designed for use in Classic World of Warcraft version 1.12. Check for updates and additional information in the official documentation and community forums.
+**Reminder:** This addon is designed for use in Classic World of Warcraft version 1.12.
