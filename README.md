@@ -40,7 +40,7 @@ Stay informed even when players are offline, ensuring you have a clear overview 
 Feel free to contribute, report issues, or suggest improvements. Your feedback is valuable in making HealersMate a powerful and user-friendly healing solution for the Classic WoW community.
 
 ## Installation
-1. [Download the latest release](link_to_releases).
+1. [Download the latest release](https://github.com/i2ichardt/HealersMate/releases/download/v1.2.0/HealersMate.zip).
 2. Extract the files into your WoW addons folder.
 3. Launch World of Warcraft and enjoy a smoother healing experience with HealersMate.
 
