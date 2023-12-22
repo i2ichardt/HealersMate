@@ -23,7 +23,7 @@ Optional: Utilize the keywords "target," "follow," and "assist" in place of a sp
 ### Buff Tracking
 HealersMate includes a detailed display of buffs, complete with stack sizes, providing you with crucial information at a glance.
 
-![Buff Tracking UI Example](Images/UI_Example_2.png)
+![Buff Tracking UI Example](Images/UI_Example_6.png)
 
 ### Customizable Healing UI
 Tailor the healing interface to your preferences by individually moving and placing UI elements for the player, players target, and individual party members.
