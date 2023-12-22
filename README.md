@@ -6,7 +6,7 @@ HealersMate is a comprehensive healing addon designed for Classic World of Warcr
   <img src="Images/UI_Example_8.png" alt="Rage UI Example">
   <img src="Images/UI_Example_9.png" alt="Energy UI Example">
 </p>
-## Version 1.2.0 Features:
+## Version 1.3.0 Features:
 
 ### Customizable Key Bindings
 Effortlessly set spells to be cast with various click combinations, enhancing your control over healing actions.
