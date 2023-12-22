@@ -28,7 +28,7 @@ HealersMate includes a detailed display of buffs, complete with stack sizes, pro
 ### Customizable Healing UI
 Tailor the healing interface to your preferences by individually moving and placing UI elements for the player, players target, and individual party members.
 
-![Customizable Healing UI Example](Images/UI_Example_4.png)
+![Customizable Healing UI Example](Images/UI_Example_5.png)
 
 ### Offline Player Notification
 Stay informed even when players are offline, ensuring you have a clear overview of the party's status at all times.
