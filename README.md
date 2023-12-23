@@ -8,7 +8,9 @@ HealersMate is a comprehensive healing addon designed for Classic World of Warcr
 </p>
 
 ### Customizable Key Bindings
-Effortlessly set spells to be cast with various click combinations, enhancing your control over healing actions.
+Effortlessly set spells to be cast with various click combinations, enhancing your control over healing actions.<br>
+Utilize the keywords "<i>target</i>," "<i>follow</i>," and "<i>assist</i>" in place of a spell name to seamlessly perform those actions with a simple click on a target.
+
 <p align="center">
   <img src="Images/UI_Example_10.png" alt="Spells Settings UI Example">
 </p>
@@ -19,7 +21,6 @@ Enable or disable UI features to refine your healing approach.
   <img src="Images/UI_Example_11.png" alt="Toggleable Settings UI Example">
 </p> 
     
-Optional: Utilize the keywords "target," "follow," and "assist" in place of a spell name to seamlessly perform those actions with a simple click on a target.
 
 ### Buff Tracking
 HealersMate includes a detailed display of buffs, complete with stack sizes, providing you with crucial information at a glance.
