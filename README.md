@@ -1,11 +1,13 @@
 # HealersMate
 
 HealersMate is a comprehensive healing addon designed for Classic World of Warcraft version 1.12, tailored to streamline your healing experience in parties of 1 to 5 players.
+<p align="center"><img src="Images/UI_ScrollingText.gif" alt="Scrolling Combat Text UI Example"></p>
 <p align="center">
   <img src="Images/UI_Example_7.png" alt="Mana UI Example">
   <img src="Images/UI_Example_8.png" alt="Rage UI Example">
   <img src="Images/UI_Example_9.png" alt="Energy UI Example">
 </p>
+
 
 ### Customizable Key Bindings
 Effortlessly set spells to be cast with various click combinations, enhancing your control over healing actions.<br>
