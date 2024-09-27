@@ -7,8 +7,8 @@ HealersMate is a comprehensive healing addon designed for Vanilla World of Warcr
 </p>
 
 ### Customizable Key Bindings
-Bind key+button combinations to specific spells, allowing you to cast on any player with one click.<br>
-Utilize the keywords "<i>target</i>", "<i>follow</i>", and "<i>assist</i>" in place of a spell name to perform those actions.
+Bind key+button combinations to specific spells, allowing you to cast on any player with one click. Utilize the keywords "<i>target</i>", "<i>follow</i>", and "<i>assist</i>" in place of a spell name to perform those actions.<br>
+Use the command `/hm` in-game to open the configurator.
 
 <img src="Screenshots/Spell-Config-Example.PNG" alt="Spell Config Example">
 
