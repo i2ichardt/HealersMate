@@ -6,6 +6,8 @@ SlashCmdList["HEALERSMATE"] = function(args)
 			group:GetContainer():ClearAllPoints()
 			group:GetContainer():SetPoint("CENTER", 0, 0)
 		end
+		HealersMateSettings.HM_SettingsContainer:ClearAllPoints()
+		HealersMateSettings.HM_SettingsContainer:SetPoint("CENTER", 0, 0)
 		DEFAULT_CHAT_FRAME:AddMessage("Reset all frame positions.")
 		return
 	elseif args == "check" then
@@ -39,6 +41,8 @@ HealersMate = {}
 local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
+
+VERSION = "2.0.0-alpha1"
 
 TestUI = false
 
@@ -191,6 +195,7 @@ ScanningTooltip:AddFontStrings(
     ScanningTooltip:CreateFontString( "$parentTextLeft1", nil, "GameTooltipText" ),
     ScanningTooltip:CreateFontString( "$parentTextRight1", nil, "GameTooltipText" ) );
 
+-- Thanks ChatGPT
 function ExtractSpellRank(spellname)
 	-- Find the starting position of "Rank "
 	local start_pos = string.find(spellname, "Rank ")
@@ -214,6 +219,7 @@ function ExtractSpellRank(spellname)
 	return nil
 end
 
+-- Thanks again ChatGPT
 local tooltipResources = {"Mana", "Rage", "Energy"}
 function ExtractResourceCost(costText)
 
@@ -631,7 +637,7 @@ function EventHandler()
 		if UnitExists("target") then
 			HealUIGroups["Target"]:Hide()
 			local friendly = not UnitCanAttack("player", "target")
-			if (friendly and HMOptions["ShowTargets"]["Friendly"]) or (not friendly and HMOptions["ShowTargets"]["Hostile"]) then
+			if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
 				HealUIGroups["Target"]:Show()
 			end
 		else

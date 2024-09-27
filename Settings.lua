@@ -170,11 +170,11 @@ do
     profile.NameInHealthBar = true
     profile.HealthBarHeight = 16
     profile.HealthBarColor = "Class"
-    profile.NameText.Color = "Normal"
+	profile.NameText.FontSize = 8
+    profile.NameText.AlignmentH = "LEFT"
+    profile.NameText.Color = "Default"
     profile.PowerBarHeight = 6
     profile.TrackedAurasHeight = 10
-    profile.NameText.FontSize = 8
-    profile.NameText.AlignmentH = "LEFT"
     profile.HealthText.FontSize = 9
     profile.HealthText.AlignmentH = "RIGHT"
     profile.HealthDisplay = "% Health"
@@ -299,6 +299,7 @@ function HealersMateSettings.InitSettings()
 
 	-- Create the main SETTINGS frame
 	local container = CreateFrame("Frame", "HM_SettingsContainer", UIParent)
+	container:SetToplevel(true)
 	container:SetFrameLevel(15)
 	container:SetWidth(425) -- width
 	container:SetHeight(475) -- height
@@ -406,9 +407,9 @@ function HealersMateSettings.InitSettings()
 	CheckboxFriendly:SetPoint("LEFT", CheckboxFriendlyLabel, "RIGHT", 0, 0)
 	CheckboxFriendly:SetWidth(20) -- width
 	CheckboxFriendly:SetHeight(20) -- height
-	CheckboxFriendly:SetChecked(HMOptions["ShowTargets"]["Friendly"])
+	CheckboxFriendly:SetChecked(HMOptions.ShowTargets.Friendly)
 	CheckboxFriendly:SetScript("OnClick", function()
-		HMOptions["ShowTargets"]["Friendly"] = CheckboxFriendly:GetChecked() == 1
+		HMOptions.ShowTargets.Friendly = CheckboxFriendly:GetChecked() == 1
 	end)
 
 	-- Label for the "Enemy" checkbox
@@ -421,9 +422,9 @@ function HealersMateSettings.InitSettings()
 	CheckboxHostile:SetPoint("LEFT", CheckboxEnemyLabel, "RIGHT", 0, 0)
 	CheckboxHostile:SetWidth(20) -- width
 	CheckboxHostile:SetHeight(20) -- height
-	CheckboxHostile:SetChecked(HMOptions["ShowTargets"]["Hostile"])
+	CheckboxHostile:SetChecked(HMOptions.ShowTargets.Hostile)
 	CheckboxHostile:SetScript("OnClick", function()
-		HMOptions["ShowTargets"]["Hostile"] = CheckboxHostile:GetChecked() == 1
+		HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
 	end)
 
 
@@ -457,7 +458,7 @@ function HealersMateSettings.InitSettings()
 
 	local TxtAboutLabel = AboutFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	TxtAboutLabel:SetPoint("CENTER", AboutFrame, "CENTER", 0, 100)
-	TxtAboutLabel:SetText("HealersMate Version 2.0.0-alpha"..
+	TxtAboutLabel:SetText("HealersMate Version "..HealersMate.VERSION..
 	"\n\n\nOriginal Author: i2ichardt\nEmail: rj299@yahoo.com"..
 	"\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana"..
 	"\n\nContributer: ChatGPT"..
