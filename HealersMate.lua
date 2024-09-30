@@ -157,6 +157,7 @@ EventHandlerFrame:RegisterEvent("PLAYER_PET_CHANGED")
 EventHandlerFrame:RegisterEvent("UNIT_MANA")
 EventHandlerFrame:RegisterEvent("UNIT_RAGE")
 EventHandlerFrame:RegisterEvent("UNIT_ENERGY")
+EventHandlerFrame:RegisterEvent("UNIT_FOCUS")
 EventHandlerFrame:RegisterEvent("UNIT_MAXMANA")
 
 -- Not sure if there's a better way to detect key presses. At least this is a relatively lightweight function.
@@ -605,7 +606,8 @@ function EventHandler()
 			return
 		end
 		HealUIs[unit]:UpdateHealth()
-	elseif event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY" or event == "UNIT_MAXMANA" then
+	elseif event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY" or 
+			event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" then
 		local unit = arg1
 		if not IsRelevantUnit(unit) then
 			return
