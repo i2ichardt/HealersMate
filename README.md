@@ -32,6 +32,19 @@ HealersMate will display buffs and debuffs relevant to you, as well as color hea
 
 Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certain features lacking. Namely, a way to customize the UI. Under the hood, a lot of things are in place, but a user-friendly configuration is in the works. If you're feeling bold and know how to mess around with Lua, you can edit the top half of the Settings.lua file to customize your UI.
 
+### Planned Features
+
+For 2.0.0 Release:
+- Customizable player frames
+- Support MMO mouse buttons
+- Custom mouse button names and ordering
+- Bind spells to hostile targets
+- Basic heal predictions without you or others needing to use HealComm (SuperWoW required)
+- Ability to promote specific players to the top of a group frame
+
+In future releases:
+- Track Buff and HoT times
+
 ---
 Feel free to contribute, report issues, or suggest improvements. Your feedback is valuable in making HealersMate a powerful and user-friendly healing solution for the Vanilla WoW community.
 
