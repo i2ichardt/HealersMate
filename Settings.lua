@@ -41,10 +41,8 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
                 local spellName = GetSpellName(id, "spell");
                 local types = debuffTypeCureSpells[playerClass][spellName]
                 if types then
-                    print("Detected "..spellName)
                     for _, type in ipairs(types) do
                         trackedDebuffTypes[type] = 1
-                        print("Added "..type)
                     end
                 end
                 id = id + 1
@@ -52,9 +50,6 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
         end
     end
     trackedDebuffTypes = Util.ToArray(trackedDebuffTypes)
-    for k, v in ipairs(trackedDebuffTypes) do
-        print(k..": "..v)
-    end
 
     for _, profile in pairs(HealersMateSettings.Profiles) do
         profile.TrackedDebuffTypes = trackedDebuffTypes
@@ -91,15 +86,6 @@ function HealersMateSettings.InitProfiles()
             defaultClassTrackedDebuffs[class][debuff] = 1
         end
     end
-
-    -- Deprecated
-    local defaultTrackedDebuffTypes = {
-        ["PALADIN"] = {"Poison", "Disease", "Magic"},
-        ["PRIEST"] = {"Disease", "Magic"},
-        ["DRUID"] = {"Poison", "Curse"},
-        ["SHAMAN"] = {"Poison", "Disease"},
-        ["MAGE"] = {"Curse"}
-    }
 
     local options = HealersMateSettings.ProfileOptions
     local profiles = HealersMateSettings.Profiles
