@@ -47,6 +47,15 @@ function ToSet(array)
     return set
 end
 
+-- Returns a new table with the keys of the given set being the values of the array
+function ToArray(set)
+    local array = {}
+    for value, _ in pairs(set) do
+        table.insert(array, value)
+    end
+    return array
+end
+
 function IndexOf(table, value)
     for i, v in ipairs(table) do
         if v == value then
@@ -134,6 +143,26 @@ function IsFeigning(unit)
                 if texture == "Interface\\Icons\\Ability_Rogue_FeignDeath" then
                     return true
                 end
+            end
+        end
+    end
+    return false
+end
+
+function HasAura(unit, auraType, auraTexture, auraID)
+    local auraFunc = auraType == "Buff" and UnitBuff or UnitDebuff
+    local checkCount = auraType == "Buff" and 32 or 16
+
+    local superwow = HealersMate.IsSuperWowEnabled()
+    for i = 1, checkCount do
+        local texture, _, id = auraFunc(unit, i)
+        if superwow and auraID then
+            if auraID == id then
+                return true
+            end
+        else
+            if texture == auraTexture then
+                return true
             end
         end
     end

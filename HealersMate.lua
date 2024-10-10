@@ -153,6 +153,7 @@ EventHandlerFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 EventHandlerFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 EventHandlerFrame:RegisterEvent("UNIT_PET")
 EventHandlerFrame:RegisterEvent("PLAYER_PET_CHANGED")
+EventHandlerFrame:RegisterEvent("SPELLS_CHANGED")
 
 EventHandlerFrame:RegisterEvent("UNIT_MANA")
 EventHandlerFrame:RegisterEvent("UNIT_RAGE")
@@ -174,6 +175,11 @@ end)
 
 function IsSuperWowEnabled()
 	return SpellInfo ~= nil
+end
+
+-- If SuperWoW is present, then a GUID map will be populated
+if IsSuperWowEnabled() then
+	GUIDUnitMap = {} -- Key: GUID, Value: Array of units associated with GUID
 end
 
 function Debug(msg)
@@ -421,6 +427,32 @@ function ReapplySpellsTooltip()
 	end
 end
 
+local function createUIGroup(groupName, environment, units, petGroup)
+	local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup)
+	for _, unit in ipairs(units) do
+		local ui = HealUI:New(unit)
+		HealUIs[unit] = ui
+		uiGroup:AddUI(ui)
+		if unit ~= "target" then
+			ui:Hide()
+		end
+	end
+	return uiGroup
+end
+
+local function initUIs()
+    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false)
+    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true)
+    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false)
+    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true)
+    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false)
+
+    HealUIGroups["Target"].ShowCondition = function(self)
+        return UnitExists("target")
+    end
+    HealUIGroups["Target"]:Hide()
+end
+
 local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
 
@@ -441,8 +473,11 @@ function EventAddonLoaded()
 		end
 	end
 
+    HealersMateSettings.InitProfiles()
 	HealersMateSettings.SetDefaults()
 	HealersMateSettings.InitSettings()
+
+    initUIs()
 
 	--##START## Create Default Values for Settings if Addon has never ran before.
 	--TODO: Only Druid, Priest, Paladin currently have some spells set by default on first time use. Haven't gotten to others.
@@ -532,43 +567,30 @@ function ClickHandler(buttonType, unit)
 	end
 end
 
-local function createUIGroup(groupName, environment, units, petGroup)
-	local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup)
-	for _, unit in ipairs(units) do
-		local ui = HealUI:New(unit)
-		HealUIs[unit] = ui
-		uiGroup:AddUI(ui)
-		if unit ~= "target" then
-			ui:Hide()
-		end
-	end
-	return uiGroup
-end
-
-HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false)
-HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true)
-HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false)
-HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true)
-HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false)
-
-HealUIGroups["Target"].ShowCondition = function(self)
-	return UnitExists("target")
-end
-HealUIGroups["Target"]:Hide()
-
 -- Reevaluates what UI frames should be shown
 function CheckGroup()
 	local environment = "party"
 	if GetNumRaidMembers() > 0 then
 		environment = "raid"
 	end
+	local superwow = IsSuperWowEnabled()
+	if superwow then
+		GUIDUnitMap = {}
+	end
 	for unit, ui in pairs(HealUIs) do
+		local exists, guid = UnitExists(unit)
 		if unit ~= "target" then
-			if UnitExists(unit) then
+			if exists then
 				ui:Show()
 			else
 				ui:Hide()
 			end
+		end
+		if guid then -- If the guid isn't nil, then SuperWoW is present
+			if not GUIDUnitMap[guid] then
+				GUIDUnitMap[guid] = {}
+			end
+			table.insert(GUIDUnitMap[guid], unit)
 		end
 	end
 	for _, group in pairs(HealUIGroups) do
@@ -645,6 +667,8 @@ function EventHandler()
 		else
 			HealUIGroups["Target"]:Hide()
 		end
+    elseif event == "SPELLS_CHANGED" then
+        HealersMateSettings.UpdateTrackedDebuffTypes()
 	end
 end
 

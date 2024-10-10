@@ -161,7 +161,8 @@ function HealUI:UpdateHealth()
 
 		local missingHealth = math.floor(maxHealth - currentHealth)
 		
-		if (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" then
+		if (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" 
+				and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) then
 			local hadHealthText = text ~= ""
 			if hadHealthText then
 				text = text.." ("
@@ -405,6 +406,7 @@ function HealUI:Initialize()
 
 	local healthBar = CreateFrame("StatusBar", unit.."StatusBar", container)
 	self.healthBar = healthBar
+	healthBar:SetFrameLevel(1)
 	healthBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
 	healthBar:SetMinMaxValues(0, 1)
 	local origSetValue = healthBar.SetValue
@@ -415,7 +417,7 @@ function HealUI:Initialize()
 
 		local profile = self:GetProfile()
 
-		if not UnitCanAttack("player", self.unit) then -- Do not display debuff colors for enemies
+		if not self:IsEnemy() then -- Do not display debuff colors for enemies
 			for _, trackedDebuffType in ipairs(profile.TrackedDebuffTypes) do
 				if self.afflictedDebuffTypes[trackedDebuffType] then
 					rgb = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
@@ -603,6 +605,10 @@ end
 
 function HealUI:GetHeight()
 	return self:GetProfile():GetHeight()
+end
+
+function HealUI:IsEnemy()
+    return UnitCanAttack("player", self.unit)
 end
 
 function HealUI:IsFake()
