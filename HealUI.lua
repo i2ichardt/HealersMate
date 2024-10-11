@@ -297,6 +297,9 @@ function HealUI:UpdateAuras()
         end
     end
 
+    table.sort(buffs, function(a, b)
+        return trackedBuffs[a.name] < trackedBuffs[b.name]
+    end)
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
         self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, "Buff")
