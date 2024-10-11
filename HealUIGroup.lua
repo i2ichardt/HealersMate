@@ -54,46 +54,46 @@ function HealUIGroup:CanShowInEnvironment(environment)
 end
 
 function HealUIGroup:Show()
-	self.container:Show()
+    self.container:Show()
     for _, ui in pairs(self.uis) do
         ui:UpdateAll()
     end
 end
 
 function HealUIGroup:Hide()
-	self.container:Hide()
+    self.container:Hide()
 end
 
 function HealUIGroup:Initialize()
     local container = CreateFrame("Frame", self.name.."HealUIGroupContainer", UIParent) --type, name, parent
-	self.container = container
+    self.container = container
     container:SetToplevel(true)
-	container:SetPoint("CENTER", 0, 0) -- position it at the center of the screen
-	container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"}) -- set a light gray background
+    container:SetPoint("CENTER", 0, 0) -- position it at the center of the screen
+    container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"}) -- set a light gray background
     container:SetBackdropColor(0, 0, 0, 0.5)
-	container:EnableMouse(true)
-	container:SetMovable(true)
+    container:EnableMouse(true)
+    container:SetMovable(true)
 
     container:SetScript("OnMouseDown", function()
-		local button = arg1
-		if button == "LeftButton" and not container.isMoving then
-			container:StartMoving()
-			container.isMoving = true
-		end
-	end)
+        local button = arg1
+        if button == "LeftButton" and not container.isMoving then
+            container:StartMoving()
+            container.isMoving = true
+        end
+    end)
 
-	container:SetScript("OnMouseUp", function()
-		local button = arg1
-		if button == "LeftButton" and container.isMoving then
-			container:StopMovingOrSizing()
-			container.isMoving = false
-		end
-	end)
+    container:SetScript("OnMouseUp", function()
+        local button = arg1
+        if button == "LeftButton" and container.isMoving then
+            container:StopMovingOrSizing()
+            container.isMoving = false
+        end
+    end)
 
     local header = CreateFrame("Frame", self.name.."HealUIGroupContainerHeader", container) --type, name, parent
-	self.header = header
-	header:SetPoint("TOPLEFT", container, 0, 0)
-	header:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
+    self.header = header
+    header:SetPoint("TOPLEFT", container, 0, 0)
+    header:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
     header:SetBackdropColor(0, 0, 0, 0.5)
 
     local borderFrame = CreateFrame("Frame", self.name.."HealUIGroupContainerBorder", container)
@@ -101,8 +101,8 @@ function HealUIGroup:Initialize()
     borderFrame:SetPoint("CENTER", container, 0, 0)
 
     local label = header:CreateFontString(header, "OVERLAY", "GameFontNormal")
-	self.label = label
-	label:SetPoint("CENTER", header, "CENTER", 0, 0)
+    self.label = label
+    label:SetPoint("CENTER", header, "CENTER", 0, 0)
     label:SetText(self.name)
 
     self:ApplyProfile()
@@ -112,7 +112,7 @@ end
 
 function HealUIGroup:ApplyProfile()
     local profile = self:GetProfile()
-
+    
     local borderFrame = self.borderFrame
     if profile.BorderStyle == "Tooltip" then
         borderFrame:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16, 
@@ -176,7 +176,7 @@ function HealUIGroup:UpdateUIPositions()
 
     local header = self.header
     header:SetWidth(width)
-	header:SetHeight(20)
+    header:SetHeight(20)
 
     local borderPadding = 0
     if profile.BorderStyle == "Tooltip" then
@@ -188,7 +188,7 @@ function HealUIGroup:UpdateUIPositions()
     self.borderFrame:SetHeight(height + borderPadding)
 
     local label = self.label
-	label:SetPoint("CENTER", header, "CENTER", 0, 0)
+    label:SetPoint("CENTER", header, "CENTER", 0, 0)
 end
 
 -- Returns an array with the index being the group number, and the value being an array of units
