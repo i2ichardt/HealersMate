@@ -149,6 +149,10 @@ function HealUI:UpdateHealth()
         self.button:SetText(healthText)
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
+    elseif UnitIsGhost(unit) then
+        self.button:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
+        self.healthBar:SetValue(0)
+        self.powerBar:SetValue(0)
     else -- Unit Not Dead
         local text = ""
         if profile.HealthDisplay == "Health/Max Health" then
