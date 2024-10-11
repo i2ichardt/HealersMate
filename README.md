@@ -10,7 +10,7 @@ HealersMate is a comprehensive healing addon designed for Vanilla World of Warcr
 Bind key+button combinations to specific spells, allowing you to cast on any player with one click. Utilize the keywords "<i>target</i>", "<i>follow</i>", and "<i>assist</i>" in place of a spell name to perform those actions.<br>
 Use the command `/hm` in-game to open the configurator.
 
-<img src="Screenshots/Spell-Config-Example.PNG" alt="Spell Config Example">
+<img src="Screenshots/Spell-Config-Example.PNG" alt="Spell Config Example" width=40% height=40%>
 
 ### View Spells at a Glance
 
@@ -23,9 +23,9 @@ When hovering over a player, a tooltip is displayed showing you what spells you 
 HealersMate will display buffs and debuffs relevant to you, as well as color heath bars when a player has a debuff you can dispel.
 
 <p align="center">
-  <img src="Screenshots/Buffs-Example.PNG" alt="Party Example">
-  <img src="Screenshots/Debuff-Example.PNG" alt="Raid Example">
-  <img src="Screenshots/Low-Health-Example.PNG" alt="Raid Example">
+  <img src="Screenshots/Buffs-Example.PNG" alt="Buffs Example">
+  <img src="Screenshots/Debuff-Example.PNG" alt="Debuff Example">
+  <img src="Screenshots/Low-Health-Example.PNG" alt="Low Health Example">
 </p>
 
 ### 2.0.0 Alpha
