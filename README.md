@@ -35,12 +35,12 @@ Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certai
 ### Planned Features
 
 For 2.0.0 Release:
-- Customizable player frames
-- Support MMO mouse buttons
-- Custom mouse button names and ordering
-- Bind spells to hostile targets
-- Basic heal predictions without you or others needing to use HealComm (SuperWoW required)
-- Ability to promote specific players to the top of a group frame
+- [ ] Customizable player frames
+- [ ] Support MMO mouse buttons
+- [ ] Custom mouse button names and ordering
+- [X] ~~Bind spells to hostile targets~~
+- [ ] Basic heal predictions without you or others needing to use HealComm (SuperWoW required)
+- [ ] Ability to promote specific players to the top of a group frame
 
 In future releases:
 - Track Buff and HoT times
