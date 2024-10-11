@@ -318,6 +318,9 @@ DebuffTypeColors = {
 setmetatable(HealersMateSettings, {__index = getfenv(1)})
 setfenv(1, HealersMateSettings)
 
+EditedSpells = {}
+SpellsContext = {}
+
 
 function HealersMateSettings.InitSettings()
     --Used too set custom tooltip information when you mouse over things; like in the settings checkboxes
@@ -424,13 +427,18 @@ function HealersMateSettings.InitSettings()
     local spellsFrameOldShow = spellsFrame.Show
     spellsFrame.Show = function(self)
         spellsFrameOldShow(self)
-        SpellsCopy = {}
-        for modifier, buttons in pairs(HealersMate.GetSpells()) do
-            SpellsCopy[modifier] = {}
-            for button, spell in pairs(buttons) do
-                SpellsCopy[modifier][button] = spell
+        EditedSpells = {}
+        for context, spells in pairs(HMSpells) do
+            EditedSpells[context] = {}
+            local copy = EditedSpells[context]
+            for modifier, buttons in pairs(spells) do
+                copy[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    copy[modifier][button] = spell
+                end
             end
         end
+        SpellsContext = EditedSpells[UIDropDownMenu_GetSelectedName(targetDropdown)]
     end
     spellsFrame:Hide()
 
@@ -543,15 +551,16 @@ function HealersMateSettings.InitSettings()
             end
         end
 
-    local txtLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    txtLabel:SetPoint("TOPLEFT", 85, -80)
-    txtLabel:SetText("Key: ")
-
     local modifierDropdown = CreateFrame("Frame", "HM_ModifierDropdownList", spellsFrame, "UIDropDownMenuTemplate")
-    modifierDropdown:SetPoint("CENTER", txtLabel, "RIGHT", 10, -5)
+    --modifierDropdown:SetPoint("CENTER", keyLabel, "RIGHT", 10, -5)
+    modifierDropdown:SetPoint("TOP", -35, -50)
     --modifierDropdown:SetWidth(120)
     --modifierDropdown:SetHeight(150)
     modifierDropdown:Show()
+
+    local keyLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    keyLabel:SetPoint("RIGHT", modifierDropdown, "RIGHT", -65, 5)
+    keyLabel:SetText("Key:")
 
     local modifiers = {"None", "Shift", "Control", "Alt"}
     local orderedButtons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
@@ -587,12 +596,46 @@ function HealersMateSettings.InitSettings()
         end
     end)
 
+    targetDropdown = CreateFrame("Frame", "$parentTargetDropdown", spellsFrame, "UIDropDownMenuTemplate")
+    targetDropdown:Show()
+    targetDropdown:SetPoint("TOP", -35, 5)
+
+    local spellsForLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    spellsForLabel:SetPoint("RIGHT", targetDropdown, "RIGHT", -65, 5)
+    spellsForLabel:SetText("Spells For:")
+
+    local targets = {"Friendly", "Hostile"}
+    local targetOptions = {}
+
+    for _, target in ipairs(targets) do
+        table.insert(targetOptions, {
+            text = target,
+            arg1 = target,
+            func = function(targetArg)
+                saveSpellEditBoxes()
+                UIDropDownMenu_SetSelectedName(targetDropdown, targetArg, false)
+                SpellsContext = EditedSpells[targetArg]
+                populateSpellEditBoxes()
+            end
+        })
+    end
+
+    UIDropDownMenu_Initialize(targetDropdown, function(self, level)
+        for _, targetOption in ipairs(targetOptions) do
+            targetOption.checked = false
+            UIDropDownMenu_AddButton(targetOption)
+        end
+        if UIDropDownMenu_GetSelectedName(targetDropdown) == nil then
+            UIDropDownMenu_SetSelectedName(targetDropdown, targets[1], false)
+        end
+    end)
+
 
     -- START -- SpellsFrame Contents
 
     --Used as a reference point; to be able to move all the controls that reference it without having to go through and adjust each item
     local TopX = -5
-    local TopY = -90
+    local TopY = -60
 
     local spellTextInterval = 25
 
@@ -622,7 +665,7 @@ function HealersMateSettings.InitSettings()
     function populateSpellEditBoxes()
         local modifier = UIDropDownMenu_GetSelectedName(modifierDropdown)
         for button, txt in pairs(spellTextBoxes) do
-            local spell = SpellsCopy[modifier][button] or ""
+            local spell = SpellsContext[modifier][button] or ""
             txt:SetText(spell)
         end
     end
@@ -631,9 +674,9 @@ function HealersMateSettings.InitSettings()
         local modifier = UIDropDownMenu_GetSelectedName(modifierDropdown)
         for button, txt in pairs(spellTextBoxes) do
             if txt:GetText() ~= "" then
-                SpellsCopy[modifier][button] = txt:GetText()
+                SpellsContext[modifier][button] = txt:GetText()
             else
-                SpellsCopy[modifier][button] = nil
+                SpellsContext[modifier][button] = nil
             end
         end
     end
@@ -646,11 +689,13 @@ function HealersMateSettings.InitSettings()
     spellApplyButton:RegisterForClicks("LeftButtonUp")
     spellApplyButton:SetScript("OnClick", function()
         saveSpellEditBoxes()
-        for modifier, buttons in pairs(SpellsCopy) do
-            local Spells = HealersMate.GetSpells()
-            Spells[modifier] = {}
-            for button, spell in pairs(buttons) do
-                Spells[modifier][button] = spell
+        for context, spells in pairs(EditedSpells) do
+            local Spells = HMSpells[context]
+            for modifier, buttons in pairs(spells) do
+                Spells[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    Spells[modifier][button] = spell
+                end
             end
         end
         closeButton:GetScript("OnClick")()
