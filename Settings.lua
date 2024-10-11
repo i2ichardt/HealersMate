@@ -57,35 +57,33 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
 end
 
 function HealersMateSettings.InitProfiles()
+    -- Tracked buffs for all classes
     local defaultTrackedBuffs = {"First Aid", "Blessing of Protection", "Divine Protection", "Divine Shield", 
-    "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Soulstone Resurrection", 
-    "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
+        "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Soulstone Resurrection", 
+        "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
+    -- Tracked buffs for specific classes
     local defaultClassTrackedBuffs = {
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
             "Blessing of Kings", "Blessing of Freedom", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
             "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
-            "Holy Shield", "Redoubt"},
-        ["PRIEST"] = {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection", "Power Word: Shield", "Renew", 
-            "Inspiration", "Abolish Disease", "Fear Ward", "Fade", "Inner Fire", "Spirit Tap"},
+            "Redoubt", "Holy Shield"},
+        ["PRIEST"] = {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection", "Inner Fire", "Power Word: Shield", 
+            "Renew", "Inspiration", "Abolish Disease", "Fear Ward", "Fade", "Spirit Tap"},
         ["DRUID"] = {"Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"}
     }
-    for _, class in ipairs(Util.Classes) do
-        defaultClassTrackedBuffs[class] = Util.ToSet(defaultClassTrackedBuffs[class] or {})
-        for _, buff in ipairs(defaultTrackedBuffs) do
-            defaultClassTrackedBuffs[class][buff] = 1
-        end
-    end
+    local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
+    Util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
+    trackedBuffs = Util.ToSet(trackedBuffs, true)
 
-    local defaultTrackedDebuffs = {"Recently Bandaged", "Forbearance", "Resurrection Sickness", "Ghost"}
+    -- Tracked debuffs for all classes
+    local defaultTrackedDebuffs = {"Forbearance", "Recently Bandaged", "Resurrection Sickness", "Ghost"}
+    -- Tracked debuffs for specific classes
     local defaultClassTrackedDebuffs = {
         ["PRIEST"] = {"Weakened Soul"}
     }
-    for _, class in ipairs(Util.Classes) do
-        defaultClassTrackedDebuffs[class] = Util.ToSet(defaultClassTrackedDebuffs[class] or {})
-        for _, debuff in ipairs(defaultTrackedDebuffs) do
-            defaultClassTrackedDebuffs[class][debuff] = 1
-        end
-    end
+    local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
+    Util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
+    trackedDebuffs = Util.ToSet(trackedDebuffs, true)
 
     local options = HealersMateSettings.ProfileOptions
     local profiles = HealersMateSettings.Profiles
@@ -164,8 +162,8 @@ function HealersMateSettings.InitProfiles()
         profile.TrackAuras = true -- Default: true
         profile.TrackedAurasHeight = 20
         profile.TrackedAurasSpacing = 2
-        profile.TrackedBuffs = defaultClassTrackedBuffs[playerClass] -- Default tracked is variable based on class
-        profile.TrackedDebuffs = defaultClassTrackedDebuffs[playerClass] -- Default tracked is variable based on class
+        profile.TrackedBuffs = trackedBuffs -- Default tracked is variable based on class
+        profile.TrackedDebuffs = trackedDebuffs -- Default tracked is variable based on class
         profile.TrackedDebuffTypes = {} -- Default tracked is variable based on class
         options.TrackedDebuffTypes = {"Poison", "Disease", "Magic", "Curse"}
         profile.TrackedDebuffTypesSet = Util.ToSet(profile.TrackedDebuffTypes)

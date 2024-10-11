@@ -280,27 +280,31 @@ function HealUI:UpdateAuras()
     
     local xOffset = 0
     -- Track player buffs
+	local buffs = {}
+	local trackedBuffs = profile.TrackedBuffs
     for index = 1, 32 do
         local texturePath, stacks = UnitBuff(unit, index)
         if not texturePath then
             break
           end
         local name, type = HM.GetAuraInfo(unit, "Buff", index)
-        local shouldDisplay = false
-        if profile.TrackedBuffs[name] then
-            shouldDisplay = true
-        end
-
-        if shouldDisplay then
-            local aura = self:GetUnusedAura()
-            self:CreateAura(aura, index, texturePath, stacks, xOffset, "Buff")
-            xOffset = xOffset + profile.TrackedAurasHeight + profile.TrackedAurasSpacing
+        if trackedBuffs[name] then
+			table.insert(buffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
         end
     end
+
+	for _, buff in ipairs(buffs) do
+		local aura = self:GetUnusedAura()
+		self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, "Buff")
+		xOffset = xOffset + profile.TrackedAurasHeight + profile.TrackedAurasSpacing
+	end
 
     self.afflictedDebuffTypes = {}
     xOffset = 0
     -- Track player debuffs
+	local debuffs = {}
+	local typedDebuffs = {} -- Dispellable debuffs
+	local trackedDebuffs = profile.TrackedDebuffs
     for index = 1, 16 do
         local texturePath, stacks = UnitDebuff(unit, index)
         if not texturePath then
@@ -310,23 +314,28 @@ function HealUI:UpdateAuras()
         if type ~= "" then
             self.afflictedDebuffTypes[type] = 1
         end
-        local shouldDisplay = false
+        local alreadyTracked = false
         for _, trackedType in ipairs(profile.TrackedDebuffTypes) do
             if type == trackedType then
-                shouldDisplay = true
+				table.insert(typedDebuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
+				alreadyTracked = true
                 break
             end
         end
-        if profile.TrackedDebuffs[name] then
-            shouldDisplay = true
-        end
-
-        if shouldDisplay then
-            local aura = self:GetUnusedAura()
-            self:CreateAura(aura, index, texturePath, stacks, xOffset, "Debuff")
-            xOffset = xOffset - profile.TrackedAurasHeight - profile.TrackedAurasSpacing
+        if trackedDebuffs[name] and not alreadyTracked then
+			table.insert(debuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
         end
     end
+
+	table.sort(debuffs, function(a, b)
+		return trackedDebuffs[a.name] < trackedDebuffs[b.name]
+	end)
+	util.AppendArrayElements(debuffs, typedDebuffs)
+	for _, debuff in ipairs(debuffs) do
+		local aura = self:GetUnusedAura()
+		self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, "Debuff")
+		xOffset = xOffset - profile.TrackedAurasHeight - profile.TrackedAurasSpacing
+	end
 end
 
 function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, type)

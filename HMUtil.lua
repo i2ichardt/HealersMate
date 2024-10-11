@@ -38,11 +38,12 @@ PowerTypeMap = {
 -- The default color Blizzard uses for text
 DefaultTextColor = {1, 0.82, 0}
 
--- Returns a new table with the elements of the given array being the keys with 1 being the value of all keys
-function ToSet(array)
+-- Returns a new table with the elements of the given array being the keys with 1 being the value of all keys, 
+-- or the index if indexValue is true
+function ToSet(array, indexValue)
     local set = {}
-    for _, value in ipairs(array) do
-        set[value] = 1
+    for index, value in ipairs(array) do
+        set[value] = indexValue and index or 1
     end
     return set
 end
@@ -54,6 +55,13 @@ function ToArray(set)
         table.insert(array, value)
     end
     return array
+end
+
+-- Adds the elements of otherArray to the array
+function AppendArrayElements(array, otherArray)
+    for _, v in ipairs(otherArray) do
+        table.insert(array, v)
+    end
 end
 
 function IndexOf(table, value)

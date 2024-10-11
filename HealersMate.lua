@@ -11,7 +11,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
         DEFAULT_CHAT_FRAME:AddMessage("Reset all frame positions.")
         return
     elseif args == "check" then
-        HealersMate.Check4Group()
+        HealersMate.CheckGroup()
         return
     elseif args == "update" then
         for _, ui in pairs(HealersMate.HealUIs) do
