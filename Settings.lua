@@ -274,6 +274,7 @@ function HealersMateSettings.SetDefaults()
                 ["Friendly"] = true,
                 ["Hostile"] = false
             },
+            ["AutoTarget"] = false,
             ["OptionsVersion"] = 1
         }
     
@@ -442,7 +443,7 @@ function HealersMateSettings.InitSettings()
 
     -- Label for the checkbox
     local CheckboxShowTargetLabel = optionsFrame:CreateFontString("CheckboxShowTargetLabel", "OVERLAY", "GameFontNormal")
-    CheckboxShowTargetLabel:SetPoint("CENTER", optionsFrame, "TOPLEFT", 0, -25)
+    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -25)
     CheckboxShowTargetLabel:SetText("Show Targets:")
 
     -- Label for the "Friendly" checkbox
@@ -452,7 +453,7 @@ function HealersMateSettings.InitSettings()
 
     -- Create the "Friendly" checkbox
     local CheckboxFriendly = CreateFrame("CheckButton", "$parentTargetFriendly", optionsFrame, "UICheckButtonTemplate")
-    CheckboxFriendly:SetPoint("LEFT", CheckboxFriendlyLabel, "RIGHT", 0, 0)
+    CheckboxFriendly:SetPoint("LEFT", CheckboxFriendlyLabel, "RIGHT", 5, -2)
     CheckboxFriendly:SetWidth(20) -- width
     CheckboxFriendly:SetHeight(20) -- height
     CheckboxFriendly:SetChecked(HMOptions.ShowTargets.Friendly)
@@ -467,12 +468,25 @@ function HealersMateSettings.InitSettings()
 
     -- Create the "Enemy" checkbox
     local CheckboxHostile = CreateFrame("CheckButton", "$parentTargetHostile", optionsFrame, "UICheckButtonTemplate")
-    CheckboxHostile:SetPoint("LEFT", CheckboxEnemyLabel, "RIGHT", 0, 0)
+    CheckboxHostile:SetPoint("LEFT", CheckboxEnemyLabel, "RIGHT", 5, -2)
     CheckboxHostile:SetWidth(20) -- width
     CheckboxHostile:SetHeight(20) -- height
     CheckboxHostile:SetChecked(HMOptions.ShowTargets.Hostile)
     CheckboxHostile:SetScript("OnClick", function()
         HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
+    end)
+
+    local CheckboxAutoTargetLabel = optionsFrame:CreateFontString("CheckboxAutoTargetLabel", "OVERLAY", "GameFontNormal")
+    CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
+    CheckboxAutoTargetLabel:SetText("Auto Target:")
+
+    local CheckboxFriendly = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
+    CheckboxFriendly:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
+    CheckboxFriendly:SetWidth(20) -- width
+    CheckboxFriendly:SetHeight(20) -- height
+    CheckboxFriendly:SetChecked(HMOptions.AutoTarget)
+    CheckboxFriendly:SetScript("OnClick", function()
+        HMOptions.AutoTarget = CheckboxFriendly:GetChecked() == 1
     end)
 
 

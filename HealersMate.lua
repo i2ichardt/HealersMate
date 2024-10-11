@@ -534,6 +534,15 @@ function ClickHandler(buttonType, unit)
         return
     end
 
+    -- Auto targeting requires no special logic to cast spells
+    if HMOptions.AutoTarget then
+        if not UnitIsUnit("target", unit) then
+            TargetUnit(unit)
+        end
+        CastSpellByName(spell)
+        return
+    end
+
     -- Not a special bind
     if IsSuperWowEnabled() then -- No target changing shenanigans required with SuperWoW
         CastSpellByName(spell, unit)
