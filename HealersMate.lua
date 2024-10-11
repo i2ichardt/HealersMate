@@ -42,7 +42,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha1"
+VERSION = "2.0.0-alpha2"
 
 TestUI = false
 
