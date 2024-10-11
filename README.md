@@ -2,15 +2,15 @@
 
 HealersMate is a comprehensive healing addon designed for Vanilla World of Warcraft version 1.12. It aims to provide an easy-to-use and functional out-of-box healing experience while also providing many customization options akin to modern WoW's VuhDo or Healbot, but without being too overbearing. It supports healing parties, raids, pets, and targets.
 <p align="center">
-  <img src="Screenshots/Party-Example.PNG" alt="Party Example">
-  <img src="Screenshots/Raid-Example.PNG" alt="Raid Example">
+  <img src="Screenshots/Party-Example.PNG" alt="Party Example" width=20%>
+  <img src="Screenshots/Raid-Example.PNG" alt="Raid Example" width=75%>
 </p>
 
 ### Customizable Key Bindings
 Bind key+button combinations to specific spells, allowing you to cast on any player with one click. Utilize the keywords "<i>target</i>", "<i>follow</i>", and "<i>assist</i>" in place of a spell name to perform those actions.<br>
 Use the command `/hm` in-game to open the configurator.
 
-<img src="Screenshots/Spell-Config-Example.PNG" alt="Spell Config Example" width=40% height=40%>
+<img src="Screenshots/Spell-Config-Example.PNG" alt="Spell Config Example" width=40%>
 
 ### View Spells at a Glance
 
