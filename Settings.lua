@@ -32,6 +32,12 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
         }
     }
 
+    for _, class in ipairs(Util.GetClasses()) do
+        if not debuffTypeCureSpells[class] then
+            debuffTypeCureSpells[class] = {}
+        end
+    end
+
     local trackedDebuffTypes = {}
     do
         local id = 1;
@@ -39,7 +45,7 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
             local _, _, _, numSpells = GetSpellTabInfo(i);
             for j = 1, numSpells do
                 local spellName = GetSpellName(id, "spell");
-                local types = debuffTypeCureSpells[playerClass][spellName] or {}
+                local types = debuffTypeCureSpells[playerClass][spellName]
                 if types then
                     for _, type in ipairs(types) do
                         trackedDebuffTypes[type] = 1
