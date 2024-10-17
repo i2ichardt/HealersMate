@@ -8,6 +8,9 @@ setfenv(1, HMUtil)
 
 Classes = {"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID"}
 
+UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to check for UnitXP SP3
+SuperWoW = SpellInfo ~= nil
+
 PowerColors = {
     ["mana"] = {0.1, 0.1, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
     ["rage"] = {1, 0, 0},
@@ -140,7 +143,7 @@ end
 function IsFeigning(unit)
     local unitClass = GetClass(unit)
     if unitClass == "HUNTER" then
-        local superwow = HealersMate.IsSuperWowEnabled()
+        local superwow = IsSuperWowPresent()
         for i = 1, 32 do
             local texture, _, id = UnitBuff(unit, i)
             if superwow then -- Use the ID if SuperWoW is present
@@ -161,7 +164,7 @@ function HasAura(unit, auraType, auraTexture, auraID)
     local auraFunc = auraType == "Buff" and UnitBuff or UnitDebuff
     local checkCount = auraType == "Buff" and 32 or 16
 
-    local superwow = HealersMate.IsSuperWowEnabled()
+    local superwow = IsSuperWowPresent()
     for i = 1, checkCount do
         local texture, _, id = auraFunc(unit, i)
         if superwow and auraID then
@@ -237,4 +240,38 @@ end
 
 function GetPowerColor(unit)
     return PowerColors[GetPowerType(unit)]
+end
+
+-- Returns distance if UnitXP SP3 is present;
+-- 0 if unit is offline;
+-- 9999 if unit is not visible or UnitXP SP3 is not present.
+-- Might try to do hacky stuff for people without the mod later on.
+function GetDistanceTo(unit)
+    if not UnitIsConnected(unit) then
+        return 0
+    end
+    if not UnitXPSP3 then
+        return UnitIsVisible(unit) and 0 or 9999
+    end
+    return math.max((UnitXP("distanceBetween", "player", unit) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+end
+
+function CanClientGetAccurateDistance()
+    return UnitXPSP3
+end
+
+-- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
+function IsInSight(unit)
+    if not UnitXPSP3 then
+        return true
+    end
+    return UnitXP("inSight", "player", unit) -- UnitXP SP3 modded function
+end
+
+function CanClientSightCheck()
+    return UnitXPSP3
+end
+
+function IsSuperWowPresent()
+    return SuperWoW
 end

@@ -4,7 +4,9 @@ HealUI.owningGroup = nil
 
 HealUI.unit = nil
 
-HealUI.container = nil
+HealUI.rootContainer = nil
+HealUI.overlayContainer = nil
+HealUI.container = nil -- Most elements are contained in this
 HealUI.name = nil
 HealUI.healthBar = nil
 HealUI.powerBar = nil
@@ -12,27 +14,69 @@ HealUI.button = nil
 HealUI.auraPanel = nil
 HealUI.scrollingDamageFrame = nil -- Unimplemented
 HealUI.scrollingHealFrame = nil -- Unimplemented
-HealUI.auraIconPool = {} -- array: {"frame", "icon", "stackText"}
-HealUI.auraIcons = {} -- array: {"frame", "icon", "stackText"}
+HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
+HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 HealUI.afflictedDebuffTypes = {} -- A set cache of debuff types currently on the player
 
-HealUI.fakeClass = nil -- Used for displaying a fake party/raid
+HealUI.distanceText = nil
+HealUI.inSightIcon = nil -- map: {"frame", "icon"}
+
+HealUI.inRange = true
+HealUI.distance = 0
+HealUI.inSight = true
+
+HealUI.fakeStats = {} -- Used for displaying a fake party/raid
 
 -- Singleton references, assigned in constructor
 local HM
 local util
 
 function HealUI:New(unit)
-    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, afflictedDebuffTypes = {}, fakeClass = HMUtil.GetRandomClass()}
-    setmetatable(obj, self)
-    self.__index = self
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
+    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, afflictedDebuffTypes = {}, fakeStats = HealUI.GenerateFakeStats()}
+    setmetatable(obj, self)
+    self.__index = self
     return obj
+end
+
+function HealUI.GenerateFakeStats()
+    local class = util.GetRandomClass()
+
+    local currentHealth
+    local maxHealth = math.random(100, 5000)
+    if math.random(10) > 3 then
+        currentHealth = math.random(1, maxHealth)
+    elseif math.random(10) == 1 then
+        currentHealth = 0
+    else
+        currentHealth = maxHealth
+    end
+
+    local maxPower = math.random(100, 5000)
+    if util.ClassPowerTypes[class] ~= "mana" then
+        maxPower = 100
+    end
+    local currentPower = math.random(1, maxPower)
+
+    local online = math.random(10) == 1
+
+    local fakeStats = {
+        class = class, 
+        currentHealth = currentHealth, 
+        maxHealth = maxHealth,
+        currentPower = currentPower,
+        maxPower = maxPower,
+        online = online}
+    return fakeStats
 end
 
 function HealUI:GetUnit()
     return self.unit
+end
+
+function HealUI:GetRootContainer()
+    return self.rootContainer
 end
 
 function HealUI:GetContainer()
@@ -41,25 +85,120 @@ end
 
 function HealUI:Show()
     self.container:Show()
+    self.rootContainer:Show()
     self:UpdateAll()
 end
 
 function HealUI:Hide()
     if not self:IsFake() then
         self.container:Hide()
+        self.rootContainer:Hide()
     end
+end
+
+function HealUI:IsShown()
+    return self.rootContainer:IsShown()
 end
 
 function HealUI:SetOwningGroup(group)
     self.owningGroup = group
     self:Initialize()
-    self:GetContainer():SetParent(group:GetContainer())
+    self:GetRootContainer():SetParent(group:GetContainer())
 end
 
 function HealUI:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
     self:UpdatePower()
+end
+
+function HealUI:CheckRange(dist)
+    local unit = self.unit
+    if not dist then
+        dist = util.GetDistanceTo(unit)
+    end
+    self.distance = dist
+    local wasInRange = self.inRange
+    self.inRange = dist <= 40
+    if wasInRange ~= self.inRange then
+        self:UpdateOpacity()
+    end
+
+    self:UpdateRangeText()
+end
+
+function HealUI:CheckSight()
+    self.inSight = util.IsInSight(self.unit)
+    local frame = self.inSightIcon.frame
+    if frame:IsShown() ~= self.inSight then
+        local dist = math.ceil(self.distance)
+        if not self.inSight and dist < 80 then
+            frame:Show()
+        else
+            frame:Hide()
+        end
+    end
+end
+
+function HealUI:UpdateRangeText()
+    local dist = math.ceil(self.distance)
+    local distanceText = self.distanceText
+    local text = ""
+    if dist >= 30 and dist < 100 then
+        local color
+        if dist <= 40 then
+            color = {1, 0.6, 0}
+        else
+            color = {1, 0.3, 0.3}
+        end
+
+        text = text..util.Colorize(dist.." yd", color)
+    elseif dist >= 100 and dist < 9999 then
+        text = text..util.Colorize("99+ yd", {1, 0.3, 0.3})
+    end
+    distanceText:SetText(text)
+end
+
+function HealUI:UpdateOpacity()
+    local profile = self:GetProfile()
+    
+    local alpha = 1
+    if not self.inRange then
+        alpha = alpha * 0.5
+    end
+    if profile.AlertPercent < math.ceil((self:GetCurrentHealth() / self:GetMaxHealth()) * 100) and 
+        table.getn(self.afflictedDebuffTypes) == 0 then
+        alpha = alpha * 0.6
+    end
+    self.container:SetAlpha(alpha)
+end
+
+function HealUI:GetCurrentHealth()
+    if self:IsFake() then
+        return self.fakeStats.currentHealth
+    end
+    return UnitHealth(self.unit)
+end
+
+function HealUI:GetMaxHealth()
+    if self:IsFake() then
+        return self.fakeStats.maxHealth
+    end
+    return UnitHealthMax(self.unit)
+end
+
+function HealUI:GetCurrentPower()
+    if self:IsFake() then
+        return self.fakeStats.currentPower
+    end
+    return UnitMana(self.unit)
+end
+
+function HealUI:GetMaxPower()
+    if self:IsFake() then
+        return self.fakeStats.maxPower
+    end
+    return UnitManaMax(self.unit)
 end
 
 function HealUI.GetColorizedText(color, class, theText)
@@ -80,40 +219,22 @@ function HealUI.GetColorizedText(color, class, theText)
 end
 
 function HealUI:UpdateHealth()
-    if not UnitExists(self.unit) and not self:IsFake() then
+    local fake = self:IsFake()
+    if not UnitExists(self.unit) and not fake then
         return
     end
     local profile = self:GetProfile()
     local unit = self.unit
 
-    local fake = self:IsFake()
-    local fakeOnline = true
-    if fake then
-        if math.random(10) == 1 then
-            fakeOnline = false
-        end
-    end
+    local fakeOnline = self.fakeStats.online
     
-    local currentHealth
-    local maxHealth
-    if fake then
-        maxHealth = math.random(100, 5000)
-        if math.random(10) > 3 then
-            currentHealth = math.random(1, maxHealth)
-        elseif math.random(10) == 1 then
-            currentHealth = 0
-        else
-            currentHealth = maxHealth
-        end
-    else
-        currentHealth = UnitHealth(unit)
-        maxHealth = UnitHealthMax(unit)
-    end
+    local currentHealth = self:GetCurrentHealth()
+    local maxHealth = self:GetMaxHealth()
     
     local unitName = fake and unit or UnitName(unit)
-    local class = fake and self.fakeClass or util.GetClass(unit)
+    local class = fake and self.fakeStats.class or util.GetClass(unit)
 
-    self.container:SetAlpha(1) -- Reset to opaque, may be changed further down
+    self:UpdateOpacity() -- May be changed further down
 
     if not UnitIsConnected(unit) and (not fake or not fakeOnline) then
         self.name:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
@@ -142,7 +263,7 @@ function HealUI:UpdateHealth()
         local healthText = util.Colorize("DEAD", 1, 0.3, 0.3)
 
         -- Check for Feign Death so the healer doesn't get alarmed
-        if HMUtil.IsFeigning(unit) then
+        if util.IsFeigning(unit) then
             healthText = "Feign"
         end
 
@@ -184,9 +305,7 @@ function HealUI:UpdateHealth()
         self.button:SetText(text)
         self.healthBar:SetValue(currentHealth / maxHealth)
 
-        if profile.AlertPercent < math.ceil((currentHealth / maxHealth) * 100) and table.getn(self.afflictedDebuffTypes) == 0 then
-            self.container:SetAlpha(0.4)
-        end
+        self:UpdateOpacity()
     end
 end
 
@@ -195,19 +314,9 @@ function HealUI:UpdatePower()
     local unit = self.unit
     local powerBar = self.powerBar
     local fake = self:IsFake()
-    local class = fake and self.fakeClass or util.GetClass(unit)
-    local currentPower
-    local maxPower
-    if fake then
-        maxPower = math.random(100, 5000)
-        if util.ClassPowerTypes[class] ~= "mana" then
-            maxPower = 100
-        end
-        currentPower = math.random(1, maxPower)
-    else
-        currentPower = UnitMana(unit)
-        maxPower = UnitManaMax(unit)
-    end
+    local class = fake and self.fakeStats.class or util.GetClass(unit)
+    local currentPower = self:GetCurrentPower()
+    local maxPower = self:GetMaxPower()
 
     if class == nil then
         return
@@ -405,11 +514,18 @@ function HealUI:Initialize()
 
     -- Container Element
 
-    local container = CreateFrame("Frame", unit.."HealContainer", UIParent) --type, name, parent
+    local rootContainer = CreateFrame("Frame", unit.."HealRootContainer", UIParent)
+    self.rootContainer = rootContainer
+    rootContainer:SetPoint("CENTER", 0, 0)
+
+    local overlayContainer = CreateFrame("Frame", unit.."HealOverlayContainer", rootContainer)
+    self.overlayContainer = overlayContainer
+    overlayContainer:SetFrameLevel(5)
+    overlayContainer:SetAllPoints(rootContainer)
+
+    local container = CreateFrame("Frame", unit.."HealContainer", rootContainer) --type, name, parent
     self.container = container
-    container:SetPoint("CENTER", 0, 0)
-    container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
-    container:SetBackdropColor(0, 0, 0, 0)
+    container:SetAllPoints(rootContainer)
 
     -- Name Element
 
@@ -417,6 +533,19 @@ function HealUI:Initialize()
     self.name = name
     name:SetFont("Fonts\\FRIZQT__.TTF", 12, "GameFontNormal")
     name:SetText(unit)
+
+    local distanceText = overlayContainer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    self.distanceText = distanceText
+    distanceText:SetFont("Fonts\\FRIZQT__.TTF", 9, "GameFontNormal")
+    distanceText:SetText("")
+
+    local inSightFrame = CreateFrame("Frame", nil, container)
+    local inSightIcon = inSightFrame:CreateTexture(nil, "OVERLAY")
+    self.inSightIcon = {frame = inSightFrame, icon = inSightIcon}
+    inSightIcon:SetTexture("Interface\\Icons\\Spell_nature_sleep")
+    inSightIcon:SetAlpha(0.8)
+    inSightFrame:Hide()
+    inSightFrame:SetFrameLevel(4)
 
     -- Health Bar Element
 
@@ -464,7 +593,7 @@ function HealUI:Initialize()
             elseif profile.HealthBarColor == "Green" then
                 rgb = {0, 0.7529412, 0}
             elseif profile.HealthBarColor == "Green To Red" then
-                rgb = HMUtil.InterpolateColors(greenToRedColors, value)
+                rgb = util.InterpolateColors(greenToRedColors, value)
             end
         end
         healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
@@ -551,6 +680,12 @@ function HealUI:SizeElements()
     local healthTextProps = profile.HealthText
     local powerTextProps = profile.PowerText
 
+    local rootContainer = self.rootContainer
+    rootContainer:SetWidth(width)
+
+    local overlayContainer = self.overlayContainer
+    overlayContainer:SetWidth(width)
+
     local container = self.container
     container:SetWidth(width)
 
@@ -578,6 +713,11 @@ function HealUI:SizeElements()
     name:SetJustifyV(nameTextProps.AlignmentV)
     -- TODO: Change anchoring based on whether the name is in the health bar or not
     name:SetPoint("TOP", healthBar, "TOP", nameTextProps:GetPaddingH() + nameTextProps.OffsetX, nameOffsetY)
+
+    local distanceText = self.distanceText
+    distanceText:SetJustifyH("CENTER")
+    distanceText:SetJustifyV("TOP")
+    distanceText:SetAllPoints(healthBar)
 
     local powerBar = self.powerBar
     powerBar:SetWidth(width)
@@ -607,11 +747,21 @@ function HealUI:SizeElements()
     --buttonText:SetPoint("TOP", healthTextXOffsets[healthTextAlignment], (buttonText:GetHeight() / 2) - (healthBar:GetHeight() / 2))
     button:SetPoint("TOP", 0, 0)
 
+    local inSightFrame = self.inSightIcon.frame
+    inSightFrame:SetWidth(24)
+    inSightFrame:SetHeight(24)
+    inSightFrame:SetPoint("CENTER", button, 0, 0)
+
+    local icon = self.inSightIcon.icon
+    icon:SetAllPoints(inSightFrame)
+
     local auraPanel = self.auraPanel
     auraPanel:SetWidth(width)
     auraPanel:SetHeight(profile.TrackedAurasHeight)
     auraPanel:SetPoint("TOPLEFT", powerBar, "BOTTOMLEFT", 0, 0)
 
+    rootContainer:SetHeight(self:GetHeight())
+    overlayContainer:SetHeight(self:GetHeight())
     container:SetHeight(self:GetHeight())
 end
 

@@ -161,7 +161,6 @@ EventHandlerFrame:RegisterEvent("UNIT_ENERGY")
 EventHandlerFrame:RegisterEvent("UNIT_FOCUS")
 EventHandlerFrame:RegisterEvent("UNIT_MAXMANA")
 
--- Not sure if there's a better way to detect key presses. At least this is a relatively lightweight function.
 local lastModifier = "None"
 EventHandlerFrame:SetScript("OnUpdate", function()
     local modifier = GetKeyModifier()
@@ -173,12 +172,59 @@ EventHandlerFrame:SetScript("OnUpdate", function()
     end
 end)
 
-function IsSuperWowEnabled()
-    return SpellInfo ~= nil
+do
+    local almostAllUnits = util.CloneTable(AllUnits) -- Everything except the player
+    table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
+
+    local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
+    local sightTrackedUnits = util.CloneTable(almostAllUnits)
+    local accurateDistance = util.CanClientGetAccurateDistance()
+    local sightTrackingEnabled = util.CanClientSightCheck()
+    local nextTrackingUpdate = GetTime() + 0.5
+    local nextUpdate = GetTime() + 0.6
+    if not accurateDistance and not sightTrackingEnabled then
+        nextUpdate = nextUpdate + 99999999 -- Effectively disable updates
+    end
+    local distanceCheckerFrame = CreateFrame("Frame", "HMDistanceCheckerFrame", UIParent)
+    distanceCheckerFrame:SetScript("OnUpdate", function()
+        local time = GetTime()
+        if time > nextTrackingUpdate then
+            nextTrackingUpdate = time + math.random(0.5, 2)
+    
+            distanceTrackedUnits = {}
+            local prevSightTrackedUnits = sightTrackedUnits
+            sightTrackedUnits = {}
+            for _, unit in ipairs(almostAllUnits) do
+                local dist = util.GetDistanceTo(unit)
+                HealUIs[unit]:CheckRange(dist)
+                if dist < 60 and dist > 20 then -- Only closely track units that are close to the range threshold
+                    table.insert(distanceTrackedUnits, unit)
+                end
+                if dist < 80 and sightTrackingEnabled then
+                    table.insert(sightTrackedUnits, unit)
+                end
+            end
+
+            -- Check sight on previously tracked units in case they got removed
+            for _, unit in ipairs(prevSightTrackedUnits) do
+                HealUIs[unit]:CheckSight()
+            end
+        end
+    
+        if time > nextUpdate then
+            nextUpdate = time + 0.1
+            for _, unit in ipairs(distanceTrackedUnits) do
+                HealUIs[unit]:CheckRange()
+            end
+            for _, unit in ipairs(sightTrackedUnits) do
+                HealUIs[unit]:CheckSight()
+            end
+        end
+    end)
 end
 
 -- If SuperWoW is present, then a GUID map will be populated
-if IsSuperWowEnabled() then
+if util.IsSuperWowPresent() then
     GUIDUnitMap = {} -- Key: GUID, Value: Array of units associated with GUID
 end
 
@@ -544,7 +590,7 @@ function ClickHandler(buttonType, unit)
     end
 
     -- Not a special bind
-    if IsSuperWowEnabled() then -- No target changing shenanigans required with SuperWoW
+    if util.IsSuperWowPresent() then -- No target changing shenanigans required with SuperWoW
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -582,7 +628,7 @@ function CheckGroup()
     if GetNumRaidMembers() > 0 then
         environment = "raid"
     end
-    local superwow = IsSuperWowEnabled()
+    local superwow = util.IsSuperWowPresent()
     if superwow then
         GUIDUnitMap = {}
     end
@@ -672,6 +718,8 @@ function EventHandler()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 HealUIGroups["Target"]:Show()
+                HealUIs["target"]:CheckRange()
+                HealUIs["target"]:CheckSight()
             end
         else
             HealUIGroups["Target"]:Hide()

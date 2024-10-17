@@ -17,18 +17,18 @@ local HM
 local util
 
 function HealUIGroup:New(name, environment, units, petGroup)
+    HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
+    util = HMUtil
     local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup}
     setmetatable(obj, self)
     self.__index = self
-    HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    util = HMUtil
     obj:Initialize()
     return obj
 end
 
 function HealUIGroup:ShowCondition()
     for _, ui in pairs(self.uis) do
-        if ui:GetContainer():IsShown() then
+        if ui:IsShown() then
             return true
         end
     end
@@ -161,7 +161,7 @@ function HealUIGroup:UpdateUIPositions()
     for columnIndex, column in ipairs(splitSortedUIs) do
         
         for i, ui in ipairs(column) do -- Column is guaranteed to be less than max units
-            local container = ui:GetContainer()
+            local container = ui:GetRootContainer()
             local x = orientation == "Vertical" and (profileWidth * (columnIndex - 1)) or (profileWidth * (i - 1))
             local y = orientation == "Vertical" and (profileHeight * (i - 1)) or (profileHeight * (columnIndex - 1))
             container:SetPoint("TOPLEFT", self.container, "TOPLEFT", x, -y - 20)
@@ -230,7 +230,7 @@ function HealUIGroup:GetSortedUIs()
         groups[1] = {}
         local group = groups[1]
         for _, ui in pairs(uis) do
-            if ui:GetContainer():IsShown() then
+            if ui:IsShown() then
                 table.insert(group, ui)
             end
         end
