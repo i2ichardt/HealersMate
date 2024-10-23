@@ -3,8 +3,9 @@ SLASH_HEALERSMATE2 = "/hm"
 SlashCmdList["HEALERSMATE"] = function(args)
     if args == "reset" then
         for _, group in pairs(HealersMate.HealUIGroups) do
-            group:GetContainer():ClearAllPoints()
-            group:GetContainer():SetPoint("CENTER", 0, 0)
+            local gc = group:GetContainer()
+            gc:ClearAllPoints()
+            gc:SetPoint("TOPLEFT", (GetScreenWidth() / 2) - (gc:GetWidth() / 2),-((GetScreenHeight() / 2) - (gc:GetHeight())))
         end
         HealersMateSettings.HM_SettingsContainer:ClearAllPoints()
         HealersMateSettings.HM_SettingsContainer:SetPoint("CENTER", 0, 0)
@@ -132,6 +133,11 @@ ResurrectionSpells = {
 
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
 SpellsTooltipOwner = nil
+
+BarStyles = {
+    ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
+    ["Blizzard Raid"] = "Interface\\AddOns\\HealersMate\\textures\\Blizzard-Raid-Fill"
+}
 
 -- Contains all individual player healing UIs
 HealUIs = {}
@@ -473,8 +479,8 @@ function ReapplySpellsTooltip()
     end
 end
 
-local function createUIGroup(groupName, environment, units, petGroup)
-    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup)
+local function createUIGroup(groupName, environment, units, petGroup, profile)
+    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
         local ui = HealUI:New(unit)
         HealUIs[unit] = ui
@@ -487,11 +493,11 @@ local function createUIGroup(groupName, environment, units, petGroup)
 end
 
 local function initUIs()
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false)
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true)
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false)
-    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true)
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false)
+    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, HMDefaultProfiles["Party Default"])
+    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, HMDefaultProfiles["Pets Default"])
+    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, HMDefaultProfiles["Raid Default"])
+    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, HMDefaultProfiles["Raid Pets Default"])
+    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, HMDefaultProfiles["Target Default"])
 
     HealUIGroups["Target"].ShowCondition = function(self)
         return UnitExists("target")
@@ -519,7 +525,8 @@ function EventAddonLoaded()
         end
     end
 
-    HealersMateSettings.InitProfiles()
+    HealersMateSettings.UpdateTrackedDebuffTypes()
+    HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
     HealersMateSettings.InitSettings()
 
@@ -667,6 +674,10 @@ end
 function EventHandler()
     if event == "ADDON_LOADED" then
         
+        if arg1 ~= "HealersMate" then
+            return
+        end
+
         EventAddonLoaded()
         EventHandlerFrame:UnregisterEvent("ADDON_LOADED")
     

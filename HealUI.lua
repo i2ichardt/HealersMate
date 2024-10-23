@@ -4,12 +4,15 @@ HealUI.owningGroup = nil
 
 HealUI.unit = nil
 
-HealUI.rootContainer = nil
-HealUI.overlayContainer = nil
+HealUI.rootContainer = nil -- Contains the main container and the overlay
+HealUI.overlayContainer = nil -- Contains elements that should not be affected by opacity
 HealUI.container = nil -- Most elements are contained in this
-HealUI.name = nil
+HealUI.nameText = nil
 HealUI.healthBar = nil
+HealUI.healthText = nil
+HealUI.missingHealthText = nil
 HealUI.powerBar = nil
+HealUI.powerText = nil
 HealUI.button = nil
 HealUI.auraPanel = nil
 HealUI.scrollingDamageFrame = nil -- Unimplemented
@@ -19,7 +22,7 @@ HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 HealUI.afflictedDebuffTypes = {} -- A set cache of debuff types currently on the player
 
 HealUI.distanceText = nil
-HealUI.inSightIcon = nil -- map: {"frame", "icon"}
+HealUI.lineOfSightIcon = nil -- map: {"frame", "icon"}
 
 HealUI.inRange = true
 HealUI.distance = 0
@@ -40,7 +43,11 @@ function HealUI:New(unit)
     return obj
 end
 
+local fakeNames = {"Leeroyjenkins", "Realsigred", "Appledog"}
 function HealUI.GenerateFakeStats()
+
+    local name = fakeNames[math.random(table.getn(fakeNames))]
+
     local class = util.GetRandomClass()
 
     local currentHealth
@@ -59,9 +66,10 @@ function HealUI.GenerateFakeStats()
     end
     local currentPower = math.random(1, maxPower)
 
-    local online = math.random(10) == 1
+    local online = not (math.random(10) == 1)
 
     local fakeStats = {
+        name = name,
         class = class, 
         currentHealth = currentHealth, 
         maxHealth = maxHealth,
@@ -129,7 +137,7 @@ end
 
 function HealUI:CheckSight()
     self.inSight = util.IsInSight(self.unit)
-    local frame = self.inSightIcon.frame
+    local frame = self.lineOfSightIcon.frame
     if frame:IsShown() ~= self.inSight then
         local dist = math.ceil(self.distance)
         if not self.inSight and dist < 80 then
@@ -164,17 +172,20 @@ function HealUI:UpdateOpacity()
     
     local alpha = 1
     if not self.inRange then
-        alpha = alpha * 0.5
+        alpha = alpha * (profile.OutOfRangeOpacity / 100)
     end
     if profile.AlertPercent < math.ceil((self:GetCurrentHealth() / self:GetMaxHealth()) * 100) and 
-        table.getn(self.afflictedDebuffTypes) == 0 then
-        alpha = alpha * 0.6
+            table.getn(self.afflictedDebuffTypes) == 0 then
+        alpha = alpha * (profile.NotAlertedOpacity / 100)
     end
     self.container:SetAlpha(alpha)
 end
 
 function HealUI:GetCurrentHealth()
     if self:IsFake() then
+        if not self.fakeStats.online then
+            return 0
+        end
         return self.fakeStats.currentHealth
     end
     return UnitHealth(self.unit)
@@ -199,6 +210,17 @@ function HealUI:GetMaxPower()
         return self.fakeStats.maxPower
     end
     return UnitManaMax(self.unit)
+end
+
+function HealUI:ShouldShowMissingHealth()
+    local profile = self:GetProfile()
+    local currentHealth = self:GetCurrentHealth()
+    if currentHealth == 0 then
+        return false
+    end
+    local missingHealth = self:GetMaxHealth() - currentHealth
+    return (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" 
+                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) and not UnitIsGhost(self.unit)
 end
 
 function HealUI.GetColorizedText(color, class, theText)
@@ -231,16 +253,18 @@ function HealUI:UpdateHealth()
     local currentHealth = self:GetCurrentHealth()
     local maxHealth = self:GetMaxHealth()
     
-    local unitName = fake and unit or UnitName(unit)
+    local unitName = fake and self.fakeStats.name or UnitName(unit)
     local class = fake and self.fakeStats.class or util.GetClass(unit)
 
     self:UpdateOpacity() -- May be changed further down
 
     if not UnitIsConnected(unit) and (not fake or not fakeOnline) then
-        self.name:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
-        self.button:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
+        self.nameText:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
+        self.healthText:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
+        self:UpdateOpacity()
+        self:AdjustHealthPosition()
         return
     end
 
@@ -255,27 +279,33 @@ function HealUI:UpdateHealth()
             nameText = unitName
         end
     end
-    self.name:SetText(nameText)
+    self.nameText:SetText(nameText)
+
+    local healthText = self.healthText
+    local missingHealthText = self.missingHealthText
 
     -- Set Health Status
     if currentHealth <= 0 then -- Unit Dead
 
-        local healthText = util.Colorize("DEAD", 1, 0.3, 0.3)
+        local text = util.Colorize("DEAD", 1, 0.3, 0.3)
 
         -- Check for Feign Death so the healer doesn't get alarmed
         if util.IsFeigning(unit) then
-            healthText = "Feign"
+            text = "Feign"
         end
 
-        self.button:SetText(healthText)
+        healthText:SetText(text)
+        missingHealthText:SetText("")
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
     elseif UnitIsGhost(unit) then
-        self.button:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
+        healthText:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
+        missingHealthText:SetText("")
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
     else -- Unit Not Dead
         local text = ""
+        local missingText = ""
         if profile.HealthDisplay == "Health/Max Health" then
             text = currentHealth.."/"..maxHealth
         elseif profile.HealthDisplay == "Health" then
@@ -285,28 +315,32 @@ function HealUI:UpdateHealth()
         end
 
         local missingHealth = math.floor(maxHealth - currentHealth)
-        
-        if (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" 
-                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) then
-            local hadHealthText = text ~= ""
-            if hadHealthText then
-                text = text.." ("
-            end
+
+        if self:ShouldShowMissingHealth() then
+            local missingHealthStr
             if profile.MissingHealthDisplay == "-Health" then
-                text = text.."-"..missingHealth
+                missingHealthStr = "-"..missingHealth
             elseif profile.MissingHealthDisplay == "-% Health" then
-                text = text.."-"..math.ceil((missingHealth / maxHealth) * 100).."%"
+                missingHealthStr = "-"..math.ceil((missingHealth / maxHealth) * 100).."%"
             end
-            if hadHealthText then
-                text = text..")"
+
+            if profile.MissingHealthInline then
+                if text ~= "" then
+                    text = text.." ("..missingHealthStr..")"
+                end
+            else
+                missingText = self.GetColorizedText(profile.HealthTexts.Missing.Color, nil, missingHealthStr)
             end
         end
 
-        self.button:SetText(text)
-        self.healthBar:SetValue(currentHealth / maxHealth)
+        healthText:SetText(text)
+        missingHealthText:SetText(missingText)
 
-        self:UpdateOpacity()
+        self.healthBar:SetValue(currentHealth / maxHealth)
     end
+
+    self:UpdateOpacity()
+    self:AdjustHealthPosition()
 end
 
 function HealUI:UpdatePower()
@@ -337,7 +371,7 @@ function HealUI:UpdatePower()
         end
         text = math.floor((currentPower / maxPower) * 100).."%"
     end
-    powerBar.text:SetText(text)
+    self.powerText:SetText(text)
 end
 
 function HealUI:AllocateAura()
@@ -356,6 +390,7 @@ function HealUI:GetUnusedAura()
     else
         aura = self:AllocateAura()
     end
+    aura.frame:SetAlpha(aura.frame:GetParent():GetAlpha())
     table.insert(self.auraIcons, aura)
     return aura
 end
@@ -394,7 +429,7 @@ function HealUI:UpdateAuras()
     local xOffset = 0
     -- Track player buffs
     local buffs = {}
-    local trackedBuffs = profile.TrackedBuffs
+    local trackedBuffs = HealersMateSettings.TrackedBuffs
     for index = 1, 32 do
         local texturePath, stacks = UnitBuff(unit, index)
         if not texturePath then
@@ -420,7 +455,7 @@ function HealUI:UpdateAuras()
     -- Track player debuffs
     local debuffs = {}
     local typedDebuffs = {} -- Dispellable debuffs
-    local trackedDebuffs = profile.TrackedDebuffs
+    local trackedDebuffs = HealersMateSettings.TrackedDebuffs
     for index = 1, 16 do
         local texturePath, stacks = UnitDebuff(unit, index)
         if not texturePath then
@@ -431,7 +466,7 @@ function HealUI:UpdateAuras()
             self.afflictedDebuffTypes[type] = 1
         end
         local alreadyTracked = false
-        for _, trackedType in ipairs(profile.TrackedDebuffTypes) do
+        for _, trackedType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
             if type == trackedType then
                 table.insert(typedDebuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
                 alreadyTracked = true
@@ -512,58 +547,66 @@ end
 function HealUI:Initialize()
     local unit = self.unit
 
-    -- Container Element
+    local profile = self:GetProfile()
+
+    -- Container Elements
 
     local rootContainer = CreateFrame("Frame", unit.."HealRootContainer", UIParent)
     self.rootContainer = rootContainer
     rootContainer:SetPoint("CENTER", 0, 0)
 
-    local overlayContainer = CreateFrame("Frame", unit.."HealOverlayContainer", rootContainer)
-    self.overlayContainer = overlayContainer
-    overlayContainer:SetFrameLevel(5)
-    overlayContainer:SetAllPoints(rootContainer)
-
     local container = CreateFrame("Frame", unit.."HealContainer", rootContainer) --type, name, parent
     self.container = container
     container:SetAllPoints(rootContainer)
 
-    -- Name Element
+    local overlayContainer = CreateFrame("Frame", unit.."HealOverlayContainer", rootContainer)
+    self.overlayContainer = overlayContainer
+    overlayContainer:SetFrameLevel(container:GetFrameLevel() + 1)
+    overlayContainer:SetAllPoints(rootContainer)
 
-    local name = container:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    self.name = name
-    name:SetFont("Fonts\\FRIZQT__.TTF", 12, "GameFontNormal")
-    name:SetText(unit)
+    -- Distance Text
 
     local distanceText = overlayContainer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     self.distanceText = distanceText
-    distanceText:SetFont("Fonts\\FRIZQT__.TTF", 9, "GameFontNormal")
-    distanceText:SetText("")
+    distanceText:SetAlpha(profile.RangeText:GetAlpha())
 
-    local inSightFrame = CreateFrame("Frame", nil, container)
-    local inSightIcon = inSightFrame:CreateTexture(nil, "OVERLAY")
-    self.inSightIcon = {frame = inSightFrame, icon = inSightIcon}
-    inSightIcon:SetTexture("Interface\\Icons\\Spell_nature_sleep")
-    inSightIcon:SetAlpha(0.8)
-    inSightFrame:Hide()
-    inSightFrame:SetFrameLevel(4)
+    local losFrame = CreateFrame("Frame", nil, container)
+    local losIcon = losFrame:CreateTexture(nil, "OVERLAY")
+    self.lineOfSightIcon = {frame = losFrame, icon = losIcon}
+    losIcon:SetTexture("Interface\\Icons\\Spell_nature_sleep")
+    losIcon:SetAlpha(profile.LineOfSightIcon:GetAlpha())
+    losFrame:Hide()
 
     -- Health Bar Element
 
     local healthBar = CreateFrame("StatusBar", unit.."StatusBar", container)
     self.healthBar = healthBar
-    healthBar:SetFrameLevel(1)
-    healthBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    healthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
     healthBar:SetMinMaxValues(0, 1)
+
+    -- Name Element
+
+    local name = healthBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    self.nameText = name
+    name:SetAlpha(profile.NameText:GetAlpha())
+
+    -- Create a background texture for the status bar
+    local bg = healthBar:CreateTexture(nil, "BACKGROUND")
+    healthBar.background = bg
+    bg:SetAllPoints(true)
+    bg:SetTexture(0.5, 0.5, 0.5, 0.25) -- set color to light gray with high transparency
+
     local origSetValue = healthBar.SetValue
-    local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.7529412, 0}}
+    local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
     healthBar.SetValue = function(healthBarSelf, value)
         origSetValue(healthBarSelf, value)
         local rgb
 
         local profile = self:GetProfile()
 
-        if not self:IsEnemy() then -- Do not display debuff colors for enemies
-            for _, trackedDebuffType in ipairs(profile.TrackedDebuffTypes) do
+        local enemy = self:IsEnemy()
+        if not enemy then -- Do not display debuff colors for enemies
+            for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
                 if self.afflictedDebuffTypes[trackedDebuffType] then
                     rgb = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
                     break
@@ -573,10 +616,10 @@ function HealUI:Initialize()
 
         local fake = self:IsFake()
         if fake then
-            local trackedDebuffCount = table.getn(profile.TrackedDebuffTypes)
+            local trackedDebuffCount = table.getn(HealersMateSettings.TrackedDebuffTypes)
             if trackedDebuffCount > 0 then
                 if math.random(1, 10) == 1 then
-                    local fakeDebuffType = profile.TrackedDebuffTypes[math.random(trackedDebuffCount)]
+                    local fakeDebuffType = HealersMateSettings.TrackedDebuffTypes[math.random(trackedDebuffCount)]
                     rgb = HealersMateSettings.DebuffTypeColors[fakeDebuffType]
                 end
             end
@@ -586,46 +629,54 @@ function HealUI:Initialize()
             if profile.HealthBarColor == "Class" then
                 local _, class = UnitClass(unit)
                 if class == nil then
-                    class = self.fakeClass
+                    class = self.fakeStats.class
                 end
                 local r, g, b = util.GetClassColor(class)
                 rgb = {r, g, b}
             elseif profile.HealthBarColor == "Green" then
-                rgb = {0, 0.7529412, 0}
+                rgb = {0, 0.753, 0}
             elseif profile.HealthBarColor == "Green To Red" then
                 rgb = util.InterpolateColors(greenToRedColors, value)
             end
         end
         healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
-    end
-    healthBar:SetValue(math.random())
 
-    -- Create a background texture for the status bar
-    local bg = healthBar:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints(true)
-    bg:SetTexture(0.5, 0.5, 0.5, 0.5) -- set color to light gray with high transparency
+        if value == 0 then
+            bg:SetTexture(0.5, 0.5, 0.5, 0.5)
+        elseif value < 0.3 and not enemy then
+            bg:SetTexture(1, 0.4, 0.4, 0.25)
+        else
+            bg:SetTexture(0.5, 0.5, 0.5, 0.25)
+        end
+    end
+    healthBar:SetValue(1)
+
+    -- Missing Health Text
+
+    local missingHealthText = healthBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    self.missingHealthText = missingHealthText
+    missingHealthText:SetAlpha(profile.HealthTexts.Missing:GetAlpha())
 
     -- Power Bar Element
 
     local powerBar = CreateFrame("StatusBar", unit.."PowerStatusBar", container)
     self.powerBar = powerBar
-    powerBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    powerBar:SetStatusBarTexture(HM.BarStyles[profile.PowerBarStyle])
     powerBar:SetMinMaxValues(0, 1)
     powerBar:SetValue(1)
     powerBar:SetStatusBarColor(0, 0, 1)
     powerBar:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"}) -- set a light gray background
     local powerText = powerBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    powerBar.text = powerText
-    powerText:SetText("Power")
-    powerText:SetFont("Fonts\\FRIZQT__.TTF", 10, "GameFontNormal")
+    self.powerText = powerText
+    powerText:SetAlpha(profile.PowerText:GetAlpha())
 
     -- Button Element
 
     local button = CreateFrame("Button", unit.."Button", healthBar, "UIPanelButtonTemplate")
     self.button = button
-    button:SetText("0/0")
-    button:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "GameFontNormal")
-    button:GetFontString():ClearAllPoints()
+    local healthText = button:GetFontString()
+    self.healthText = healthText
+    healthText:ClearAllPoints()
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
     button:SetScript("OnClick", function()
         local buttonType = arg1
@@ -646,6 +697,7 @@ function HealUI:Initialize()
     local buffPanel = CreateFrame("Frame", unit.."BuffPanel", container)
     self.auraPanel = buffPanel
 
+    --[[
     local scrollingDamageFrame = CreateFrame("Frame", unit.."ScrollingDamageFrame", container)
     self.scrollingDamageFrame = scrollingDamageFrame
     scrollingDamageFrame:SetWidth(100) -- width
@@ -665,20 +717,16 @@ function HealUI:Initialize()
     scrollingHealFrame.text:SetPoint("CENTER", 0, 0)
     scrollingHealFrame:Hide() -- Hide the frame initially
     scrollingHealFrame:SetFrameLevel(100) -- Set the frame level to a high value to ensure it's on top
+    ]]
 
     self:SizeElements()
 end
 
 function HealUI:SizeElements()
-
     local profile = self:GetProfile()
     local width = profile.Width
     local healthBarHeight = profile.HealthBarHeight
     local powerBarHeight = profile.PowerBarHeight
-
-    local nameTextProps = profile.NameText
-    local healthTextProps = profile.HealthText
-    local powerTextProps = profile.PowerText
 
     local rootContainer = self.rootContainer
     rootContainer:SetWidth(width)
@@ -692,68 +740,34 @@ function HealUI:SizeElements()
     local healthBar = self.healthBar
     healthBar:SetWidth(width)
     healthBar:SetHeight(healthBarHeight)
-
-    local healthBarPaddingTop = 0
-    if not profile.NameInHealthBar then
-        healthBarPaddingTop = nameTextProps.FontSize * 1.25
-    end
-    healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -healthBarPaddingTop)
-
-    local name = self.name
-    local nameOffsetY = nameTextProps:GetPaddingV() + nameTextProps.OffsetY
-    name:SetWidth(width)
-    name:SetHeight(healthBar:GetHeight())
-    if not profile.NameInHealthBar then
-        local height = nameTextProps.FontSize * 1.25
-        nameOffsetY = nameOffsetY + height
-        name:SetHeight(height)
-    end
-    name:SetFont("Fonts\\FRIZQT__.TTF", nameTextProps.FontSize, "GameFontNormal")
-    name:SetJustifyH(nameTextProps.AlignmentH)
-    name:SetJustifyV(nameTextProps.AlignmentV)
-    -- TODO: Change anchoring based on whether the name is in the health bar or not
-    name:SetPoint("TOP", healthBar, "TOP", nameTextProps:GetPaddingH() + nameTextProps.OffsetX, nameOffsetY)
-
-    local distanceText = self.distanceText
-    distanceText:SetJustifyH("CENTER")
-    distanceText:SetJustifyV("TOP")
-    distanceText:SetAllPoints(healthBar)
+    healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.BarsOffsetY)
 
     local powerBar = self.powerBar
     powerBar:SetWidth(width)
     powerBar:SetHeight(powerBarHeight)
     powerBar:SetPoint("TOPLEFT", healthBar, "BOTTOMLEFT", 0, 0)
 
-    local powerText = powerBar.text
-    powerText:SetWidth(width)
-    powerText:SetHeight(powerBar:GetHeight())
-    powerText:SetFont("Fonts\\FRIZQT__.TTF", powerTextProps.FontSize, "GameFontNormal")
-    powerText:SetJustifyH(powerTextProps.AlignmentH)
-    powerText:SetJustifyV(powerTextProps.AlignmentV)
-    powerText:SetPoint("TOP", powerBar, "TOP", powerTextProps:GetPaddingH() + powerTextProps.OffsetX, 
-        powerTextProps:GetPaddingV() + powerTextProps.OffsetY)
-
     local button = self.button
     button:SetWidth(healthBar:GetWidth())
     button:SetHeight(healthBar:GetHeight() + powerBar:GetHeight())
-    local buttonText = button:GetFontString()
-    buttonText:SetWidth(width)
-    buttonText:SetHeight(healthBar:GetHeight())
-    buttonText:SetFont("Fonts\\FRIZQT__.TTF", healthTextProps.FontSize, "GameFontNormal")
-    buttonText:SetJustifyH(healthTextProps.AlignmentH)
-    buttonText:SetJustifyV(healthTextProps.AlignmentV)
-    buttonText:SetPoint("TOP", healthBar, "TOP", healthTextProps:GetPaddingH() + healthTextProps.OffsetX, 
-        healthTextProps:GetPaddingV() + healthTextProps.OffsetY)
-    --buttonText:SetPoint("TOP", healthTextXOffsets[healthTextAlignment], (buttonText:GetHeight() / 2) - (healthBar:GetHeight() / 2))
     button:SetPoint("TOP", 0, 0)
 
-    local inSightFrame = self.inSightIcon.frame
-    inSightFrame:SetWidth(24)
-    inSightFrame:SetHeight(24)
-    inSightFrame:SetPoint("CENTER", button, 0, 0)
+    local name = self.nameText
+    self:UpdateComponent(name, profile.NameText)
 
-    local icon = self.inSightIcon.icon
-    icon:SetAllPoints(inSightFrame)
+    self:AdjustHealthPosition()
+
+    local powerText = self.powerText
+    self:UpdateComponent(powerText, profile.PowerText)
+
+    local distanceText = self.distanceText
+    self:UpdateComponent(distanceText, profile.RangeText)
+
+    local losFrame = self.lineOfSightIcon.frame
+    self:UpdateComponent(self.lineOfSightIcon.frame, profile.LineOfSightIcon)
+
+    local losIcon = self.lineOfSightIcon.icon
+    losIcon:SetAllPoints(losFrame)
 
     local auraPanel = self.auraPanel
     auraPanel:SetWidth(width)
@@ -763,6 +777,66 @@ function HealUI:SizeElements()
     rootContainer:SetHeight(self:GetHeight())
     overlayContainer:SetHeight(self:GetHeight())
     container:SetHeight(self:GetHeight())
+end
+
+function HealUI:AdjustHealthPosition()
+    local profile = self:GetProfile()
+
+    local healthTexts = profile.HealthTexts
+    local healthTextProps = (self:ShouldShowMissingHealth() and not profile.MissingHealthInline) and 
+        healthTexts.WithMissing or healthTexts.Normal
+    local missingHealthTextProps = healthTexts.Missing
+
+    self.healthText:SetAlpha(healthTextProps:GetAlpha())
+
+    self:UpdateComponent(self.healthText, healthTextProps)
+    self:UpdateComponent(self.missingHealthText, missingHealthTextProps)
+end
+
+local alignmentAnchorMap = {
+    ["LEFT"] = {
+        ["TOP"] = "TOPLEFT",
+        ["CENTER"] = "LEFT",
+        ["BOTTOM"] = "BOTTOMLEFT",
+    },
+    ["CENTER"] = {
+        ["TOP"] = "TOP",
+        ["CENTER"] = "CENTER",
+        ["BOTTOM"] = "BOTTOM",
+    },
+    ["RIGHT"] = {
+        ["TOP"] = "TOPRIGHT",
+        ["CENTER"] = "RIGHT",
+        ["BOTTOM"] = "BOTTOMRIGHT",
+    }
+}
+function HealUI:UpdateComponent(component, props)
+    local anchor
+    local anchorName = props.Anchor
+    if anchorName == "Health Bar" then
+        anchor = self.healthBar
+    elseif anchorName == "Power Bar" then
+        anchor = self.powerBar
+    elseif anchorName == "Button" then
+        anchor = self.button
+    elseif anchorName == "Container" then
+        anchor = self.container
+    end
+
+    if component.SetFont then -- Must be a FontString
+        component:SetWidth(math.min(props.MaxWidth, anchor:GetWidth()))
+        component:SetHeight(anchor:GetHeight())
+        component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, "GameFontNormal")
+        component:SetJustifyH(props.AlignmentH)
+        component:SetJustifyV(props.AlignmentV)
+        local alignment = alignmentAnchorMap[props.AlignmentH]["TOP"]
+        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
+    else
+        component:SetWidth(props.Width)
+        component:SetHeight(props.Height)
+        local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
+        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
+    end
 end
 
 function HealUI:GetWidth()

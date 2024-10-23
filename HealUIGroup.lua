@@ -2,6 +2,8 @@ HealUIGroup = {}
 
 HealUIGroup.name = "???"
 
+HealUIGroup.profile = nil
+
 HealUIGroup.container = nil
 HealUIGroup.borderFrame = nil
 HealUIGroup.header = nil
@@ -12,14 +14,18 @@ HealUIGroup.units = nil
 HealUIGroup.petGroup = false
 HealUIGroup.environment = "all" -- party, raid, or all
 
+HealUIGroup.moveContainer = CreateFrame("Frame", "HealUIGroupBulkMoveContainer", UIParent)
+HealUIGroup.moveContainer:EnableMouse(true)
+HealUIGroup.moveContainer:SetMovable(true)
+
 -- Singleton references, assigned in constructor
 local HM
 local util
 
-function HealUIGroup:New(name, environment, units, petGroup)
+function HealUIGroup:New(name, environment, units, petGroup, profile)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
-    local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup}
+    local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup, profile = profile}
     setmetatable(obj, self)
     self.__index = self
     obj:Initialize()
@@ -76,18 +82,73 @@ function HealUIGroup:Initialize()
 
     container:SetScript("OnMouseDown", function()
         local button = arg1
-        if button == "LeftButton" and not container.isMoving then
-            container:StartMoving()
-            container.isMoving = true
+
+        if button ~= "LeftButton" or container.isMoving then
+            return
         end
+
+        container.isMoving = true
+
+        if (util.GetKeyModifier() == HMOptions.FrameDrag.AltMoveKey) == HMOptions.FrameDrag.MoveAll then
+            container:StartMoving()
+            return
+        end
+
+        container.bulkMovement = true
+
+        local moveContainer = HealUIGroup.moveContainer
+        moveContainer:ClearAllPoints()
+        moveContainer:SetPoint("TOPLEFT", 0, 0)
+        -- If the container doesn't have a size, it doesn't move
+        moveContainer:SetWidth(1)
+        moveContainer:SetHeight(1)
+        for _, group in pairs(HealersMate.HealUIGroups) do
+            local gc = group:GetContainer()
+            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            gc:ClearAllPoints()
+            gc:SetPoint("TOPLEFT", moveContainer, relativePoint, xofs, yofs)
+        end
+        moveContainer:StartMoving()
     end)
 
     container:SetScript("OnMouseUp", function()
         local button = arg1
-        if button == "LeftButton" and container.isMoving then
-            container:StopMovingOrSizing()
-            container.isMoving = false
+
+        if (button ~= "LeftButton" or not container.isMoving) then
+            return
         end
+
+        container.isMoving = false
+
+        if not container.bulkMovement then
+            container:StopMovingOrSizing()
+            return
+        end
+
+        container.bulkMovement = false
+
+        local moveContainer = HealUIGroup.moveContainer
+        moveContainer:StopMovingOrSizing()
+        for _, group in pairs(HealersMate.HealUIGroups) do
+            local gc = group:GetContainer()
+            local mcpoint, mcrelativeTo, mcrelativePoint, mcxofs, mcyofs = moveContainer:GetPoint(1)
+            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            gc:ClearAllPoints()
+            gc:SetPoint("TOPLEFT", UIParent, mcrelativePoint, mcxofs + xofs, mcyofs + yofs)
+        end
+        -- Prevent container from potentially blocking mouse by setting it back to 0 size
+        moveContainer:SetWidth(0)
+        moveContainer:SetHeight(0)
+    end)
+
+    container:SetScript("OnHide", function()
+        if not container.isMoving then
+            return
+        end
+        local prevArg = arg1
+        arg1 = "LeftButton"
+        container:GetScript("OnMouseUp")()
+        arg1 = prevArg
     end)
 
     local header = CreateFrame("Frame", self.name.."HealUIGroupContainerHeader", container) --type, name, parent
@@ -294,5 +355,5 @@ function HealUIGroup:GetSortedUIs()
 end
 
 function HealUIGroup:GetProfile()
-    return HealersMateSettings.Profiles[self.name]
+    return self.profile
 end

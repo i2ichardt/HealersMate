@@ -1,9 +1,6 @@
 HealersMateSettings = {}
 
-HealersMateSettings.Profiles = {}
-HealersMateSettings.ProfileOptions = {}
-
-local Util = getglobal("HMUtil")
+local util = getglobal("HMUtil")
 
 local _, playerClass = UnitClass("player")
 
@@ -32,7 +29,7 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
         }
     }
 
-    for _, class in ipairs(Util.GetClasses()) do
+    for _, class in ipairs(util.GetClasses()) do
         if not debuffTypeCureSpells[class] then
             debuffTypeCureSpells[class] = {}
         end
@@ -55,219 +52,10 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
             end
         end
     end
-    trackedDebuffTypes = Util.ToArray(trackedDebuffTypes)
+    trackedDebuffTypes = util.ToArray(trackedDebuffTypes)
 
-    for _, profile in pairs(HealersMateSettings.Profiles) do
-        profile.TrackedDebuffTypes = trackedDebuffTypes
-    end
+    HealersMateSettings.TrackedDebuffTypes = trackedDebuffTypes
 end
-
-function HealersMateSettings.InitProfiles()
-    -- Tracked buffs for all classes
-    local defaultTrackedBuffs = {"First Aid", "Blessing of Protection", "Divine Protection", "Divine Shield", 
-        "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Soulstone Resurrection", 
-        "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
-    -- Tracked buffs for specific classes
-    local defaultClassTrackedBuffs = {
-        ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
-            "Blessing of Kings", "Blessing of Freedom", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
-            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
-            "Redoubt", "Holy Shield"},
-        ["PRIEST"] = {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection", "Inner Fire", "Power Word: Shield", 
-            "Renew", "Inspiration", "Abolish Disease", "Fear Ward", "Fade", "Spirit Tap"},
-        ["DRUID"] = {"Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"}
-    }
-    local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
-    Util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
-    trackedBuffs = Util.ToSet(trackedBuffs, true)
-
-    -- Tracked debuffs for all classes
-    local defaultTrackedDebuffs = {"Forbearance", "Recently Bandaged", "Resurrection Sickness", "Ghost"}
-    -- Tracked debuffs for specific classes
-    local defaultClassTrackedDebuffs = {
-        ["PRIEST"] = {"Weakened Soul"}
-    }
-    local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
-    Util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
-    trackedDebuffs = Util.ToSet(trackedDebuffs, true)
-
-    local options = HealersMateSettings.ProfileOptions
-    local profiles = HealersMateSettings.Profiles
-
-    do
-        local function createTextObject(predefined)
-            local text = {}
-            text.FontSize = 12
-            text.AlignmentH = "CENTER" -- LEFT, CENTER, RIGHT
-            text.AlignmentV = "CENTER" -- TOP, CENTER, BOTTOM
-            text.PaddingH = 4
-            text.PaddingV = 4
-            text.OffsetX = 0
-            text.OffsetY = 0
-            text.Color = "Default" -- Default, Class, Array(Custom Color)
-            text.GetPaddingH = function(self)
-                if self.AlignmentH == "LEFT" then
-                    return self.PaddingH
-                elseif self.AlignmentH == "RIGHT" then
-                    return -self.PaddingH
-                end
-                return 0
-            end
-            text.GetPaddingV = function(self)
-                if self.AlignmentV == "TOP" then
-                    return -self.PaddingV
-                elseif self.AlignmentH == "BOTTOM" then
-                    return self.PaddingV
-                end
-                return 0
-            end
-            if predefined then
-                for key, value in pairs(predefined) do
-                    text[key] = value
-                end
-            end
-            return text
-        end
-
-        profiles["Party"] = {}
-        local profile = profiles["Party"]
-        profile.Width = 150 -- Default: 150
-        profile.HealthBarHeight = 24 -- Default: 20
-        profile.HealthBarColor = "Green To Red" -- Class, Green, Green To Red
-        options.HealthBarColor = {"Class", "Green", "Green To Red"}
-        profile.HealthText = createTextObject({
-            ["FontSize"] = 12,
-            ["AlignmentH"] = "RIGHT"
-        })
-        profile.HealthDisplay = "Health"
-        options.HealthDisplay = {"Health", "Health/Max Health", "% Health", "Hidden"}
-        profile.MissingHealthDisplay = "-Health"
-        options.MissingHealthDisplay = {"Hidden", "-Health", "-% Health"}
-        profile.AlwaysShowMissingHealth = false
-        profile.ShowEnemyMissingHealth = false
-
-        profile.AlertPercent = 100
-
-        profile.PowerBarHeight = 12 -- Default: 10
-        profile.PowerText = createTextObject({
-            ["FontSize"] = 10,
-            ["AlignmentH"] = "RIGHT"
-        })
-        profile.PowerDisplay = "Power"
-        options.PowerDisplay = {"Power", "Power/Max Power", "% Power", "Hidden"}
-
-        profile.NameInHealthBar = true -- Default: true
-        profile.NameText = createTextObject({
-            ["FontSize"] = 12,
-            ["AlignmentH"] = "LEFT",
-            ["Color"] = "Class"
-        })
-        profile.NameDisplay = "Name" -- Unimplemented
-        options.NameDisplay = {"Name", "Name (Class)"}
-
-        profile.TrackAuras = true -- Default: true
-        profile.TrackedAurasHeight = 20
-        profile.TrackedAurasSpacing = 2
-        profile.TrackedBuffs = trackedBuffs -- Default tracked is variable based on class
-        profile.TrackedDebuffs = trackedDebuffs -- Default tracked is variable based on class
-        profile.TrackedDebuffTypes = {} -- Default tracked is variable based on class
-        options.TrackedDebuffTypes = {"Poison", "Disease", "Magic", "Curse"}
-        profile.TrackedDebuffTypesSet = Util.ToSet(profile.TrackedDebuffTypes)
-
-        profile.MaxUnitsInAxis = 5
-        profile.Orientation = "Vertical"
-        options.Orientation = {"Vertical", "Horizontal"}
-        profile.PaddingBetweenUnits = 2 -- Unimplemented
-
-        profile.SortUnitsBy = "ID"
-        options.SortUnitsBy = {"ID", "Name", "Class Name"}
-        profile.SplitRaidIntoGroups = true
-
-        profile.BorderStyle = "Tooltip"
-        options.BorderStyle = {"Tooltip", "Dialog Box", "Borderless"}
-
-        profile.GetHeight = function(self)
-            local totalHeight = self.HealthBarHeight + self.PowerBarHeight + self.TrackedAurasHeight
-            if not self.NameInHealthBar then
-                totalHeight = totalHeight + (self.NameText.FontSize * 1.25)
-            end
-            return totalHeight
-        end
-    end
-
-    profiles["Pets"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Raid"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Raid Pets"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Target"] = HMUtil.CloneTable(profiles["Party"], true)
-
-    do
-        local profile = profiles["Pets"]
-        profile.Width = 120
-        profile.HealthBarHeight = 16
-        profile.PowerBarHeight = 9
-        profile.TrackedAurasHeight = 16
-        profile.NameTextFontSize = 10
-        profile.HealthTextFontSize = 10
-        profile.PowerBarTextFontSize = 9
-    end
-
-    do
-        local profile = profiles["Raid"]
-        profile.Width = 80
-        profile.NameInHealthBar = true
-        profile.HealthBarHeight = 16
-        profile.HealthBarColor = "Class"
-        profile.NameText.FontSize = 8
-        profile.NameText.AlignmentH = "LEFT"
-        profile.NameText.Color = "Default"
-        profile.PowerBarHeight = 6
-        profile.TrackedAurasHeight = 10
-        profile.HealthText.FontSize = 9
-        profile.HealthText.AlignmentH = "RIGHT"
-        profile.HealthDisplay = "% Health"
-        profile.MissingHealthDisplay = "Hidden"
-        profile.PowerDisplay = "Hidden"
-        profile.PowerText.FontSize = 8
-        profile.Orientation = "Vertical"
-        profile.SplitRaidIntoGroups = true
-        profile.SortUnitsBy = "ID"
-        profile.AlertPercent = 99
-
-        profiles["Raid Pets"] = HMUtil.CloneTable(profile, true)
-    end
-
-    do
-        local profile = profiles["Raid Pets"]
-    end
-
-    --profiles["Target"].BorderStyle = "Dialog Box"
-    profiles["Party"].MaxUnitsInAxis = 5
-
-    do
-        local profile = HMUtil.CloneTable(profiles["Party"], true)
-        profiles["Legacy"] = profile
-
-        profile.Width = 200
-        profile.NameInHealthBar = false
-        profile.HealthBarHeight = 25
-        profile.PowerBarHeight = 5
-
-        profile.NameText.AlignmentH = "LEFT"
-        profile.HealthText.AlignmentH = "CENTER"
-        profile.HealthDisplay = "Health/Max Health"
-        profile.PowerDisplay = "Hidden"
-
-        --profiles["Party"] = profile
-    end
-
-    do
-        local profile = profiles["Target"]
-    end
-
-    HealersMateSettings.UpdateTrackedDebuffTypes()
-end
-
--- Non-profile settings
 
 function HealersMateSettings.SetDefaults()
     if not HMOptions then
@@ -281,6 +69,10 @@ function HealersMateSettings.SetDefaults()
                 ["Hostile"] = false
             },
             ["AutoTarget"] = false,
+            ["FrameDrag"] = {
+                ["MoveAll"] = false,
+                ["AltMoveKey"] = "Shift"
+            },
             ["OptionsVersion"] = 1
         }
     
@@ -296,9 +88,51 @@ function HealersMateSettings.SetDefaults()
     end
 end
 
+-- This file needs serious cleaning and refactoring
+
+setmetatable(HealersMateSettings, {__index = getfenv(1)})
+setfenv(1, HealersMateSettings)
+
+TrackedBuffs = nil -- Default tracked is variable based on class
+TrackedDebuffs = nil -- Default tracked is variable based on class
+TrackedDebuffTypes = {} -- Default tracked is variable based on class
+
+do
+    local defaultTrackedBuffs = {"First Aid", "Blessing of Protection", "Divine Protection", "Divine Shield", 
+        "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Frenzied Regeneration", 
+        "Soulstone Resurrection", "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
+    -- Tracked buffs for specific classes
+    local defaultClassTrackedBuffs = {
+        ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
+            "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
+            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
+            "Blessing of Freedom", "Redoubt", "Holy Shield"},
+        ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
+            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Fear Ward", "Inner Fire", 
+            "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", "Spirit Tap"},
+        ["DRUID"] = {"Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"}
+    }
+    local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
+    util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
+    trackedBuffs = util.ToSet(trackedBuffs, true)
+
+    -- Tracked debuffs for all classes
+    local defaultTrackedDebuffs = {"Forbearance", "Recently Bandaged", "Resurrection Sickness", "Ghost", "Blood Fury"}
+    -- Tracked debuffs for specific classes
+    local defaultClassTrackedDebuffs = {
+        ["PRIEST"] = {"Weakened Soul"}
+    }
+    local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
+    util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
+    trackedDebuffs = util.ToSet(trackedDebuffs, true)
+
+    TrackedBuffs = trackedBuffs
+    TrackedDebuffs = trackedDebuffs
+end
+
 ShowEmptySpells = true
 IgnoredEmptySpells = {--[["MiddleButton"]]}
-IgnoredEmptySpells = Util.ToSet(IgnoredEmptySpells)
+IgnoredEmptySpells = util.ToSet(IgnoredEmptySpells)
 CustomButtonOrder = {
     "LeftButton",
     "MiddleButton",
@@ -318,11 +152,6 @@ DebuffTypeColors = {
     ["Poison"] = {0.6, 0.7, 0}
 }
 
-
--- This file needs serious cleaning and refactoring
-
-setmetatable(HealersMateSettings, {__index = getfenv(1)})
-setfenv(1, HealersMateSettings)
 
 EditedSpells = {}
 SpellsContext = {}
@@ -509,17 +338,22 @@ function HealersMateSettings.InitSettings()
     soonTM:SetText("More options coming in future updates")
 
 
+    local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
+    customizeScrollFrame:SetWidth(380) -- width
+    customizeScrollFrame:SetHeight(380) -- height
+    customizeScrollFrame:SetPoint("CENTER", container, "CENTER")
+    customizeScrollFrame:Hide() -- Initially hidden
 
-
-    local customizeFrame = CreateFrame("Frame", "$parentOptionsFrame", container)
-    addFrame("Customize", customizeFrame)
-    customizeFrame:SetWidth(250) -- width
-    customizeFrame:SetHeight(380) -- height
+    local customizeFrame = CreateFrame("Frame", "$parentContent", customizeScrollFrame)
+    addFrame("Customize", customizeScrollFrame)
+    customizeFrame:SetWidth(380 + 20) -- width
+    customizeFrame:SetHeight(420) -- height
     customizeFrame:SetPoint("CENTER", container, "CENTER")
-    customizeFrame:Hide() -- Initially hidden
+
+    customizeScrollFrame:SetScrollChild(customizeFrame)
 
     local soonTM = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, 0)
+    soonTM:SetPoint("CENTER", customizeFrame, "CENTER", 0, 0)
     soonTM:SetText("Customization coming in future updates")
 
 
