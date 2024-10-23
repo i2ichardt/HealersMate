@@ -426,7 +426,6 @@ function HealUI:UpdateAuras()
         return
     end
     
-    local xOffset = 0
     -- Track player buffs
     local buffs = {}
     local trackedBuffs = HealersMateSettings.TrackedBuffs
@@ -444,14 +443,8 @@ function HealUI:UpdateAuras()
     table.sort(buffs, function(a, b)
         return trackedBuffs[a.name] < trackedBuffs[b.name]
     end)
-    for _, buff in ipairs(buffs) do
-        local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, "Buff")
-        xOffset = xOffset + profile.TrackedAurasHeight + profile.TrackedAurasSpacing
-    end
 
     self.afflictedDebuffTypes = {}
-    xOffset = 0
     -- Track player debuffs
     local debuffs = {}
     local typedDebuffs = {} -- Dispellable debuffs
@@ -482,16 +475,35 @@ function HealUI:UpdateAuras()
         return trackedDebuffs[a.name] < trackedDebuffs[b.name]
     end)
     util.AppendArrayElements(debuffs, typedDebuffs)
+
+    local width = self:GetWidth()
+    local auraSize = profile.TrackedAurasHeight
+    local origSize = auraSize
+    local spacing = profile.TrackedAurasSpacing
+    local origSpacing = spacing
+    local auraCount = table.getn(buffs) + table.getn(debuffs)
+
+    -- If there's not enough space, shrink until all auras fit
+    while ((auraSize * auraCount) + (spacing * (auraCount - 1)) > width) and auraSize >= 1 do
+        auraSize = auraSize - 1
+        spacing = (auraSize / origSize) * origSpacing
+    end
+
+    local xOffset = 0
+    for _, buff in ipairs(buffs) do
+        local aura = self:GetUnusedAura()
+        self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, "Buff", auraSize)
+        xOffset = xOffset + auraSize + spacing
+    end
+    xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, "Debuff")
-        xOffset = xOffset - profile.TrackedAurasHeight - profile.TrackedAurasSpacing
+        self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, "Debuff", auraSize)
+        xOffset = xOffset - auraSize - spacing
     end
 end
 
-function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, type)
-    local profile = self:GetProfile()
-    local size = profile.TrackedAurasHeight
+function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, type, size)
     local unit = self.unit
 
     local frame = aura.frame
