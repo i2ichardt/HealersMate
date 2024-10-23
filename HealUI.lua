@@ -419,6 +419,7 @@ end
 function HealUI:UpdateAuras()
     local profile = self:GetProfile()
     local unit = self.unit
+    local enemy = self:IsEnemy()
 
     self:ReleaseAuras()
 
@@ -435,14 +436,16 @@ function HealUI:UpdateAuras()
             break
           end
         local name, type = HM.GetAuraInfo(unit, "Buff", index)
-        if trackedBuffs[name] then
+        if trackedBuffs[name] or enemy then
             table.insert(buffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
         end
     end
 
-    table.sort(buffs, function(a, b)
-        return trackedBuffs[a.name] < trackedBuffs[b.name]
-    end)
+    if not enemy then
+        table.sort(buffs, function(a, b)
+            return trackedBuffs[a.name] < trackedBuffs[b.name]
+        end)
+    end
 
     self.afflictedDebuffTypes = {}
     -- Track player debuffs
@@ -466,15 +469,17 @@ function HealUI:UpdateAuras()
                 break
             end
         end
-        if trackedDebuffs[name] and not alreadyTracked then
+        if (trackedDebuffs[name] and not alreadyTracked) or enemy then
             table.insert(debuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
         end
     end
 
-    table.sort(debuffs, function(a, b)
-        return trackedDebuffs[a.name] < trackedDebuffs[b.name]
-    end)
-    util.AppendArrayElements(debuffs, typedDebuffs)
+    if not enemy then
+        table.sort(debuffs, function(a, b)
+            return trackedDebuffs[a.name] < trackedDebuffs[b.name]
+        end)
+        util.AppendArrayElements(debuffs, typedDebuffs)
+    end
 
     local width = self:GetWidth()
     local auraSize = profile.TrackedAurasHeight
