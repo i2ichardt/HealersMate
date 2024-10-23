@@ -804,8 +804,6 @@ function HealUI:AdjustHealthPosition()
         healthTexts.WithMissing or healthTexts.Normal
     local missingHealthTextProps = healthTexts.Missing
 
-    self.healthText:SetAlpha(healthTextProps:GetAlpha())
-
     self:UpdateComponent(self.healthText, healthTextProps)
     self:UpdateComponent(self.missingHealthText, missingHealthTextProps)
 end
@@ -840,6 +838,7 @@ function HealUI:UpdateComponent(component, props)
         anchor = self.container
     end
 
+    component:ClearAllPoints()
     if component.SetFont then -- Must be a FontString
         component:SetWidth(math.min(props.MaxWidth, anchor:GetWidth()))
         component:SetHeight(anchor:GetHeight())
