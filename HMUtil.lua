@@ -140,6 +140,12 @@ function Colorize(text, r, g, b)
     return "|cFF" .. string.format("%02x%02x%02x", r * 255, g * 255, b * 255) .. text .. "|r"
 end
 
+function StripColors(text)
+    text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+    text = string.gsub(text, "|r", "")
+    return text
+end
+
 function IsFeigning(unit)
     local unitClass = GetClass(unit)
     if unitClass == "HUNTER" then

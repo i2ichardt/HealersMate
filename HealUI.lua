@@ -699,6 +699,15 @@ function HealUI:Initialize()
         local buttonType = arg1
         HM.ClickHandler(buttonType, unit)
     end)
+    button:SetScript("OnMouseDown", function()
+        local buttonType = arg1
+        HM.CurrentlyHeldButton = HealersMateSettings.CustomButtonNames[buttonType] or HM.ReadableButtonMap[buttonType]
+        HM.ReapplySpellsTooltip()
+    end)
+    button:SetScript("OnMouseUp", function()
+        HM.CurrentlyHeldButton = nil
+        HM.ReapplySpellsTooltip()
+    end)
     button:SetScript("OnEnter", function()
         HM.ApplySpellsTooltip(button, unit)
     end)

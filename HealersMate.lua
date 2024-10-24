@@ -131,6 +131,7 @@ ResurrectionSpells = {
     ["DRUID"] = "Rebirth"
 }
 
+CurrentlyHeldButton = nil
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
 SpellsTooltipOwner = nil
 
@@ -450,6 +451,11 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                     rightText = spell.." "..colorize(cost, resourceColor)
                         ..colorize(" ("..casts..")", castsColor)
                 end
+            end
+            -- Gray out spells that are not held down
+            if CurrentlyHeldButton and button ~= CurrentlyHeldButton then
+                leftText = colorize(util.StripColors(leftText), 0.3, 0.3, 0.3)
+                rightText = colorize(util.StripColors(rightText), 0.3, 0.3, 0.3)
             end
             SpellsTooltip:AddDoubleLine(leftText, rightText)
         end
