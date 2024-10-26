@@ -91,7 +91,7 @@ function InitializeDefaultProfiles()
         profile.Orientation = "Vertical"
         profile.SplitRaidIntoGroups = true
         profile.SortUnitsBy = "ID"
-        profile.AlertPercent = 95
+        profile.AlertPercent = 100
         profile.MaxUnitsInAxis = 5
     end
 

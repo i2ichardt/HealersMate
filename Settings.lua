@@ -73,6 +73,10 @@ function HealersMateSettings.SetDefaults()
                 ["MoveAll"] = false,
                 ["AltMoveKey"] = "Shift"
             },
+            ["DisablePartyFrames"] = {
+                ["InParty"] = false,
+                ["InRaid"] = false
+            },
             ["OptionsVersion"] = 1
         }
     

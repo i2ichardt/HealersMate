@@ -57,11 +57,11 @@ PartyUnits = {"player", "party1", "party2", "party3", "party4"}
 PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
 TargetUnits = {"target"}
 RaidUnits = {}
-for i = 1, 40 do
+for i = 1, MAX_RAID_MEMBERS do
     RaidUnits[i] = "raid"..i
 end
 RaidPetUnits = {}
-for i = 1, 40 do
+for i = 1, MAX_RAID_MEMBERS do
     RaidPetUnits[i] = "raidpet"..i
 end
 
@@ -135,15 +135,22 @@ CurrentlyHeldButton = nil
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
 SpellsTooltipOwner = nil
 
+local hmBarsPath = "Interface\\AddOns\\HealersMate\\assets\\textures\\bars\\"
 BarStyles = {
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
-    ["Blizzard Raid"] = "Interface\\AddOns\\HealersMate\\textures\\Blizzard-Raid-Fill"
+    ["Blizzard Raid"] = hmBarsPath.."Blizzard-Raid",
+    ["HealersMate"] = hmBarsPath.."HealersMate",
+    ["HealersMate Borderless"] = hmBarsPath.."HealersMate-Borderless",
+    ["HealersMate Shineless"] = hmBarsPath.."HealersMate-Shineless",
+    ["HealersMate Shineless Borderless"] = hmBarsPath.."HealersMate-Shineless-Borderless"
 }
 
 -- Contains all individual player healing UIs
 HealUIs = {}
 -- Contains all the healing UI groups
 HealUIGroups = {}
+
+CurrentlyInRaid = false
 
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
@@ -559,6 +566,36 @@ function EventAddonLoaded()
     end
 end
 
+function SetPartyFramesEnabled(enabled)
+    if enabled then
+        for i = 1, MAX_PARTY_MEMBERS do
+            local frame = getglobal("PartyMemberFrame"..i)
+            if frame and frame.HMRealShow then
+                frame.Show = frame.HMRealShow
+                frame.HMRealShow = nil
+
+                if UnitExists("party"..i) then
+                    frame:Show()
+                end
+                local prevThis = _G.this
+                _G.this = frame
+                PartyMemberFrame_OnLoad()
+                _G.this = prevThis
+            end
+        end
+    else
+        for i = 1, MAX_PARTY_MEMBERS do
+            local frame = getglobal("PartyMemberFrame"..i)
+            if frame then
+                frame:UnregisterAllEvents()
+                frame.HMRealShow = frame.Show
+                frame.Show = function() end
+                frame:Hide()
+            end
+        end
+    end
+end
+
 SpecialBinds = {
     ["target"] = function(unit)
         TargetUnit(unit)
@@ -640,6 +677,15 @@ function CheckGroup()
     local environment = "party"
     if GetNumRaidMembers() > 0 then
         environment = "raid"
+        if not CurrentlyInRaid then
+            CurrentlyInRaid = true
+            SetPartyFramesEnabled(not HMOptions.DisablePartyFrames.InRaid)
+        end
+    else
+        if CurrentlyInRaid then
+            CurrentlyInRaid = false
+            SetPartyFramesEnabled(not HMOptions.DisablePartyFrames.InParty)
+        end
     end
     local superwow = util.IsSuperWowPresent()
     if superwow then
@@ -690,6 +736,10 @@ function EventHandler()
     elseif event == "PLAYER_ENTERING_WORLD" then
         
         CheckGroup()
+
+        if HMOptions.DisablePartyFrames.InParty then
+            SetPartyFramesEnabled(false)
+        end
         
     elseif event == "PLAYER_LOGOUT" or event == "PLAYER_QUITING" then
         

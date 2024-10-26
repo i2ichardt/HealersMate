@@ -12,7 +12,7 @@ UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to ch
 SuperWoW = SpellInfo ~= nil
 
 PowerColors = {
-    ["mana"] = {0.1, 0.1, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
+    ["mana"] = {0.1, 0.25, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
     ["rage"] = {1, 0, 0},
     ["focus"] = {1, 0.5, 0.25},
     ["energy"] = {1, 1, 0}
