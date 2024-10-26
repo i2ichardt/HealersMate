@@ -24,6 +24,9 @@ SlashCmdList["HEALERSMATE"] = function(args)
             group:UpdateUIPositions()
         end
         return
+    elseif args == "testui" then
+        HMOptions.TestUI = not HMOptions.TestUI
+        ReloadUI()
     end
 
     local container = HealersMateSettings.HM_SettingsContainer
@@ -520,6 +523,8 @@ end
 
 local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
+
+    TestUI = HMOptions.TestUI
 
     local freshInstall = false
     if HMSpells == nil then

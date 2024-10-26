@@ -77,6 +77,7 @@ function HealersMateSettings.SetDefaults()
                 ["InParty"] = false,
                 ["InRaid"] = false
             },
+            ["TestUI"] = false,
             ["OptionsVersion"] = 1
         }
     
