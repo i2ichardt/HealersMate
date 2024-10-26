@@ -506,11 +506,11 @@ local function createUIGroup(groupName, environment, units, petGroup, profile)
 end
 
 local function initUIs()
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, HMDefaultProfiles["Party Default"])
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, HMDefaultProfiles["Pets Default"])
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, HMDefaultProfiles["Raid Default"])
-    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, HMDefaultProfiles["Raid Pets Default"])
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, HMDefaultProfiles["Target Default"])
+    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, HMDefaultProfiles["Party"])
+    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, HMDefaultProfiles["Pets"])
+    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, HMDefaultProfiles["Raid"])
+    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, HMDefaultProfiles["Raid Pets"])
+    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, HMDefaultProfiles["Target"])
 
     HealUIGroups["Target"].ShowCondition = function(self)
         return UnitExists("target")

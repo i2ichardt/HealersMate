@@ -20,16 +20,10 @@ function InitializeDefaultProfiles()
     -- Master default profile
     HMDefaultProfiles["Default"] = HMUIProfile:New()
 
-    -- Party profile
+    -- Small profile
     do
         local profile = HMUIProfile:New(GetProfile("Default"))
-        HMDefaultProfiles["Party Default"] = profile
-    end
-
-    -- Pets profile
-    do
-        local profile = HMUIProfile:New(GetProfile("Party Default"))
-        HMDefaultProfiles["Pets Default"] = profile
+        HMDefaultProfiles["Small Default"] = profile
 
         profile.Width = 120
         profile.HealthBarHeight = 16
@@ -43,16 +37,10 @@ function InitializeDefaultProfiles()
         profile.PowerText.FontSize = 8
     end
 
-    -- Target profile
+    -- Compact profile
     do
-        local profile = HMUIProfile:New(GetProfile("Party Default"))
-        HMDefaultProfiles["Target Default"] = profile
-    end
-
-    -- Raid profile
-    do
-        local profile = HMUIProfile:New(GetProfile("Party Default"))
-        HMDefaultProfiles["Raid Default"] = profile
+        local profile = HMUIProfile:New(GetProfile("Default"))
+        HMDefaultProfiles["Compact Default"] = profile
 
         profile.Width = 67
         profile.HealthBarHeight = 28
@@ -95,12 +83,6 @@ function InitializeDefaultProfiles()
         profile.MaxUnitsInAxis = 5
     end
 
-    -- Raid pets profile
-    do
-        local profile = HMUIProfile:New(GetProfile("Raid Default"))
-        HMDefaultProfiles["Raid Pets Default"] = profile
-    end
-
     -- Legacy profile - Meant to look as close as possible to HealersMate 1.3.0
     do
         local profile = HMUIProfile:New(GetProfile("Party Default"))
@@ -125,4 +107,10 @@ function InitializeDefaultProfiles()
 
         profile.BorderStyle = "Hidden"
     end
+
+    HMDefaultProfiles["Party"] = HMUIProfile:New(GetProfile("Default"))
+    HMDefaultProfiles["Pets"] = HMUIProfile:New(GetProfile("Small Default"))
+    HMDefaultProfiles["Raid"] = HMUIProfile:New(GetProfile("Compact Default"))
+    HMDefaultProfiles["Raid Pets"] = HMUIProfile:New(GetProfile("Compact Default"))
+    HMDefaultProfiles["Target"] = HMUIProfile:New(GetProfile("Default"))
 end
