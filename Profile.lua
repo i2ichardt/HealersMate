@@ -44,6 +44,18 @@ function HMUIProfile.CreatePositionedObject()
     obj.GetAlpha = function(self)
         return self.Opacity / 100
     end
+    obj.GetAnchorComponent = function(self, ui)
+        local anchorName = self.Anchor
+        if anchorName == "Health Bar" then
+            return ui.healthBar
+        elseif anchorName == "Power Bar" then
+            return ui.powerBar
+        elseif anchorName == "Button" then
+            return ui.button
+        elseif anchorName == "Container" then
+            return ui.container
+        end
+    end
     obj.ApplyPredefined = function(self, predefined)
         if predefined then
             for key, value in pairs(predefined) do
@@ -71,7 +83,7 @@ function HMUIProfile.CreateTextObject(predefined)
 end
 
 function HMUIProfile:GetHeight()
-    local totalHeight = self.HealthBarHeight + self.PowerBarHeight + self.TrackedAurasHeight + self.BarsOffsetY
+    local totalHeight = self.HealthBarHeight + self.PowerBarHeight + self.PaddingTop + self.PaddingBottom
     return totalHeight
 end
 
@@ -85,9 +97,13 @@ function HMUIProfile.SetDefaults()
 
     profile.BarsOffsetY = 0
 
+    profile.PaddingTop = 0
+    profile.PaddingBottom = 20
+
     profile.HealthBarHeight = 24
     profile.HealthBarColor = "Green To Red" -- "Class", "Green", "Green To Red"
-    profile.HealthBarStyle = "HealersMate" -- "Blizzard", "Blizzard Raid"
+    profile.EnemyHealthBarColor = "Green"
+    profile.HealthBarStyle = "HealersMate" -- "Blizzard", "Blizzard Raid", "HealersMate"
 
     profile.HealthDisplay = "Health" -- "Health", "Health/Max Health", "% Health", "Hidden"
     profile.MissingHealthDisplay = "-Health" -- "Hidden", "-Health", "-% Health"
@@ -153,8 +169,17 @@ function HMUIProfile.SetDefaults()
     })
 
     profile.TrackAuras = true
-    profile.TrackedAurasHeight = 20
+    profile.AuraTracker = createSizedObject({
+        ["Height"] = 20,
+        ["Width"] = "Anchor",
+        ["AlignmentH"] = "CENTER",
+        ["AlignmentV"] = "BOTTOM",
+        ["PaddingH"] = 0,
+        ["PaddingV"] = 0,
+        ["Anchor"] = "Container"
+    })
     profile.TrackedAurasSpacing = 2
+    profile.TrackedAurasAlignment = "TOP"
 
     profile.MaxUnitsInAxis = 5
     profile.Orientation = "Vertical" --"Vertical", "Horizontal"

@@ -10,10 +10,8 @@ SlashCmdList["HEALERSMATE"] = function(args)
         HealersMateSettings.HM_SettingsContainer:ClearAllPoints()
         HealersMateSettings.HM_SettingsContainer:SetPoint("CENTER", 0, 0)
         DEFAULT_CHAT_FRAME:AddMessage("Reset all frame positions.")
-        return
     elseif args == "check" then
         HealersMate.CheckGroup()
-        return
     elseif args == "update" then
         for _, ui in pairs(HealersMate.HealUIs) do
             ui:SizeElements()
@@ -23,21 +21,27 @@ SlashCmdList["HEALERSMATE"] = function(args)
             group:ApplyProfile()
             group:UpdateUIPositions()
         end
-        return
     elseif args == "testui" then
         HMOptions.TestUI = not HMOptions.TestUI
         ReloadUI()
-    end
-
-    local container = HealersMateSettings.HM_SettingsContainer
-    if container then
-        if container:IsVisible() then
-            container:Hide()
+    elseif args == "help" or args == "?" then
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm", 0, 0.8, 0).." -- Opens the addon configuration")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm reset", 0, 0.8, 0).." -- Resets all heal frame positions")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm testui", 0, 0.8, 0)..
+            " -- Toggles fake players to see how the UI would look")
+    elseif args == "" then
+        local container = HealersMateSettings.HM_SettingsContainer
+        if container then
+            if container:IsVisible() then
+                container:Hide()
+            else
+                container:Show()
+            end
         else
-            container:Show()
+            DEFAULT_CHAT_FRAME:AddMessage("HM_SettingsContainer frame not found.")
         end
     else
-        DEFAULT_CHAT_FRAME:AddMessage("HM_SettingsContainer frame not found.")
+        DEFAULT_CHAT_FRAME:AddMessage("Unknown subcommand. See usage with /hm help")
     end
 end
 
@@ -133,6 +137,8 @@ ResurrectionSpells = {
     ["SHAMAN"] = "Ancestral Spirit",
     ["DRUID"] = "Rebirth"
 }
+
+GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
 
 CurrentlyHeldButton = nil
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
@@ -524,8 +530,6 @@ end
 local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
 
-    TestUI = HMOptions.TestUI
-
     local freshInstall = false
     if HMSpells == nil then
         freshInstall = true
@@ -547,6 +551,8 @@ function EventAddonLoaded()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
     HealersMateSettings.InitSettings()
+
+    TestUI = HMOptions.TestUI
 
     initUIs()
 

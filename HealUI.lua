@@ -261,6 +261,7 @@ function HealUI:UpdateHealth()
     if not UnitIsConnected(unit) and (not fake or not fakeOnline) then
         self.nameText:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
         self.healthText:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
+        self.missingHealthText:SetText("")
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
         self:UpdateOpacity()
@@ -326,7 +327,7 @@ function HealUI:UpdateHealth()
 
             if profile.MissingHealthInline then
                 if text ~= "" then
-                    text = text.." ("..missingHealthStr..")"
+                    text = text..self.GetColorizedText(profile.HealthTexts.Missing.Color, nil, " ("..missingHealthStr..")")
                 end
             else
                 missingText = self.GetColorizedText(profile.HealthTexts.Missing.Color, nil, missingHealthStr)
@@ -375,7 +376,13 @@ function HealUI:UpdatePower()
 end
 
 function HealUI:AllocateAura()
-    local frame = CreateFrame("Frame", nil, self.auraPanel)
+    local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
+    frame:SetNormalTexture(nil)
+    frame:SetHighlightTexture(nil)
+    frame:SetPushedTexture(nil)
+    frame:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
+    frame:EnableMouse(true)
+    
     local icon = frame:CreateTexture(nil, "OVERLAY")
     local stackText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     stackText:SetTextColor(1, 1, 1)
@@ -481,8 +488,9 @@ function HealUI:UpdateAuras()
         util.AppendArrayElements(debuffs, typedDebuffs)
     end
 
-    local width = self:GetWidth()
-    local auraSize = profile.TrackedAurasHeight
+    local auraTrackerProps = profile.AuraTracker
+    local width = auraTrackerProps.Width == "Anchor" and auraTrackerProps:GetAnchorComponent(self):GetWidth() or auraTrackerProps.Width
+    local auraSize = auraTrackerProps.Height
     local origSize = auraSize
     local spacing = profile.TrackedAurasSpacing
     local origSpacing = spacing
@@ -495,34 +503,48 @@ function HealUI:UpdateAuras()
     end
 
     local xOffset = 0
+    local yOffset = profile.TrackedAurasAlignment == "TOP" and 0 or origSize - auraSize
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, "Buff", auraSize)
+        self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
         xOffset = xOffset + auraSize + spacing
     end
     xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, "Debuff", auraSize)
+        self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
+    end
+
+    -- Prevent lingering tooltips when the icon is removed or is changed to a different aura
+    if not HM.GameTooltip.OwningFrame or not HM.GameTooltip.OwningFrame:IsShown() or 
+            HM.GameTooltip.IconTexture ~= HM.GameTooltip.OwningIcon:GetTexture() then
+        HM.GameTooltip:Hide()
     end
 end
 
-function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, type, size)
+function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, type, size)
     local unit = self.unit
 
     local frame = aura.frame
     frame:SetWidth(size)
     frame:SetHeight(size)
-    frame:SetPoint(type == "Buff" and "TOPLEFT" or "TOPRIGHT", xOffset, 0)
+    frame:SetPoint(type == "Buff" and "TOPLEFT" or "TOPRIGHT", xOffset, yOffset)
     frame:Show()
 
     local icon = aura.icon
     icon:SetAllPoints(frame)
     icon:SetTexture(texturePath)
     --icon:SetVertexColor(1, 0, 0)
-    
-    frame:EnableMouse(true)
+
+    -- Creates a function that checks if the mouse is over the UI's button and calls the script if so
+    local wrapScript = function(scriptName)
+        return function()
+            if MouseIsOver(self.button) then
+                self.button:GetScript(scriptName)()
+            end
+        end
+    end
     
     -- TODO: Use SuperWoW to use buff IDs instead of textures
     frame:SetScript("OnEnter", function()
@@ -538,16 +560,32 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, type, size
             end
             if auraFunc(unit, i) == texture then
                 HM.GameTooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
+                HM.GameTooltip.OwningFrame = frame
+                HM.GameTooltip.OwningIcon = icon
+                HM.GameTooltip.IconTexture = texture
                 tooltipSetAuraFunc(HM.GameTooltip, unit, i)
                 HM.GameTooltip:Show()
                 break
             end
         end
+
+        wrapScript("OnEnter")()
     end)
     
     frame:SetScript("OnLeave", function()
         HM.GameTooltip:Hide()
+        HM.GameTooltip.OwningFrame = nil
+        HM.GameTooltip.OwningIcon = nil
+        HM.GameTooltip.IconTexture = nil
+        -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
+        self.button:GetScript("OnLeave")()
     end)
+
+    frame:SetScript("OnClick", wrapScript("OnClick"))
+
+    frame:SetScript("OnMouseUp", wrapScript("OnMouseUp"))
+
+    frame:SetScript("OnMouseDown", wrapScript("OnMouseDown"))
     
     if stacks > 1 then
         local stackText = aura.stackText
@@ -578,7 +616,7 @@ function HealUI:Initialize()
 
     local overlayContainer = CreateFrame("Frame", unit.."HealOverlayContainer", rootContainer)
     self.overlayContainer = overlayContainer
-    overlayContainer:SetFrameLevel(container:GetFrameLevel() + 1)
+    overlayContainer:SetFrameLevel(container:GetFrameLevel() + 5)
     overlayContainer:SetAllPoints(rootContainer)
 
     -- Distance Text
@@ -588,6 +626,7 @@ function HealUI:Initialize()
     distanceText:SetAlpha(profile.RangeText:GetAlpha())
 
     local losFrame = CreateFrame("Frame", nil, container)
+    losFrame:SetFrameLevel(container:GetFrameLevel() + 3)
     local losIcon = losFrame:CreateTexture(nil, "OVERLAY")
     self.lineOfSightIcon = {frame = losFrame, icon = losIcon}
     losIcon:SetTexture("Interface\\Icons\\Spell_nature_sleep")
@@ -614,7 +653,8 @@ function HealUI:Initialize()
     bg:SetTexture(0.5, 0.5, 0.5, 0.25) -- set color to light gray with high transparency
 
     local origSetValue = healthBar.SetValue
-    local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
+    --local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
+    local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
     healthBar.SetValue = function(healthBarSelf, value)
         origSetValue(healthBarSelf, value)
         local rgb
@@ -643,16 +683,17 @@ function HealUI:Initialize()
         end
         
         if rgb == nil then -- If there's no debuff color, proceed to normal colors
-            if profile.HealthBarColor == "Class" then
+            local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
+            if hbc == "Class" then
                 local _, class = UnitClass(unit)
                 if class == nil then
                     class = self.fakeStats.class
                 end
                 local r, g, b = util.GetClassColor(class)
                 rgb = {r, g, b}
-            elseif profile.HealthBarColor == "Green" then
-                rgb = {0, 0.753, 0}
-            elseif profile.HealthBarColor == "Green To Red" then
+            elseif hbc == "Green" then
+                rgb = {0, 0.8, 0}
+            elseif hbc == "Green To Red" then
                 rgb = util.InterpolateColors(greenToRedColors, value)
             end
         end
@@ -694,6 +735,11 @@ function HealUI:Initialize()
     local healthText = button:GetFontString()
     self.healthText = healthText
     healthText:ClearAllPoints()
+
+
+    healthText = healthBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    self.healthText = healthText
+
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
     button:SetScript("OnClick", function()
         local buttonType = arg1
@@ -722,6 +768,7 @@ function HealUI:Initialize()
 
     local buffPanel = CreateFrame("Frame", unit.."BuffPanel", container)
     self.auraPanel = buffPanel
+    buffPanel:SetFrameLevel(container:GetFrameLevel() + 2)
 
     --[[
     local scrollingDamageFrame = CreateFrame("Frame", unit.."ScrollingDamageFrame", container)
@@ -766,7 +813,7 @@ function HealUI:SizeElements()
     local healthBar = self.healthBar
     healthBar:SetWidth(width)
     healthBar:SetHeight(healthBarHeight)
-    healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.BarsOffsetY)
+    healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
 
     local powerBar = self.powerBar
     powerBar:SetWidth(width)
@@ -796,9 +843,7 @@ function HealUI:SizeElements()
     losIcon:SetAllPoints(losFrame)
 
     local auraPanel = self.auraPanel
-    auraPanel:SetWidth(width)
-    auraPanel:SetHeight(profile.TrackedAurasHeight)
-    auraPanel:SetPoint("TOPLEFT", powerBar, "BOTTOMLEFT", 0, 0)
+    self:UpdateComponent(auraPanel, profile.AuraTracker)
 
     rootContainer:SetHeight(self:GetHeight())
     overlayContainer:SetHeight(self:GetHeight())
@@ -835,30 +880,20 @@ local alignmentAnchorMap = {
     }
 }
 function HealUI:UpdateComponent(component, props)
-    local anchor
-    local anchorName = props.Anchor
-    if anchorName == "Health Bar" then
-        anchor = self.healthBar
-    elseif anchorName == "Power Bar" then
-        anchor = self.powerBar
-    elseif anchorName == "Button" then
-        anchor = self.button
-    elseif anchorName == "Container" then
-        anchor = self.container
-    end
+    local anchor = props:GetAnchorComponent(self)
 
     component:ClearAllPoints()
     if component.SetFont then -- Must be a FontString
         component:SetWidth(math.min(props.MaxWidth, anchor:GetWidth()))
-        component:SetHeight(anchor:GetHeight())
+        component:SetHeight(props.FontSize * 1.25)
         component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, "GameFontNormal")
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
-        local alignment = alignmentAnchorMap[props.AlignmentH]["TOP"]
+        local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
         component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
     else
-        component:SetWidth(props.Width)
-        component:SetHeight(props.Height)
+        component:SetWidth(props.Width == "Anchor" and anchor:GetWidth() or props.Width)
+        component:SetHeight(props.Height == "Anchor" and anchor:GetHeight() or props.Height)
         local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
         component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
     end

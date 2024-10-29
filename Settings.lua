@@ -103,9 +103,18 @@ TrackedDebuffs = nil -- Default tracked is variable based on class
 TrackedDebuffTypes = {} -- Default tracked is variable based on class
 
 do
-    local defaultTrackedBuffs = {"First Aid", "Blessing of Protection", "Divine Protection", "Divine Shield", 
-        "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Frenzied Regeneration", 
-        "Soulstone Resurrection", "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
+    -- Tracked buffs for all classes
+    local defaultTrackedBuffs = {
+        "Blessing of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+        "Power Infusion", "Spirit of Redemption", -- Priest
+        "Shield Wall", -- Warrior
+        "Evasion", "Vanish", -- Rogue
+        "Deterrence", "Feign Death", "Mend Pet", -- Hunter
+        "Frenzied Regeneration", "Innervate", -- Druid
+        "Soulstone Resurrection", "Hellfire Effect", -- Warlock
+        "Quel'dorei Meditation", -- Racial
+        "First Aid", "Food", "Drink" -- Generic
+    }
     -- Tracked buffs for specific classes
     local defaultClassTrackedBuffs = {
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
@@ -113,16 +122,26 @@ do
             "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
             "Blessing of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
-            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Fear Ward", "Inner Fire", 
-            "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", "Spirit Tap"},
-        ["DRUID"] = {"Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"}
+            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Empower Champion", "Fear Ward", 
+            "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", 
+            "Spirit Tap"},
+        ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
+        ["SHAMAN"] = {"Water Walking"},
+        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
+        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward"},
+        ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
+            "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
     }
     local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
     util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
     trackedBuffs = util.ToSet(trackedBuffs, true)
 
     -- Tracked debuffs for all classes
-    local defaultTrackedDebuffs = {"Forbearance", "Recently Bandaged", "Resurrection Sickness", "Ghost", "Blood Fury"}
+    local defaultTrackedDebuffs = {
+        "Forbearance", -- Paladin
+        "Blood Fury", -- Racial
+        "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
+    }
     -- Tracked debuffs for specific classes
     local defaultClassTrackedDebuffs = {
         ["PRIEST"] = {"Weakened Soul"}

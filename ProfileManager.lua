@@ -17,18 +17,20 @@ end
 function InitializeDefaultProfiles()
     HMUIProfile.SetDefaults()
 
-    -- Master default profile
-    HMDefaultProfiles["Default"] = HMUIProfile:New()
+    -- Master base profile
+    HMDefaultProfiles["Base"] = HMUIProfile:New()
 
-    -- Small profile
+    HMDefaultProfiles["Long"] = HMUIProfile:New(GetProfile("Base"))
+
     do
-        local profile = HMUIProfile:New(GetProfile("Default"))
-        HMDefaultProfiles["Small Default"] = profile
+        local profile = HMUIProfile:New(GetProfile("Base"))
+        HMDefaultProfiles["Long Compact"] = profile
 
         profile.Width = 120
         profile.HealthBarHeight = 16
         profile.PowerBarHeight = 8
-        profile.TrackedAurasHeight = 16
+        profile.PaddingBottom = 16
+        profile.AuraTracker.Height = 16
         profile.NameText.FontSize = 10
         local healthTexts = profile.HealthTexts
         healthTexts.Normal.FontSize = 10
@@ -37,65 +39,130 @@ function InitializeDefaultProfiles()
         profile.PowerText.FontSize = 8
     end
 
-    -- Compact profile
     do
-        local profile = HMUIProfile:New(GetProfile("Default"))
-        HMDefaultProfiles["Compact Default"] = profile
+        local profile = HMUIProfile:New(GetProfile("Base"))
+        HMDefaultProfiles["Long Integrated"] = profile
+        profile.HealthBarHeight = 35
+        profile.PaddingBottom = 0
+        profile.AuraTracker.Height = 17
+        profile.AuraTracker.Width = 105
+        profile.AuraTracker.Anchor = "Health Bar"
+        profile.AuraTracker.AlignmentH = "LEFT"
+        profile.TrackedAurasAlignment = "BOTTOM"
+
+        profile.NameText.AlignmentV = "TOP"
+        local healthTexts = profile.HealthTexts
+        healthTexts.Normal.AlignmentV = "TOP"
+        healthTexts.WithMissing = util.CloneTable(healthTexts.Normal, true)
+        healthTexts.Missing.PaddingV = 4
+    end
+
+    do
+        local profile = HMUIProfile:New(GetProfile("Base"))
+        HMDefaultProfiles["Raid"] = profile
 
         profile.Width = 67
-        profile.HealthBarHeight = 28
-        profile.HealthBarColor = "Class"
-        profile.NameText.FontSize = 12
+        profile.HealthBarHeight = 36
+        profile.NameText.FontSize = 11
         profile.NameText.AlignmentH = "CENTER"
         profile.NameText.AlignmentV = "TOP"
         profile.NameText.PaddingV = 1
-        profile.NameText.Color = {0.95, 0.95, 0.95}
         profile.PowerBarHeight = 6
-        profile.TrackedAurasHeight = 8
+        profile.PaddingBottom = 0
+        profile.AuraTracker.Height = 15
+        profile.AuraTracker.Anchor = "Health Bar"
+        profile.AuraTracker.AlignmentH = "LEFT"
+        profile.TrackedAurasAlignment = "BOTTOM"
+        profile.TrackedAurasSpacing = 1
+
         local healthTexts = profile.HealthTexts
         healthTexts.Normal.FontSize = 9
         healthTexts.Normal.AlignmentH = "CENTER"
-        healthTexts.Normal.AlignmentV = "BOTTOM"
-        healthTexts.Normal.PaddingV = 1
+        healthTexts.Normal.AlignmentV = "CENTER"
+        healthTexts.Normal.OffsetY = 2
         healthTexts.WithMissing.FontSize = 9
         healthTexts.WithMissing.AlignmentH = "LEFT"
-        healthTexts.WithMissing.AlignmentV = "BOTTOM"
-        healthTexts.WithMissing.PaddingV = 1
+        healthTexts.WithMissing.AlignmentV = "CENTER"
+        healthTexts.WithMissing.OffsetY = 2
         healthTexts.Missing.FontSize = 9
         healthTexts.Missing.AlignmentH = "RIGHT"
-        healthTexts.Missing.AlignmentV = "BOTTOM"
-        healthTexts.Missing.PaddingV = 1
-
+        healthTexts.Missing.AlignmentV = "CENTER"
+        healthTexts.Missing.OffsetY = 2
 
         profile.RangeText.AlignmentV = "CENTER"
-        profile.RangeText.FontSize = 7
+        profile.RangeText.OffsetY = -6
+        profile.RangeText.FontSize = 8
         profile.LineOfSightIcon.Width = 20
         profile.LineOfSightIcon.Height = 20
+        profile.LineOfSightIcon.Anchor = "Health Bar"
         profile.LineOfSightIcon.Opacity = 70
         profile.HealthDisplay = "Health"
         profile.MissingHealthDisplay = "-Health"
         profile.PowerDisplay = "Hidden"
         profile.PowerText.FontSize = 8
-        profile.Orientation = "Vertical"
-        profile.SplitRaidIntoGroups = true
-        profile.SortUnitsBy = "ID"
-        profile.AlertPercent = 100
-        profile.MaxUnitsInAxis = 5
+    end
+
+    do
+        local profile = HMUIProfile:New(GetProfile("Base"))
+        HMDefaultProfiles["Integrated"] = profile
+
+        profile.Width = 100
+        profile.HealthBarHeight = 36
+        profile.PowerBarHeight = 9
+        profile.NameText.FontSize = 11
+        profile.NameText.AlignmentH = "CENTER"
+        profile.NameText.AlignmentV = "TOP"
+        profile.NameText.PaddingV = 1
+        profile.PaddingBottom = 0
+        profile.AuraTracker.Height = 14
+        profile.AuraTracker.Anchor = "Health Bar"
+        profile.AuraTracker.AlignmentH = "LEFT"
+        profile.TrackedAurasAlignment = "BOTTOM"
+        profile.TrackedAurasSpacing = 1
+
+        local healthTexts = profile.HealthTexts
+        healthTexts.Normal.FontSize = 11
+        healthTexts.Normal.AlignmentH = "CENTER"
+        healthTexts.Normal.AlignmentV = "CENTER"
+        healthTexts.Normal.OffsetY = 2
+        healthTexts.WithMissing.FontSize = 11
+        healthTexts.WithMissing.AlignmentH = "LEFT"
+        healthTexts.WithMissing.AlignmentV = "CENTER"
+        healthTexts.WithMissing.OffsetY = 2
+        healthTexts.WithMissing.PaddingH = 8
+        healthTexts.Missing.FontSize = 11
+        healthTexts.Missing.AlignmentH = "RIGHT"
+        healthTexts.Missing.AlignmentV = "CENTER"
+        healthTexts.Missing.OffsetY = 2
+        healthTexts.Missing.PaddingH = 8
+
+        profile.RangeText.AlignmentV = "CENTER"
+        profile.RangeText.OffsetY = -7
+        profile.RangeText.FontSize = 9
+        profile.LineOfSightIcon.Width = 20
+        profile.LineOfSightIcon.Height = 20
+        profile.LineOfSightIcon.Anchor = "Health Bar"
+        profile.LineOfSightIcon.Opacity = 80
+        profile.HealthDisplay = "Health"
+        profile.MissingHealthDisplay = "-Health"
+        profile.PowerText.FontSize = 8
+        profile.PowerText.AlignmentH = "CENTER"
     end
 
     -- Legacy profile - Meant to look as close as possible to HealersMate 1.3.0
     do
-        local profile = HMUIProfile:New(GetProfile("Party Default"))
+        local profile = HMUIProfile:New(GetProfile("Base"))
         HMDefaultProfiles["Legacy"] = profile
 
         profile.Width = 200
 
-        profile.BarsOffsetY = 20
+        profile.PaddingTop = 20
 
         profile.MissingHealthInline = true
         profile.HealthBarHeight = 25
         profile.HealthBarStyle = "Blizzard"
         profile.PowerBarHeight = 5
+        profile.PowerBarStyle = "Blizzard"
 
         profile.NameText.AlignmentH = "LEFT"
         profile.NameText.AlignmentV = "TOP"
@@ -108,9 +175,9 @@ function InitializeDefaultProfiles()
         profile.BorderStyle = "Hidden"
     end
 
-    HMDefaultProfiles["Party"] = HMUIProfile:New(GetProfile("Default"))
-    HMDefaultProfiles["Pets"] = HMUIProfile:New(GetProfile("Small Default"))
-    HMDefaultProfiles["Raid"] = HMUIProfile:New(GetProfile("Compact Default"))
-    HMDefaultProfiles["Raid Pets"] = HMUIProfile:New(GetProfile("Compact Default"))
-    HMDefaultProfiles["Target"] = HMUIProfile:New(GetProfile("Default"))
+    HMDefaultProfiles["Party"] = HMUIProfile:New(GetProfile("Integrated"))
+    HMDefaultProfiles["Pets"] = HMUIProfile:New(GetProfile("Integrated"))
+    HMDefaultProfiles["Raid"] = HMUIProfile:New(GetProfile("Raid"))
+    HMDefaultProfiles["Raid Pets"] = HMUIProfile:New(GetProfile("Raid"))
+    HMDefaultProfiles["Target"] = HMUIProfile:New(GetProfile("Long"))
 end
