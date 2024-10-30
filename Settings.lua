@@ -367,14 +367,64 @@ function InitSettings()
     CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
     CheckboxAutoTargetLabel:SetText("Auto Target:")
 
-    local CheckboxFriendly = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
-    CheckboxFriendly:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
-    CheckboxFriendly:SetWidth(20) -- width
-    CheckboxFriendly:SetHeight(20) -- height
-    CheckboxFriendly:SetChecked(HMOptions.AutoTarget)
-    CheckboxFriendly:SetScript("OnClick", function()
-        HMOptions.AutoTarget = CheckboxFriendly:GetChecked() == 1
+    local CheckboxAutoTarget = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
+    CheckboxAutoTarget:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
+    CheckboxAutoTarget:SetWidth(20) -- width
+    CheckboxAutoTarget:SetHeight(20) -- height
+    CheckboxAutoTarget:SetChecked(HMOptions.AutoTarget)
+    CheckboxAutoTarget:SetScript("OnClick", function()
+        HMOptions.AutoTarget = CheckboxAutoTarget:GetChecked() == 1
     end)
+
+    do
+        local CheckboxMoveAllLabel = optionsFrame:CreateFontString("$parentMoveAllLabel", "OVERLAY", "GameFontNormal")
+        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -90)
+        CheckboxMoveAllLabel:SetText("Drag All Frames:")
+
+        local CheckboxMoveAll = CreateFrame("CheckButton", "$parentMoveAll", optionsFrame, "UICheckButtonTemplate")
+        CheckboxMoveAll:SetPoint("LEFT", CheckboxMoveAllLabel, "RIGHT", 5, -2)
+        CheckboxMoveAll:SetWidth(20)
+        CheckboxMoveAll:SetHeight(20)
+        CheckboxMoveAll:SetChecked(HMOptions.FrameDrag.MoveAll)
+        CheckboxMoveAll:SetScript("OnClick", function()
+            HMOptions.FrameDrag.MoveAll = CheckboxMoveAll:GetChecked() == 1
+        end)
+
+
+
+        local inverseKeyDropdown = CreateFrame("Frame", "$parentMoveAllInverseKeyDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        inverseKeyDropdown:Show()
+        inverseKeyDropdown:SetPoint("TOP", 40, -80)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", inverseKeyDropdown, "RIGHT", -30, 5)
+        label:SetText("Inverse Key:")
+
+        local keys = {"Shift", "Control", "Alt"}
+        local options = {}
+
+        for _, key in ipairs(keys) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(inverseKeyDropdown, targetArg, false)
+                    HMOptions.FrameDrag.AltMoveKey = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(inverseKeyDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(inverseKeyDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(inverseKeyDropdown, HMOptions.FrameDrag.AltMoveKey, false)
+            end
+        end)
+    end
+
 
 
     local soonTM = optionsFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
