@@ -258,6 +258,31 @@ function GetKeyModifier()
     return modifier
 end
 
+local buttons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
+function GetAllButtons()
+    return buttons
+end
+
+local upButtons = {}
+for _, button in ipairs(buttons) do
+    table.insert(upButtons, button.."Up")
+end
+function GetUpButtons()
+    return upButtons
+end
+
+local downButtons = {}
+for _, button in ipairs(buttons) do
+    table.insert(downButtons, button.."Down")
+end
+function GetDownButtons()
+    return downButtons
+end
+
+function GetCenterScreenPoint(componentWidth, componentHeight)
+    return "TOPLEFT", (GetScreenWidth() / 2) - (componentWidth / 2), -((GetScreenHeight() / 2) - (componentHeight / 2))
+end
+
 function GetPowerType(unit)
     return PowerTypeMap[UnitPowerType(unit)]
 end

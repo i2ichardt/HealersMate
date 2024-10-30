@@ -5,7 +5,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
         for _, group in pairs(HealersMate.HealUIGroups) do
             local gc = group:GetContainer()
             gc:ClearAllPoints()
-            gc:SetPoint("TOPLEFT", (GetScreenWidth() / 2) - (gc:GetWidth() / 2),-((GetScreenHeight() / 2) - (gc:GetHeight())))
+            gc:SetPoint(HMUtil.GetCenterScreenPoint(gc:GetWidth(), gc:GetHeight()))
         end
         HealersMateSettings.HM_SettingsContainer:ClearAllPoints()
         HealersMateSettings.HM_SettingsContainer:SetPoint("CENTER", 0, 0)

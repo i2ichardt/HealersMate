@@ -77,6 +77,7 @@ function HealersMateSettings.SetDefaults()
                 ["InParty"] = false,
                 ["InRaid"] = false
             },
+            ["CastOn"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["TestUI"] = false,
             ["ChosenProfiles"] = {
                 ["Party"] = "Compact",
@@ -377,8 +378,45 @@ function InitSettings()
     end)
 
     do
+        local castOnDropdown = CreateFrame("Frame", "$parentCastOnDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        castOnDropdown:Show()
+        castOnDropdown:SetPoint("TOP", -65, -70)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", castOnDropdown, "RIGHT", -30, 5)
+        label:SetText("Cast On:")
+
+        local states = {"Mouse Up", "Mouse Down"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(castOnDropdown, targetArg, false)
+                    HMOptions.CastOn = targetArg
+                    for _, ui in pairs(HealersMate.HealUIs) do
+                        ui:RegisterClicks()
+                    end
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(castOnDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(castOnDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(castOnDropdown, HMOptions.CastOn, false)
+            end
+        end)
+    end
+
+    do
         local CheckboxMoveAllLabel = optionsFrame:CreateFontString("$parentMoveAllLabel", "OVERLAY", "GameFontNormal")
-        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -90)
+        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -110)
         CheckboxMoveAllLabel:SetText("Drag All Frames:")
 
         local CheckboxMoveAll = CreateFrame("CheckButton", "$parentMoveAll", optionsFrame, "UICheckButtonTemplate")
@@ -394,7 +432,7 @@ function InitSettings()
 
         local inverseKeyDropdown = CreateFrame("Frame", "$parentMoveAllInverseKeyDropdown", optionsFrame, "UIDropDownMenuTemplate")
         inverseKeyDropdown:Show()
-        inverseKeyDropdown:SetPoint("TOP", 40, -80)
+        inverseKeyDropdown:SetPoint("TOP", 40, -100)
 
         local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", inverseKeyDropdown, "RIGHT", -30, 5)

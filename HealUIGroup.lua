@@ -74,7 +74,9 @@ function HealUIGroup:Initialize()
     local container = CreateFrame("Frame", self.name.."HealUIGroupContainer", UIParent) --type, name, parent
     self.container = container
     container:SetToplevel(true)
-    container:SetPoint("CENTER", 0, 0) -- position it at the center of the screen
+    if container:GetNumPoints() == 0 then
+        container:SetPoint(util.GetCenterScreenPoint(0, 0))
+    end
     container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"}) -- set a light gray background
     container:SetBackdropColor(0, 0, 0, 0.5)
     container:EnableMouse(true)

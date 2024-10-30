@@ -126,6 +126,17 @@ function HealUI:SetOwningGroup(group)
     self:GetRootContainer():SetParent(group:GetContainer())
 end
 
+function HealUI:RegisterClicks()
+    local buttons = HMOptions.CastOn == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
+    self.button:RegisterForClicks(unpack(buttons))
+    for _, aura in ipairs(self.auraIcons) do
+        aura.frame:RegisterForClicks(unpack(buttons))
+    end
+    for _, aura in ipairs(self.auraIconPool) do
+        aura.frame:RegisterForClicks(unpack(buttons))
+    end
+end
+
 function HealUI:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
@@ -396,7 +407,8 @@ function HealUI:AllocateAura()
     frame:SetNormalTexture(nil)
     frame:SetHighlightTexture(nil)
     frame:SetPushedTexture(nil)
-    frame:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
+    local buttons = HMOptions.CastOn == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
+    frame:RegisterForClicks(unpack(buttons))
     frame:EnableMouse(true)
     
     local icon = frame:CreateTexture(nil, "OVERLAY")
@@ -750,7 +762,7 @@ function HealUI:Initialize()
     healthText = healthBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     self.healthText = healthText
 
-    button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
+    self:RegisterClicks()
     button:SetScript("OnClick", function()
         local buttonType = arg1
         HM.ClickHandler(buttonType, unit)
