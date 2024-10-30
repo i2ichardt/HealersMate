@@ -232,14 +232,28 @@ function IsDeadFriend(unit)
     return (UnitIsDead(unit) or UnitIsCorpse(unit)) and UnitIsFriend("player", unit) and not IsFeigning(unit)
 end
 
+local keyModifiers = {"None", "Shift", "Control", "Alt", "Shift+Control", "Shift+Alt", "Control+Alt", "Shift+Control+Alt"}
+function GetKeyModifiers()
+    return keyModifiers
+end
+
 function GetKeyModifier()
-    local modifier = "None"
-    if IsShiftKeyDown() then
-        modifier = "Shift"
-    elseif IsControlKeyDown() then
-        modifier = "Control"
-    elseif IsAltKeyDown() then
-        modifier = "Alt"
+    local modifier = IsShiftKeyDown() and "Shift" or ""
+    if IsControlKeyDown() then
+        if modifier ~= "" then
+            modifier = modifier.."+"
+        end
+        modifier = modifier.."Control"
+    end
+    if IsAltKeyDown() then
+        if modifier ~= "" then
+            modifier = modifier.."+"
+        end
+        modifier = modifier.."Alt"
+    end
+
+    if modifier == "" then
+        return "None"
     end
     return modifier
 end

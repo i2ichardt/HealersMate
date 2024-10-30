@@ -533,7 +533,6 @@ local function initUIs()
     HealUIGroups["Target"]:Hide()
 end
 
-local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
     local freshInstall = false
     if HMSpells == nil then
@@ -545,7 +544,7 @@ function EventAddonLoaded()
     end
 
     for _, spells in pairs(HMSpells) do
-        for _, modifier in ipairs(keyModifiers) do
+        for _, modifier in ipairs(util.GetKeyModifiers()) do
             if not spells[modifier] then
                 spells[modifier] = {}
             end

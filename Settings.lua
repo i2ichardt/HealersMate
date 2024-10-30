@@ -594,7 +594,7 @@ function InitSettings()
     keyLabel:SetPoint("RIGHT", modifierDropdown, "RIGHT", -65, 5)
     keyLabel:SetText("Key:")
 
-    local modifiers = {"None", "Shift", "Control", "Alt"}
+    local modifiers = util.GetKeyModifiers()
     local orderedButtons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
     local readableButtonMap = {
         ["LeftButton"] = "Left",
