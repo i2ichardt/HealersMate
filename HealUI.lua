@@ -21,6 +21,9 @@ HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
 HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 HealUI.afflictedDebuffTypes = {} -- A set cache of debuff types currently on the player
 
+HealUI.hovered = false
+HealUI.pressed = false
+
 HealUI.distanceText = nil
 HealUI.lineOfSightIcon = nil -- map: {"frame", "icon"}
 
@@ -66,6 +69,14 @@ function HealUI.GenerateFakeStats()
     end
     local currentPower = math.random(1, maxPower)
 
+    local debuffType
+    local trackedDebuffCount = table.getn(HealersMateSettings.TrackedDebuffTypes)
+    if trackedDebuffCount > 0 then
+        if math.random(1, 10) == 1 then
+            debuffType = HealersMateSettings.TrackedDebuffTypes[math.random(trackedDebuffCount)]
+        end
+    end
+
     local online = not (math.random(10) == 1)
 
     local fakeStats = {
@@ -75,6 +86,7 @@ function HealUI.GenerateFakeStats()
         maxHealth = maxHealth,
         currentPower = currentPower,
         maxPower = maxPower,
+        debuffType = debuffType,
         online = online}
     return fakeStats
 end
@@ -313,6 +325,10 @@ function HealUI:UpdateHealth()
             text = currentHealth
         elseif profile.HealthDisplay == "% Health" then
             text = math.floor((currentHealth / maxHealth) * 100).."%"
+        end
+        
+        if self.hovered then
+            text = util.Colorize(text, 1, 1, 1)
         end
 
         local missingHealth = math.floor(maxHealth - currentHealth)
@@ -672,14 +688,8 @@ function HealUI:Initialize()
         end
 
         local fake = self:IsFake()
-        if fake then
-            local trackedDebuffCount = table.getn(HealersMateSettings.TrackedDebuffTypes)
-            if trackedDebuffCount > 0 then
-                if math.random(1, 10) == 1 then
-                    local fakeDebuffType = HealersMateSettings.TrackedDebuffTypes[math.random(trackedDebuffCount)]
-                    rgb = HealersMateSettings.DebuffTypeColors[fakeDebuffType]
-                end
-            end
+        if fake and self.fakeStats.debuffType then
+            rgb = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
         end
         
         if rgb == nil then -- If there's no debuff color, proceed to normal colors
@@ -749,15 +759,25 @@ function HealUI:Initialize()
         local buttonType = arg1
         HM.CurrentlyHeldButton = HealersMateSettings.CustomButtonNames[buttonType] or HM.ReadableButtonMap[buttonType]
         HM.ReapplySpellsTooltip()
+        self.pressed = true
+        self:AdjustHealthPosition()
     end)
     button:SetScript("OnMouseUp", function()
         HM.CurrentlyHeldButton = nil
         HM.ReapplySpellsTooltip()
+        self.pressed = false
+        self:AdjustHealthPosition()
     end)
     button:SetScript("OnEnter", function()
         HM.ApplySpellsTooltip(button, unit)
+        self.hovered = true
+        self:UpdateHealth()
     end)
-    button:SetScript("OnLeave", HM.HideSpellsTooltip)
+    button:SetScript("OnLeave", function()
+        HM.HideSpellsTooltip()
+        self.hovered = false
+        self:UpdateHealth()
+    end)
     button:EnableMouse(true)
 
     button:SetNormalTexture(nil)
@@ -858,8 +878,12 @@ function HealUI:AdjustHealthPosition()
         healthTexts.WithMissing or healthTexts.Normal
     local missingHealthTextProps = healthTexts.Missing
 
-    self:UpdateComponent(self.healthText, healthTextProps)
-    self:UpdateComponent(self.missingHealthText, missingHealthTextProps)
+    local xOffset, yOffset
+    if self.pressed then
+        xOffset, yOffset = 1, -1
+    end
+    self:UpdateComponent(self.healthText, healthTextProps, xOffset, yOffset)
+    self:UpdateComponent(self.missingHealthText, missingHealthTextProps, xOffset, yOffset)
 end
 
 local alignmentAnchorMap = {
@@ -879,7 +903,10 @@ local alignmentAnchorMap = {
         ["BOTTOM"] = "BOTTOMRIGHT",
     }
 }
-function HealUI:UpdateComponent(component, props)
+function HealUI:UpdateComponent(component, props, xOffset, yOffset)
+    xOffset = xOffset or 0
+    yOffset = yOffset or 0
+
     local anchor = props:GetAnchorComponent(self)
 
     component:ClearAllPoints()
@@ -890,12 +917,12 @@ function HealUI:UpdateComponent(component, props)
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
         local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
-        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
+        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
     else
         component:SetWidth(props.Width == "Anchor" and anchor:GetWidth() or props.Width)
         component:SetHeight(props.Height == "Anchor" and anchor:GetHeight() or props.Height)
         local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
-        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX(), props:GetOffsetY())
+        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
     end
 end
 
