@@ -85,6 +85,10 @@ function ArrayContains(table, value)
     return false
 end
 
+function RemoveElement(t, value)
+    table.remove(t, IndexOf(t, value))
+end
+
 function CloneTable(table, deep)
     local clone = {}
     for k, v in pairs(table) do

@@ -78,6 +78,13 @@ function HealersMateSettings.SetDefaults()
                 ["InRaid"] = false
             },
             ["TestUI"] = false,
+            ["ChosenProfiles"] = {
+                ["Party"] = "Compact",
+                ["Pets"] = "Compact",
+                ["Raid"] = "Compact (Small)",
+                ["Raid Pets"] = "Compact (Small)",
+                ["Target"] = "Long"
+            },
             ["OptionsVersion"] = 1
         }
     
@@ -111,7 +118,7 @@ do
         "Evasion", "Vanish", -- Rogue
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", -- Druid
-        "Soulstone Resurrection", "Hellfire Effect", -- Warlock
+        "Soulstone Resurrection", "Hellfire", -- Warlock
         "Quel'dorei Meditation", -- Racial
         "First Aid", "Food", "Drink" -- Generic
     }
@@ -139,6 +146,7 @@ do
     -- Tracked debuffs for all classes
     local defaultTrackedDebuffs = {
         "Forbearance", -- Paladin
+        "Death Wish", -- Warrior
         "Blood Fury", -- Racial
         "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
     }
@@ -180,8 +188,20 @@ DebuffTypeColors = {
 EditedSpells = {}
 SpellsContext = {}
 
+function GetSelectedProfileName(frame)
+    local selected = HMOptions.ChosenProfiles[frame]
+    if not HMDefaultProfiles[selected] then
+        selected = "Compact"
+    end
+    return selected
+end
 
-function HealersMateSettings.InitSettings()
+function GetSelectedProfile(frame)
+    return HMDefaultProfiles[GetSelectedProfileName(frame)]
+end
+
+
+function InitSettings()
     --Used too set custom tooltip information when you mouse over things; like in the settings checkboxes
     local MyTooltip = CreateFrame("GameTooltip", "HMSettingsInfoTooltip", UIParent, "GameTooltipTemplate")
 
@@ -363,22 +383,120 @@ function HealersMateSettings.InitSettings()
 
 
     local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
-    customizeScrollFrame:SetWidth(380) -- width
+    customizeScrollFrame:SetWidth(370) -- width
     customizeScrollFrame:SetHeight(380) -- height
     customizeScrollFrame:SetPoint("CENTER", container, "CENTER")
     customizeScrollFrame:Hide() -- Initially hidden
 
     local customizeFrame = CreateFrame("Frame", "$parentContent", customizeScrollFrame)
     addFrame("Customize", customizeScrollFrame)
-    customizeFrame:SetWidth(380 + 20) -- width
-    customizeFrame:SetHeight(420) -- height
+    customizeFrame:SetWidth(370 + 20) -- width
+    customizeFrame:SetHeight(360) -- height
     customizeFrame:SetPoint("CENTER", container, "CENTER")
 
     customizeScrollFrame:SetScrollChild(customizeFrame)
 
     local soonTM = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
     soonTM:SetPoint("CENTER", customizeFrame, "CENTER", 0, 0)
-    soonTM:SetText("Customization coming in future updates")
+    soonTM:SetText("Fully customizable frames coming in future updates")
+
+
+
+    do
+        frameDropdown = CreateFrame("Frame", "$parentFrameDropdown", customizeFrame, "UIDropDownMenuTemplate")
+        frameDropdown:Show()
+        frameDropdown:SetPoint("TOP", -35, 0)
+
+        local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", frameDropdown, "RIGHT", -65, 5)
+        label:SetText("Select Frame:")
+
+        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+        local targetOptions = {}
+
+        for _, target in ipairs(targets) do
+            table.insert(targetOptions, {
+                text = target,
+                arg1 = target,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(frameDropdown, targetArg, false)
+                    if profileDropdown then
+                        -- Set the profile option. Why do you gotta do it like this? I don't know.
+                        profileDropdown.selectedName = GetSelectedProfileName(targetArg)
+                        UIDropDownMenu_SetText(GetSelectedProfileName(targetArg), profileDropdown)
+                    end
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(frameDropdown, function(self, level)
+            for _, targetOption in ipairs(targetOptions) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(frameDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(frameDropdown, targets[1], false)
+            end
+        end)
+    end
+
+
+    do
+        profileDropdown = CreateFrame("Frame", "$parentProfileDropdown", customizeFrame, "UIDropDownMenuTemplate")
+        profileDropdown:Show()
+        profileDropdown:SetPoint("TOP", -35, -30)
+
+        local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", profileDropdown, "RIGHT", -65, 5)
+        label:SetText("Choose Style:")
+
+        local targets = util.ToArray(HMDefaultProfiles)
+        util.RemoveElement(targets, "Base")
+        table.sort(targets, function(a, b)
+            return (HMProfileManager.DefaultProfileOrder[a] or 1000) < (HMProfileManager.DefaultProfileOrder[b] or 1000)
+        end)
+        profileOptions = {}
+
+        for _, target in ipairs(targets) do
+            table.insert(profileOptions, {
+                text = target,
+                arg1 = target,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(profileDropdown, targetArg, false)
+                    HMOptions.ChosenProfiles[UIDropDownMenu_GetSelectedName(frameDropdown)] = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(profileDropdown, function(self, level)
+            for _, targetOption in ipairs(profileOptions) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(profileDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(profileDropdown, 
+                    GetSelectedProfileName(UIDropDownMenu_GetSelectedName(frameDropdown)), false)
+            end
+        end)
+    end
+
+    do
+        local reloadNotify = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
+        reloadNotify:SetPoint("TOP", 0, -80)
+        reloadNotify:SetText("Reload is required for changes to take effect")
+
+
+        local reloadUI = CreateFrame("Button", "$parentReloadUIButton", customizeFrame, "UIPanelButtonTemplate")
+        reloadUI:SetPoint("TOP", 0, -100)
+        reloadUI:SetWidth(125)
+        reloadUI:SetHeight(20)
+        reloadUI:SetText("Reload UI")
+        reloadUI:RegisterForClicks("LeftButtonUp")
+        reloadUI:SetScript("OnClick", function()
+            ReloadUI()
+        end)
+    end
+
 
 
 

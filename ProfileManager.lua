@@ -10,6 +10,11 @@ setfenv(1, HMProfileManager)
 
 local util = getglobal("HMUtil")
 
+DefaultProfileOrder = {
+    "Compact", "Compact (Small)", "Long", "Long (Small)", "Long (Integrated)", "Legacy"
+}
+DefaultProfileOrder = util.ToSet(DefaultProfileOrder, true)
+
 function GetProfile(name)
     return HMDefaultProfiles[name]
 end
@@ -24,7 +29,7 @@ function InitializeDefaultProfiles()
 
     do
         local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Long Compact"] = profile
+        HMDefaultProfiles["Long (Small)"] = profile
 
         profile.Width = 120
         profile.HealthBarHeight = 16
@@ -41,7 +46,7 @@ function InitializeDefaultProfiles()
 
     do
         local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Long Integrated"] = profile
+        HMDefaultProfiles["Long (Integrated)"] = profile
         profile.HealthBarHeight = 35
         profile.PaddingBottom = 0
         profile.AuraTracker.Height = 17
@@ -59,7 +64,7 @@ function InitializeDefaultProfiles()
 
     do
         local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Raid"] = profile
+        HMDefaultProfiles["Compact (Small)"] = profile
 
         profile.Width = 67
         profile.HealthBarHeight = 36
@@ -104,7 +109,7 @@ function InitializeDefaultProfiles()
 
     do
         local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Integrated"] = profile
+        HMDefaultProfiles["Compact"] = profile
 
         profile.Width = 100
         profile.HealthBarHeight = 36
@@ -174,10 +179,4 @@ function InitializeDefaultProfiles()
 
         profile.BorderStyle = "Hidden"
     end
-
-    HMDefaultProfiles["Party"] = HMUIProfile:New(GetProfile("Integrated"))
-    HMDefaultProfiles["Pets"] = HMUIProfile:New(GetProfile("Integrated"))
-    HMDefaultProfiles["Raid"] = HMUIProfile:New(GetProfile("Raid"))
-    HMDefaultProfiles["Raid Pets"] = HMUIProfile:New(GetProfile("Raid"))
-    HMDefaultProfiles["Target"] = HMUIProfile:New(GetProfile("Long"))
 end

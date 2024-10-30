@@ -24,11 +24,16 @@ SlashCmdList["HEALERSMATE"] = function(args)
     elseif args == "testui" then
         HMOptions.TestUI = not HMOptions.TestUI
         ReloadUI()
+    elseif args == "silent" then
+        HMOnLoadInfoDisabled = not HMOnLoadInfoDisabled
+        DEFAULT_CHAT_FRAME:AddMessage("Load message is now "..(HMOnLoadInfoDisabled and 
+            HMUtil.Colorize("off", 1, 0.6, 0.6) or HMUtil.Colorize("on", 0.6, 1, 0.6))..".")
     elseif args == "help" or args == "?" then
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm", 0, 0.8, 0).." -- Opens the addon configuration")
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm reset", 0, 0.8, 0).." -- Resets all heal frame positions")
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm testui", 0, 0.8, 0)..
-            " -- Toggles fake players to see how the UI would look")
+            " -- Toggles fake players to see how the UI would look (Reloads UI)")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm silent", 0, 0.8, 0).." -- Turns off/on message when addon loads")
     elseif args == "" then
         local container = HealersMateSettings.HM_SettingsContainer
         if container then
@@ -515,11 +520,12 @@ local function createUIGroup(groupName, environment, units, petGroup, profile)
 end
 
 local function initUIs()
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, HMDefaultProfiles["Party"])
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, HMDefaultProfiles["Pets"])
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, HMDefaultProfiles["Raid"])
-    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, HMDefaultProfiles["Raid Pets"])
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, HMDefaultProfiles["Target"])
+    local getSelectedProfile = HealersMateSettings.GetSelectedProfile
+    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
+    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
+    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
+    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
 
     HealUIGroups["Target"].ShowCondition = function(self)
         return UnitExists("target")
@@ -529,7 +535,6 @@ end
 
 local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
-
     local freshInstall = false
     if HMSpells == nil then
         freshInstall = true
@@ -554,7 +559,20 @@ function EventAddonLoaded()
 
     TestUI = HMOptions.TestUI
 
+    if TestUI then
+        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] UI Testing is enabled. Use /hm testui to disable.", 1, 0.6, 0.6))
+    end
+
     initUIs()
+
+    if HMOnLoadInfoDisabled == nil then
+        HMOnLoadInfoDisabled = false
+    end
+
+    if not HMOnLoadInfoDisabled then
+        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
+            ..colorize(" to see commands.", 0.5, 1, 0.5))
+    end
 
     --##START## Create Default Values for Settings if Addon has never ran before.
     --TODO: Only Druid, Priest, Paladin currently have some spells set by default on first time use. Haven't gotten to others.
@@ -572,8 +590,6 @@ function EventAddonLoaded()
             spells["None"]["LeftButton"] = "Flash of Light"
             spells["None"]["RightButton"] = "Holy Light"
         end
-
-        DEFAULT_CHAT_FRAME:AddMessage(colorize("Welcome to HealersMate! Use /hm to configure spell bindings.", 0.4, 1, 0.4))
     end
 end
 
