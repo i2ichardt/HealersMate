@@ -77,7 +77,8 @@ function HealersMateSettings.SetDefaults()
                 ["InParty"] = false,
                 ["InRaid"] = false
             },
-            ["CastOn"] = "Mouse Up", -- Mouse Up, Mouse Down
+            ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
+            ["ShowSpellsTooltip"] = true,
             ["TestUI"] = false,
             ["ChosenProfiles"] = {
                 ["Party"] = "Compact",
@@ -331,12 +332,12 @@ function InitSettings()
 
     -- Label for the checkbox
     local CheckboxShowTargetLabel = optionsFrame:CreateFontString("CheckboxShowTargetLabel", "OVERLAY", "GameFontNormal")
-    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -25)
+    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -20)
     CheckboxShowTargetLabel:SetText("Show Targets:")
 
     -- Label for the "Friendly" checkbox
     local CheckboxFriendlyLabel = optionsFrame:CreateFontString("CheckboxFriendlyLabel", "OVERLAY", "GameFontNormal")
-    CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 50, 0)
+    CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 20, 0)
     CheckboxFriendlyLabel:SetText("Friendly")
 
     -- Create the "Friendly" checkbox
@@ -366,7 +367,7 @@ function InitSettings()
 
     local CheckboxAutoTargetLabel = optionsFrame:CreateFontString("CheckboxAutoTargetLabel", "OVERLAY", "GameFontNormal")
     CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
-    CheckboxAutoTargetLabel:SetText("Auto Target:")
+    CheckboxAutoTargetLabel:SetText("Auto Target")
 
     local CheckboxAutoTarget = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
     CheckboxAutoTarget:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
@@ -378,13 +379,28 @@ function InitSettings()
     end)
 
     do
-        local castOnDropdown = CreateFrame("Frame", "$parentCastOnDropdown", optionsFrame, "UIDropDownMenuTemplate")
-        castOnDropdown:Show()
-        castOnDropdown:SetPoint("TOP", -65, -70)
+        local CheckboxShowSpellsTooltipLabel = optionsFrame:CreateFontString("CheckboxShowSpellsTooltipLabel", "OVERLAY", "GameFontNormal")
+        CheckboxShowSpellsTooltipLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -80)
+        CheckboxShowSpellsTooltipLabel:SetText("Show Spells Tooltip")
+
+        local CheckboxShowSpellsTooltip = CreateFrame("CheckButton", "$parentShowSpellsTooltip", optionsFrame, "UICheckButtonTemplate")
+        CheckboxShowSpellsTooltip:SetPoint("LEFT", CheckboxShowSpellsTooltipLabel, "RIGHT", 5, -2)
+        CheckboxShowSpellsTooltip:SetWidth(20) -- width
+        CheckboxShowSpellsTooltip:SetHeight(20) -- height
+        CheckboxShowSpellsTooltip:SetChecked(HMOptions.ShowSpellsTooltip)
+        CheckboxShowSpellsTooltip:SetScript("OnClick", function()
+            HMOptions.ShowSpellsTooltip = CheckboxShowSpellsTooltip:GetChecked() == 1
+        end)
+    end
+
+    do
+        local castWhenDropdown = CreateFrame("Frame", "$parentCastWhenDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        castWhenDropdown:Show()
+        castWhenDropdown:SetPoint("TOP", -65, -100)
 
         local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("RIGHT", castOnDropdown, "RIGHT", -30, 5)
-        label:SetText("Cast On:")
+        label:SetPoint("RIGHT", castWhenDropdown, "RIGHT", -30, 5)
+        label:SetText("Cast When")
 
         local states = {"Mouse Up", "Mouse Down"}
         local options = {}
@@ -394,8 +410,8 @@ function InitSettings()
                 text = key,
                 arg1 = key,
                 func = function(targetArg)
-                    UIDropDownMenu_SetSelectedName(castOnDropdown, targetArg, false)
-                    HMOptions.CastOn = targetArg
+                    UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
+                    HMOptions.CastWhen = targetArg
                     for _, ui in pairs(HealersMate.HealUIs) do
                         ui:RegisterClicks()
                     end
@@ -403,21 +419,21 @@ function InitSettings()
             })
         end
 
-        UIDropDownMenu_Initialize(castOnDropdown, function(self, level)
+        UIDropDownMenu_Initialize(castWhenDropdown, function(self, level)
             for _, targetOption in ipairs(options) do
                 targetOption.checked = false
                 UIDropDownMenu_AddButton(targetOption)
             end
-            if UIDropDownMenu_GetSelectedName(castOnDropdown) == nil then
-                UIDropDownMenu_SetSelectedName(castOnDropdown, HMOptions.CastOn, false)
+            if UIDropDownMenu_GetSelectedName(castWhenDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(castWhenDropdown, HMOptions.CastWhen, false)
             end
         end)
     end
 
     do
         local CheckboxMoveAllLabel = optionsFrame:CreateFontString("$parentMoveAllLabel", "OVERLAY", "GameFontNormal")
-        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -110)
-        CheckboxMoveAllLabel:SetText("Drag All Frames:")
+        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -140)
+        CheckboxMoveAllLabel:SetText("Drag All Frames")
 
         local CheckboxMoveAll = CreateFrame("CheckButton", "$parentMoveAll", optionsFrame, "UICheckButtonTemplate")
         CheckboxMoveAll:SetPoint("LEFT", CheckboxMoveAllLabel, "RIGHT", 5, -2)
@@ -432,11 +448,11 @@ function InitSettings()
 
         local inverseKeyDropdown = CreateFrame("Frame", "$parentMoveAllInverseKeyDropdown", optionsFrame, "UIDropDownMenuTemplate")
         inverseKeyDropdown:Show()
-        inverseKeyDropdown:SetPoint("TOP", 40, -100)
+        inverseKeyDropdown:SetPoint("TOP", 40, -130)
 
         local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", inverseKeyDropdown, "RIGHT", -30, 5)
-        label:SetText("Inverse Key:")
+        label:SetText("Inverse Key")
 
         local keys = {"Shift", "Control", "Alt"}
         local options = {}
@@ -466,7 +482,7 @@ function InitSettings()
 
 
     local soonTM = optionsFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, 0)
+    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, -50)
     soonTM:SetText("More options coming in future updates")
 
 

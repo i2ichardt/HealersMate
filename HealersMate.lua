@@ -398,6 +398,10 @@ function GetAuraInfo(unit, type, index)
 end
 
 function ApplySpellsTooltip(attachTo, unit)
+    if not HMOptions.ShowSpellsTooltip then
+        return
+    end
+
     local spellList = {}
     local modifier = GetKeyModifier()
     local settings = HealersMateSettings

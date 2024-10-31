@@ -127,7 +127,7 @@ function HealUI:SetOwningGroup(group)
 end
 
 function HealUI:RegisterClicks()
-    local buttons = HMOptions.CastOn == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
+    local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     self.button:RegisterForClicks(unpack(buttons))
     for _, aura in ipairs(self.auraIcons) do
         aura.frame:RegisterForClicks(unpack(buttons))
@@ -407,7 +407,7 @@ function HealUI:AllocateAura()
     frame:SetNormalTexture(nil)
     frame:SetHighlightTexture(nil)
     frame:SetPushedTexture(nil)
-    local buttons = HMOptions.CastOn == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
+    local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     frame:RegisterForClicks(unpack(buttons))
     frame:EnableMouse(true)
     
@@ -928,14 +928,12 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
         component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, "GameFontNormal")
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
-        local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
-        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
     else
         component:SetWidth(props.Width == "Anchor" and anchor:GetWidth() or props.Width)
         component:SetHeight(props.Height == "Anchor" and anchor:GetHeight() or props.Height)
-        local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
-        component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
     end
+    local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
+    component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
 end
 
 function HealUI:GetWidth()
