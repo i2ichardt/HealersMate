@@ -46,7 +46,16 @@ function HealUI:New(unit)
     return obj
 end
 
-local fakeNames = {"Leeroyjenkins", "Realsigred", "Appledog"}
+local fakeNames = {"Leeroyjenkins", "Realsigred", "Appledog", "Exdraclespy", "Dieghostt", "Olascoli", "Yaijin", 
+    "Geroya", "Artemyz", "Nomeon", "Orinnberry", "Hoppetosse", "Deathell", "Jackbob", "Luscita", "Healpiggies", 
+    "Pamara", "Merauder", "Onetwofree", "Biggly", "Drexx", "Grassguzzler", "Thebackup", "Steaktank", "Fshoo", 
+    "Bovinebill", "Rawtee", "Aylin", "Sneeziesnorf", "Dreak", "Jordin", "Evilkillers", "Xathas", "Linkado", 
+    "Smiteknight", "Rollnmbqs", "Viniss", "Rinnegon", "Elfdefense", "Foxtau", "Tombdeath", "Myhawk", "Numnumcat", 
+    "Laudead", "Esatto", "Boffin", "Tikomo", "Huddletree", "Butterboy", "Bolgrand", "Ginius", "Exulthiuss", 
+    "Xplol", "Wheeliebear", "Pimenton", "Meditating", "Qyroth", "Lazhar", "Rookon", "Eiris", "Padren", 
+    "Erazergus", "Scarlatina", "Holdrim", "Soulbane", "Debilitated", "Doorooid", "Palefire", "Tellarna", 
+    "Breathofwing", "Chillaf", "Hulena", "Hyperiann", "Bluebeam", "Daevana", "Adriena", "Aeywynn", "Bluaa", 
+    "Chadd", "Leutry", "Mouzer", "Qiner"}
 function HealUI.GenerateFakeStats()
 
     local name = fakeNames[math.random(table.getn(fakeNames))]
@@ -57,7 +66,7 @@ function HealUI.GenerateFakeStats()
     local maxHealth = math.random(100, 5000)
     if math.random(10) > 3 then
         currentHealth = math.random(1, maxHealth)
-    elseif math.random(10) == 1 then
+    elseif math.random(8) == 1 then
         currentHealth = 0
     else
         currentHealth = maxHealth
@@ -77,7 +86,7 @@ function HealUI.GenerateFakeStats()
         end
     end
 
-    local online = not (math.random(10) == 1)
+    local online = not (math.random(12) == 1)
 
     local fakeStats = {
         name = name,

@@ -37,6 +37,7 @@ function InitializeDefaultProfiles()
         profile.PaddingBottom = 16
         profile.AuraTracker.Height = 16
         profile.NameText.FontSize = 10
+        profile.NameText.MaxWidth = 80
         local healthTexts = profile.HealthTexts
         healthTexts.Normal.FontSize = 10
         healthTexts.WithMissing.FontSize = 8
@@ -174,6 +175,7 @@ function InitializeDefaultProfiles()
         profile.NameText.AlignmentH = "LEFT"
         profile.NameText.AlignmentV = "TOP"
         profile.NameText.Anchor = "Container"
+        profile.NameText.MaxWidth = 200
         local healthTexts = profile.HealthTexts
         healthTexts.Normal.AlignmentH = "CENTER"
         profile.HealthDisplay = "Health/Max Health"
