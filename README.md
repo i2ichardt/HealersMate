@@ -29,7 +29,19 @@ HealersMate will display buffs and debuffs relevant to you, as well as color hea
 
 ### 2.0.0 Alpha
 
-Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certain features lacking. Namely, a way to customize the UI. Under the hood, a lot of things are in place, but a user-friendly configuration is in the works. If you're feeling bold and know how to mess around with Lua, you can edit the top half of the Settings.lua file to customize your UI.
+Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certain features lacking. Namely, a way to customize the UI. Under the hood, a lot of things are in place, but a user-friendly configuration is in the works. If you're feeling bold and know how to mess around with Lua, you can edit Profile.lua and ProfileManager.lua to finely customize your UI.
+
+### Client Mods That Enhance HealersMate
+
+While not required, the mods listed below will massively improve your experience with HealersMate, and likely the game in general. Note that some vanilla servers may not allow these mods and you should check with your server to see if they do. Turtle WoW does not seem to have a problem with any of these.
+
+| Mod | Enhancement |
+| - | - |
+| SuperWoW ([GitHub](https://github.com/balakethelock/SuperWoW)) | Allows casting on players without needing to resort to target-switching tricks. Will soon be used for heal predictions! |
+| UnitXP SP3 ([GitHub](https://github.com/allfoxwy/UnitXP_SP3)) | Allows HealersMate to show distance to players and show whether they're in line of sight |
+| Nampower ([Original](https://github.com/namreeb/nampower) / [Pepopo's Improved Fork](https://github.com/pepopo978/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
+
+See [this page](https://turtle-wow.fandom.com/wiki/Client_Fixes_and_Tweaks) for information about how to install mods.
 
 ### Planned Features
 
