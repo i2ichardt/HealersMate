@@ -23,7 +23,6 @@ When hovering over a player, a tooltip is displayed showing you what spells you 
 HealersMate will display buffs and debuffs relevant to you, as well as color heath bars when a player has a debuff you can dispel.
 
 <p align="center">
-  <img src="Screenshots/Buffs-Example.PNG" alt="Buffs Example">
   <img src="Screenshots/Debuff-Example.PNG" alt="Debuff Example">
   <img src="Screenshots/Low-Health-Example.PNG" alt="Low Health Example">
 </p>
@@ -40,7 +39,7 @@ For 2.0.0 Release:
 - [ ] Custom mouse button names and ordering
 - [X] ~~Bind spells to hostile targets~~
 - [ ] Basic heal predictions without you or others needing to use HealComm (SuperWoW required)
-- [ ] Ability to promote specific players to the top of a group frame
+- [ ] Assign roles to players
 
 In future releases:
 - Track Buff and HoT times
