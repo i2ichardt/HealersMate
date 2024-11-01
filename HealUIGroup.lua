@@ -220,19 +220,21 @@ function HealUIGroup:UpdateUIPositions()
         largestColumn = math.max(largestColumn, table.getn(column))
     end
 
-    
+    local xSpacing = profile.HorizontalSpacing
+    local ySpacing = profile.VerticalSpacing
     for columnIndex, column in ipairs(splitSortedUIs) do
-        
         for i, ui in ipairs(column) do -- Column is guaranteed to be less than max units
             local container = ui:GetRootContainer()
-            local x = orientation == "Vertical" and (profileWidth * (columnIndex - 1)) or (profileWidth * (i - 1))
-            local y = orientation == "Vertical" and (profileHeight * (i - 1)) or (profileHeight * (columnIndex - 1))
+            local x = orientation == "Vertical" and ((profileWidth + xSpacing) * (columnIndex - 1)) or ((profileWidth + xSpacing) * (i - 1))
+            local y = orientation == "Vertical" and ((profileHeight + ySpacing) * (i - 1)) or ((profileHeight + ySpacing) * (columnIndex - 1))
             container:SetPoint("TOPLEFT", self.container, "TOPLEFT", x, -y - 20)
         end
     end
 
-    local width = orientation == "Vertical" and (profileWidth * table.getn(splitSortedUIs)) or (profileWidth * largestColumn)
-    local height = orientation == "Vertical" and (profileHeight * largestColumn) or (profileHeight * table.getn(splitSortedUIs))
+    local largestRow = table.getn(splitSortedUIs)
+
+    local width = orientation == "Vertical" and (profileWidth * largestRow + (xSpacing * (largestRow - 1))) or (profileWidth * largestColumn + (xSpacing * (largestColumn - 1)))
+    local height = orientation == "Vertical" and (profileHeight * largestColumn + (ySpacing * (largestColumn - 1))) or (profileHeight * largestRow + (ySpacing * (largestRow - 1)))
     height = height + 20
     self.container:SetWidth(width)
     self.container:SetHeight(height)
@@ -334,8 +336,8 @@ function HealUIGroup:GetSortedUIs()
         for groupNumber, group in ipairs(groups) do
             if table.getn(group) > 0 then
                 table.sort(group, function(a, b)
-                    local aName = UnitName(a:GetUnit()) or a:GetUnit()
-                    local bName = UnitName(b:GetUnit()) or b:GetUnit()
+                    local aName = UnitName(a:GetUnit()) or a.fakeStats.name or a:GetUnit()
+                    local bName = UnitName(b:GetUnit()) or b.fakeStats.name or b:GetUnit()
                     return aName < bName
                 end)
                 table.insert(sortedGroups, group)
@@ -345,8 +347,8 @@ function HealUIGroup:GetSortedUIs()
         for groupNumber, group in ipairs(groups) do
             if table.getn(group) > 0 then
                 table.sort(group, function(a, b)
-                    local aName = HM.GetClass(a:GetUnit()) or a.testClass
-                    local bName = HM.GetClass(b:GetUnit()) or b.testClass
+                    local aName = util.GetClass(a:GetUnit()) or a.fakeStats.class
+                    local bName = util.GetClass(b:GetUnit()) or b.fakeStats.class
                     return aName < bName
                 end)
                 table.insert(sortedGroups, group)

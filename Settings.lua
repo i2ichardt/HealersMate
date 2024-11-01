@@ -137,7 +137,7 @@ do
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
         ["SHAMAN"] = {"Water Walking"},
         ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
-        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward"},
+        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
     }
@@ -212,10 +212,10 @@ function InitSettings()
         MyTooltip:SetOwner(AttachTo, "ANCHOR_RIGHT")
         MyTooltip:SetPoint("RIGHT", AttachTo, "LEFT", 0, 0)
             
-        MyTooltip:AddLine(TooltipText1, 1, 1, 1) -- White text color
+        MyTooltip:AddLine(TooltipText1, 0.3, 1, 0.3)
         
         if TooltipText2 ~= "" then
-            MyTooltip:AddLine(TooltipText2, 1, 1, 1) -- White text color
+            MyTooltip:AddLine(TooltipText2, 0.5, 1, 0.5)
         end
             
         HMSettingsInfoTooltipTextLeft1:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
@@ -227,6 +227,13 @@ function InitSettings()
     --Used to hide custom tooltips
     local function HideTooltip()
         MyTooltip:Hide()
+    end
+
+    local function ApplyTooltip(component, header, footer)
+        component:SetScript("OnEnter", function()
+            ShowTooltip(component, header, footer)
+        end)
+        component:SetScript("OnLeave", HideTooltip)
     end
 
 
@@ -349,6 +356,7 @@ function InitSettings()
     CheckboxFriendly:SetScript("OnClick", function()
         HMOptions.ShowTargets.Friendly = CheckboxFriendly:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxFriendly, "Show friendly targets in the Target frame")
 
     -- Label for the "Enemy" checkbox
     local CheckboxEnemyLabel = optionsFrame:CreateFontString("CheckboxEnemyLabel", "OVERLAY", "GameFontNormal")
@@ -364,6 +372,7 @@ function InitSettings()
     CheckboxHostile:SetScript("OnClick", function()
         HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxHostile, "Show hostile targets in the Target frame")
 
     local CheckboxAutoTargetLabel = optionsFrame:CreateFontString("CheckboxAutoTargetLabel", "OVERLAY", "GameFontNormal")
     CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
@@ -377,6 +386,7 @@ function InitSettings()
     CheckboxAutoTarget:SetScript("OnClick", function()
         HMOptions.AutoTarget = CheckboxAutoTarget:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxAutoTarget, "If enabled, casting a spell on a player will also cause you to target them")
 
     do
         local CheckboxShowSpellsTooltipLabel = optionsFrame:CreateFontString("CheckboxShowSpellsTooltipLabel", "OVERLAY", "GameFontNormal")
@@ -391,6 +401,7 @@ function InitSettings()
         CheckboxShowSpellsTooltip:SetScript("OnClick", function()
             HMOptions.ShowSpellsTooltip = CheckboxShowSpellsTooltip:GetChecked() == 1
         end)
+        ApplyTooltip(CheckboxShowSpellsTooltip, "Show the spells tooltip when hovering over frames")
     end
 
     do
@@ -443,6 +454,7 @@ function InitSettings()
         CheckboxMoveAll:SetScript("OnClick", function()
             HMOptions.FrameDrag.MoveAll = CheckboxMoveAll:GetChecked() == 1
         end)
+        ApplyTooltip(CheckboxMoveAll, "If enabled, all frames will be moved when dragging", "Use the inverse key to move a single frame; Opposite effect if disabled")
 
 
 
@@ -509,11 +521,11 @@ function InitSettings()
     do
         frameDropdown = CreateFrame("Frame", "$parentFrameDropdown", customizeFrame, "UIDropDownMenuTemplate")
         frameDropdown:Show()
-        frameDropdown:SetPoint("TOP", -35, 0)
+        frameDropdown:SetPoint("TOP", -60, 0)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("RIGHT", frameDropdown, "RIGHT", -65, 5)
-        label:SetText("Select Frame:")
+        label:SetPoint("RIGHT", frameDropdown, "RIGHT", -40, 5)
+        label:SetText("Select Frame")
 
         local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
         local targetOptions = {}
@@ -548,11 +560,11 @@ function InitSettings()
     do
         profileDropdown = CreateFrame("Frame", "$parentProfileDropdown", customizeFrame, "UIDropDownMenuTemplate")
         profileDropdown:Show()
-        profileDropdown:SetPoint("TOP", -35, -30)
+        profileDropdown:SetPoint("TOP", -60, -30)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("RIGHT", profileDropdown, "RIGHT", -65, 5)
-        label:SetText("Choose Style:")
+        label:SetPoint("RIGHT", profileDropdown, "RIGHT", -40, 5)
+        label:SetText("Choose Style")
 
         local targets = util.ToArray(HMDefaultProfiles)
         util.RemoveElement(targets, "Base")
@@ -646,7 +658,7 @@ function InitSettings()
 
     local keyLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     keyLabel:SetPoint("RIGHT", modifierDropdown, "RIGHT", -65, 5)
-    keyLabel:SetText("Key:")
+    keyLabel:SetText("Key")
 
     local modifiers = util.GetKeyModifiers()
     local orderedButtons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
@@ -688,7 +700,7 @@ function InitSettings()
 
     local spellsForLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     spellsForLabel:SetPoint("RIGHT", targetDropdown, "RIGHT", -65, 5)
-    spellsForLabel:SetText("Spells For:")
+    spellsForLabel:SetText("Spells For")
 
     local targets = {"Friendly", "Hostile"}
     local targetOptions = {}
@@ -741,10 +753,10 @@ function InitSettings()
 
         local txtLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         txtLabel:SetPoint("RIGHT", txt, "LEFT", -10, 0)
-        txtLabel:SetText(readableButtonMap[button]..":")
+        txtLabel:SetText(CustomButtonNames[button] or HealersMate.ReadableButtonMap[button])
     end
 
-    for i, button in ipairs(orderedButtons) do
+    for i, button in ipairs(CustomButtonOrder) do
         createSpellEditBox(button, i)
     end
 

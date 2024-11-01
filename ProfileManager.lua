@@ -72,6 +72,7 @@ function InitializeDefaultProfiles()
         profile.NameText.AlignmentH = "CENTER"
         profile.NameText.AlignmentV = "TOP"
         profile.NameText.PaddingV = 1
+        profile.NameText.MaxWidth = 47
         profile.PowerBarHeight = 6
         profile.PaddingBottom = 0
         profile.AuraTracker.Height = 15
@@ -118,6 +119,7 @@ function InitializeDefaultProfiles()
         profile.NameText.AlignmentH = "CENTER"
         profile.NameText.AlignmentV = "TOP"
         profile.NameText.PaddingV = 1
+        profile.NameText.MaxWidth = 80
         profile.PaddingBottom = 0
         profile.AuraTracker.Height = 14
         profile.AuraTracker.Anchor = "Health Bar"

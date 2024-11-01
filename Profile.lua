@@ -183,10 +183,11 @@ function HMUIProfile.SetDefaults()
 
     profile.MaxUnitsInAxis = 5
     profile.Orientation = "Vertical" --"Vertical", "Horizontal"
-    profile.PaddingBetweenUnits = 2 -- Unimplemented
+    profile.HorizontalSpacing = 1
+    profile.VerticalSpacing = 0
 
     profile.SortUnitsBy = "ID" -- "ID", "Name", "Class Name"
     profile.SplitRaidIntoGroups = true
 
-    profile.BorderStyle = "Tooltip"-- "Tooltip", "Dialog Box", "Borderless"
+    profile.BorderStyle = "Tooltip" -- "Tooltip", "Dialog Box", "Borderless"
 end
