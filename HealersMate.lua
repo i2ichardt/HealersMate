@@ -555,7 +555,7 @@ local function initUIs()
     HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
     HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
     HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
-    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    HealUIGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
     HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
 
     HealUIGroups["Target"].ShowCondition = function(self)

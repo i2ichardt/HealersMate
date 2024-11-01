@@ -580,7 +580,24 @@ function InitSettings()
                 arg1 = target,
                 func = function(targetArg)
                     UIDropDownMenu_SetSelectedName(profileDropdown, targetArg, false)
-                    HMOptions.ChosenProfiles[UIDropDownMenu_GetSelectedName(frameDropdown)] = targetArg
+                    local selectedFrame = UIDropDownMenu_GetSelectedName(frameDropdown)
+                    HMOptions.ChosenProfiles[selectedFrame] = targetArg
+
+                    -- Here's some probably buggy profile hotswapping
+                    local group = HealersMate.HealUIGroups[selectedFrame]
+                    group.profile = GetSelectedProfile(selectedFrame)
+                    group.uis = {}
+                    group.container:SetFrameLevel(0) -- Need to lower frame or the added UIs are somehow under it
+                    for _, unit in ipairs(group.units) do
+                        HealersMate.HealUIs[unit]:GetRootContainer():SetParent(nil)
+                        -- Forget about the old UI, and cause a fat memory leak why not
+                        HealersMate.HealUIs[unit]:GetRootContainer():Hide()
+                        local newUI = HealUI:New(unit)
+                        HealersMate.HealUIs[unit] = newUI
+                        group:AddUI(newUI)
+                        HealersMate.CheckGroup()
+                    end
+                    group:ApplyProfile()
                 end
             })
         end
@@ -600,7 +617,7 @@ function InitSettings()
     do
         local reloadNotify = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
         reloadNotify:SetPoint("TOP", 0, -80)
-        reloadNotify:SetText("Reload is required for changes to take effect")
+        reloadNotify:SetText("Reload is recommended after changing UI styles")
 
 
         local reloadUI = CreateFrame("Button", "$parentReloadUIButton", customizeFrame, "UIPanelButtonTemplate")
