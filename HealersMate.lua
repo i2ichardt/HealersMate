@@ -23,7 +23,31 @@ SlashCmdList["HEALERSMATE"] = function(args)
         end
     elseif args == "testui" then
         HMOptions.TestUI = not HMOptions.TestUI
-        ReloadUI()
+        HealersMate.TestUI = HMOptions.TestUI
+        if HMOptions.TestUI then
+            for _, ui in pairs(HealersMate.HealUIs) do
+                ui.fakeStats = ui.GenerateFakeStats()
+                ui:Show()
+            end
+        end
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("UI Testing is now "..(not HMOptions.TestUI and 
+            HMUtil.Colorize("off", 1, 0.6, 0.6) or HMUtil.Colorize("on", 0.6, 1, 0.6))..".")
+    elseif args == "toggle" then
+        HMOptions.Hidden = not HMOptions.Hidden
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
+    elseif args == "show" then
+        HMOptions.Hidden = false
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
+    elseif args == "hide" then
+        HMOptions.Hidden = true
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
     elseif args == "silent" then
         HMOnLoadInfoDisabled = not HMOnLoadInfoDisabled
         DEFAULT_CHAT_FRAME:AddMessage("Load message is now "..(HMOnLoadInfoDisabled and 
@@ -32,7 +56,10 @@ SlashCmdList["HEALERSMATE"] = function(args)
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm", 0, 0.8, 0).." -- Opens the addon configuration")
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm reset", 0, 0.8, 0).." -- Resets all heal frame positions")
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm testui", 0, 0.8, 0)..
-            " -- Toggles fake players to see how the UI would look (Reloads UI)")
+            " -- Toggles fake players to see how the UI would look")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm toggle", 0, 0.8, 0).." -- Shows/hides the UI")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm show", 0, 0.8, 0).." -- Shows the UI")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm hide", 0, 0.8, 0).." -- Hides the UI")
         DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm silent", 0, 0.8, 0).." -- Turns off/on message when addon loads")
     elseif args == "" then
         local container = HealersMateSettings.HM_SettingsContainer
@@ -532,7 +559,7 @@ local function initUIs()
     HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
 
     HealUIGroups["Target"].ShowCondition = function(self)
-        return UnitExists("target")
+        return UnitExists("target") and not HMOptions.Hidden
     end
     HealUIGroups["Target"]:Hide()
 end
@@ -809,7 +836,9 @@ function EventHandler()
             CheckGroup()
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
-
+        if HMOptions.Hidden then
+            return
+        end
         if UnitExists("target") then
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")

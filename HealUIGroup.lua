@@ -33,6 +33,10 @@ function HealUIGroup:New(name, environment, units, petGroup, profile)
 end
 
 function HealUIGroup:ShowCondition()
+    if HMOptions.Hidden then
+        return false
+    end
+
     for _, ui in pairs(self.uis) do
         if ui:IsShown() then
             return true

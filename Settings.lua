@@ -80,6 +80,7 @@ function HealersMateSettings.SetDefaults()
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["ShowSpellsTooltip"] = true,
             ["TestUI"] = false,
+            ["Hidden"] = false,
             ["ChosenProfiles"] = {
                 ["Party"] = "Compact",
                 ["Pets"] = "Compact",
