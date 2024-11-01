@@ -1,9 +1,6 @@
 HealersMateSettings = {}
 
-HealersMateSettings.Profiles = {}
-HealersMateSettings.ProfileOptions = {}
-
-local Util = getglobal("HMUtil")
+local util = getglobal("HMUtil")
 
 local _, playerClass = UnitClass("player")
 
@@ -32,6 +29,12 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
         }
     }
 
+    for _, class in ipairs(util.GetClasses()) do
+        if not debuffTypeCureSpells[class] then
+            debuffTypeCureSpells[class] = {}
+        end
+    end
+
     local trackedDebuffTypes = {}
     do
         local id = 1;
@@ -49,219 +52,10 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
             end
         end
     end
-    trackedDebuffTypes = Util.ToArray(trackedDebuffTypes)
+    trackedDebuffTypes = util.ToArray(trackedDebuffTypes)
 
-    for _, profile in pairs(HealersMateSettings.Profiles) do
-        profile.TrackedDebuffTypes = trackedDebuffTypes
-    end
+    HealersMateSettings.TrackedDebuffTypes = trackedDebuffTypes
 end
-
-function HealersMateSettings.InitProfiles()
-    -- Tracked buffs for all classes
-    local defaultTrackedBuffs = {"First Aid", "Blessing of Protection", "Divine Protection", "Divine Shield", 
-        "Divine Intervention", "Power Infusion", "Spirit of Redemption", "Shield Wall", "Soulstone Resurrection", 
-        "Feign Death", "Mend Pet", "Innervate", "Quel'dorei Meditation"}
-    -- Tracked buffs for specific classes
-    local defaultClassTrackedBuffs = {
-        ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
-            "Blessing of Kings", "Blessing of Freedom", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
-            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
-            "Redoubt", "Holy Shield"},
-        ["PRIEST"] = {"Power Word: Fortitude", "Divine Spirit", "Shadow Protection", "Inner Fire", "Power Word: Shield", 
-            "Renew", "Inspiration", "Abolish Disease", "Fear Ward", "Fade", "Spirit Tap"},
-        ["DRUID"] = {"Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"}
-    }
-    local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
-    Util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
-    trackedBuffs = Util.ToSet(trackedBuffs, true)
-
-    -- Tracked debuffs for all classes
-    local defaultTrackedDebuffs = {"Forbearance", "Recently Bandaged", "Resurrection Sickness", "Ghost"}
-    -- Tracked debuffs for specific classes
-    local defaultClassTrackedDebuffs = {
-        ["PRIEST"] = {"Weakened Soul"}
-    }
-    local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
-    Util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
-    trackedDebuffs = Util.ToSet(trackedDebuffs, true)
-
-    local options = HealersMateSettings.ProfileOptions
-    local profiles = HealersMateSettings.Profiles
-
-    do
-        local function createTextObject(predefined)
-            local text = {}
-            text.FontSize = 12
-            text.AlignmentH = "CENTER" -- LEFT, CENTER, RIGHT
-            text.AlignmentV = "CENTER" -- TOP, CENTER, BOTTOM
-            text.PaddingH = 4
-            text.PaddingV = 4
-            text.OffsetX = 0
-            text.OffsetY = 0
-            text.Color = "Default" -- Default, Class, Array(Custom Color)
-            text.GetPaddingH = function(self)
-                if self.AlignmentH == "LEFT" then
-                    return self.PaddingH
-                elseif self.AlignmentH == "RIGHT" then
-                    return -self.PaddingH
-                end
-                return 0
-            end
-            text.GetPaddingV = function(self)
-                if self.AlignmentV == "TOP" then
-                    return -self.PaddingV
-                elseif self.AlignmentH == "BOTTOM" then
-                    return self.PaddingV
-                end
-                return 0
-            end
-            if predefined then
-                for key, value in pairs(predefined) do
-                    text[key] = value
-                end
-            end
-            return text
-        end
-
-        profiles["Party"] = {}
-        local profile = profiles["Party"]
-        profile.Width = 150 -- Default: 150
-        profile.HealthBarHeight = 24 -- Default: 20
-        profile.HealthBarColor = "Green To Red" -- Class, Green, Green To Red
-        options.HealthBarColor = {"Class", "Green", "Green To Red"}
-        profile.HealthText = createTextObject({
-            ["FontSize"] = 12,
-            ["AlignmentH"] = "RIGHT"
-        })
-        profile.HealthDisplay = "Health"
-        options.HealthDisplay = {"Health", "Health/Max Health", "% Health", "Hidden"}
-        profile.MissingHealthDisplay = "-Health"
-        options.MissingHealthDisplay = {"Hidden", "-Health", "-% Health"}
-        profile.AlwaysShowMissingHealth = false
-        profile.ShowEnemyMissingHealth = false
-
-        profile.AlertPercent = 100
-
-        profile.PowerBarHeight = 12 -- Default: 10
-        profile.PowerText = createTextObject({
-            ["FontSize"] = 10,
-            ["AlignmentH"] = "RIGHT"
-        })
-        profile.PowerDisplay = "Power"
-        options.PowerDisplay = {"Power", "Power/Max Power", "% Power", "Hidden"}
-
-        profile.NameInHealthBar = true -- Default: true
-        profile.NameText = createTextObject({
-            ["FontSize"] = 12,
-            ["AlignmentH"] = "LEFT",
-            ["Color"] = "Class"
-        })
-        profile.NameDisplay = "Name" -- Unimplemented
-        options.NameDisplay = {"Name", "Name (Class)"}
-
-        profile.TrackAuras = true -- Default: true
-        profile.TrackedAurasHeight = 20
-        profile.TrackedAurasSpacing = 2
-        profile.TrackedBuffs = trackedBuffs -- Default tracked is variable based on class
-        profile.TrackedDebuffs = trackedDebuffs -- Default tracked is variable based on class
-        profile.TrackedDebuffTypes = {} -- Default tracked is variable based on class
-        options.TrackedDebuffTypes = {"Poison", "Disease", "Magic", "Curse"}
-        profile.TrackedDebuffTypesSet = Util.ToSet(profile.TrackedDebuffTypes)
-
-        profile.MaxUnitsInAxis = 5
-        profile.Orientation = "Vertical"
-        options.Orientation = {"Vertical", "Horizontal"}
-        profile.PaddingBetweenUnits = 2 -- Unimplemented
-
-        profile.SortUnitsBy = "ID"
-        options.SortUnitsBy = {"ID", "Name", "Class Name"}
-        profile.SplitRaidIntoGroups = true
-
-        profile.BorderStyle = "Tooltip"
-        options.BorderStyle = {"Tooltip", "Dialog Box", "Borderless"}
-
-        profile.GetHeight = function(self)
-            local totalHeight = self.HealthBarHeight + self.PowerBarHeight + self.TrackedAurasHeight
-            if not self.NameInHealthBar then
-                totalHeight = totalHeight + (self.NameText.FontSize * 1.25)
-            end
-            return totalHeight
-        end
-    end
-
-    profiles["Pets"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Raid"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Raid Pets"] = HMUtil.CloneTable(profiles["Party"], true)
-    profiles["Target"] = HMUtil.CloneTable(profiles["Party"], true)
-
-    do
-        local profile = profiles["Pets"]
-        profile.Width = 120
-        profile.HealthBarHeight = 16
-        profile.PowerBarHeight = 9
-        profile.TrackedAurasHeight = 16
-        profile.NameTextFontSize = 10
-        profile.HealthTextFontSize = 10
-        profile.PowerBarTextFontSize = 9
-    end
-
-    do
-        local profile = profiles["Raid"]
-        profile.Width = 80
-        profile.NameInHealthBar = true
-        profile.HealthBarHeight = 16
-        profile.HealthBarColor = "Class"
-        profile.NameText.FontSize = 8
-        profile.NameText.AlignmentH = "LEFT"
-        profile.NameText.Color = "Default"
-        profile.PowerBarHeight = 6
-        profile.TrackedAurasHeight = 10
-        profile.HealthText.FontSize = 9
-        profile.HealthText.AlignmentH = "RIGHT"
-        profile.HealthDisplay = "% Health"
-        profile.MissingHealthDisplay = "Hidden"
-        profile.PowerDisplay = "Hidden"
-        profile.PowerText.FontSize = 8
-        profile.Orientation = "Vertical"
-        profile.SplitRaidIntoGroups = true
-        profile.SortUnitsBy = "ID"
-        profile.AlertPercent = 99
-
-        profiles["Raid Pets"] = HMUtil.CloneTable(profile, true)
-    end
-
-    do
-        local profile = profiles["Raid Pets"]
-    end
-
-    --profiles["Target"].BorderStyle = "Dialog Box"
-    profiles["Party"].MaxUnitsInAxis = 5
-
-    do
-        local profile = HMUtil.CloneTable(profiles["Party"], true)
-        profiles["Legacy"] = profile
-
-        profile.Width = 200
-        profile.NameInHealthBar = false
-        profile.HealthBarHeight = 25
-        profile.PowerBarHeight = 5
-
-        profile.NameText.AlignmentH = "LEFT"
-        profile.HealthText.AlignmentH = "CENTER"
-        profile.HealthDisplay = "Health/Max Health"
-        profile.PowerDisplay = "Hidden"
-
-        --profiles["Party"] = profile
-    end
-
-    do
-        local profile = profiles["Target"]
-    end
-
-    HealersMateSettings.UpdateTrackedDebuffTypes()
-end
-
--- Non-profile settings
 
 function HealersMateSettings.SetDefaults()
     if not HMOptions then
@@ -275,6 +69,25 @@ function HealersMateSettings.SetDefaults()
                 ["Hostile"] = false
             },
             ["AutoTarget"] = false,
+            ["FrameDrag"] = {
+                ["MoveAll"] = false,
+                ["AltMoveKey"] = "Shift"
+            },
+            ["DisablePartyFrames"] = {
+                ["InParty"] = false,
+                ["InRaid"] = false
+            },
+            ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
+            ["ShowSpellsTooltip"] = true,
+            ["TestUI"] = false,
+            ["Hidden"] = false,
+            ["ChosenProfiles"] = {
+                ["Party"] = "Compact",
+                ["Pets"] = "Compact",
+                ["Raid"] = "Compact (Small)",
+                ["Raid Pets"] = "Compact (Small)",
+                ["Target"] = "Long"
+            },
             ["OptionsVersion"] = 1
         }
     
@@ -290,9 +103,71 @@ function HealersMateSettings.SetDefaults()
     end
 end
 
+-- This file needs serious cleaning and refactoring
+
+setmetatable(HealersMateSettings, {__index = getfenv(1)})
+setfenv(1, HealersMateSettings)
+
+TrackedBuffs = nil -- Default tracked is variable based on class
+TrackedDebuffs = nil -- Default tracked is variable based on class
+TrackedDebuffTypes = {} -- Default tracked is variable based on class
+
+do
+    -- Tracked buffs for all classes
+    local defaultTrackedBuffs = {
+        "Blessing of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+        "Power Infusion", "Spirit of Redemption", -- Priest
+        "Shield Wall", -- Warrior
+        "Evasion", "Vanish", -- Rogue
+        "Deterrence", "Feign Death", "Mend Pet", -- Hunter
+        "Frenzied Regeneration", "Innervate", -- Druid
+        "Soulstone Resurrection", "Hellfire", -- Warlock
+        "Quel'dorei Meditation", -- Racial
+        "First Aid", "Food", "Drink" -- Generic
+    }
+    -- Tracked buffs for specific classes
+    local defaultClassTrackedBuffs = {
+        ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
+            "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
+            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
+            "Blessing of Freedom", "Redoubt", "Holy Shield"},
+        ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
+            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Empower Champion", "Fear Ward", 
+            "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", 
+            "Spirit Tap"},
+        ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
+        ["SHAMAN"] = {"Water Walking"},
+        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
+        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
+        ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
+            "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
+    }
+    local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
+    util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
+    trackedBuffs = util.ToSet(trackedBuffs, true)
+
+    -- Tracked debuffs for all classes
+    local defaultTrackedDebuffs = {
+        "Forbearance", -- Paladin
+        "Death Wish", -- Warrior
+        "Blood Fury", -- Racial
+        "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
+    }
+    -- Tracked debuffs for specific classes
+    local defaultClassTrackedDebuffs = {
+        ["PRIEST"] = {"Weakened Soul"}
+    }
+    local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
+    util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
+    trackedDebuffs = util.ToSet(trackedDebuffs, true)
+
+    TrackedBuffs = trackedBuffs
+    TrackedDebuffs = trackedDebuffs
+end
+
 ShowEmptySpells = true
 IgnoredEmptySpells = {--[["MiddleButton"]]}
-IgnoredEmptySpells = Util.ToSet(IgnoredEmptySpells)
+IgnoredEmptySpells = util.ToSet(IgnoredEmptySpells)
 CustomButtonOrder = {
     "LeftButton",
     "MiddleButton",
@@ -313,16 +188,23 @@ DebuffTypeColors = {
 }
 
 
--- This file needs serious cleaning and refactoring
-
-setmetatable(HealersMateSettings, {__index = getfenv(1)})
-setfenv(1, HealersMateSettings)
-
 EditedSpells = {}
 SpellsContext = {}
 
+function GetSelectedProfileName(frame)
+    local selected = HMOptions.ChosenProfiles[frame]
+    if not HMDefaultProfiles[selected] then
+        selected = "Compact"
+    end
+    return selected
+end
 
-function HealersMateSettings.InitSettings()
+function GetSelectedProfile(frame)
+    return HMDefaultProfiles[GetSelectedProfileName(frame)]
+end
+
+
+function InitSettings()
     --Used too set custom tooltip information when you mouse over things; like in the settings checkboxes
     local MyTooltip = CreateFrame("GameTooltip", "HMSettingsInfoTooltip", UIParent, "GameTooltipTemplate")
 
@@ -331,10 +213,10 @@ function HealersMateSettings.InitSettings()
         MyTooltip:SetOwner(AttachTo, "ANCHOR_RIGHT")
         MyTooltip:SetPoint("RIGHT", AttachTo, "LEFT", 0, 0)
             
-        MyTooltip:AddLine(TooltipText1, 1, 1, 1) -- White text color
+        MyTooltip:AddLine(TooltipText1, 0.3, 1, 0.3)
         
         if TooltipText2 ~= "" then
-            MyTooltip:AddLine(TooltipText2, 1, 1, 1) -- White text color
+            MyTooltip:AddLine(TooltipText2, 0.5, 1, 0.5)
         end
             
         HMSettingsInfoTooltipTextLeft1:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
@@ -346,6 +228,13 @@ function HealersMateSettings.InitSettings()
     --Used to hide custom tooltips
     local function HideTooltip()
         MyTooltip:Hide()
+    end
+
+    local function ApplyTooltip(component, header, footer)
+        component:SetScript("OnEnter", function()
+            ShowTooltip(component, header, footer)
+        end)
+        component:SetScript("OnLeave", HideTooltip)
     end
 
 
@@ -451,12 +340,12 @@ function HealersMateSettings.InitSettings()
 
     -- Label for the checkbox
     local CheckboxShowTargetLabel = optionsFrame:CreateFontString("CheckboxShowTargetLabel", "OVERLAY", "GameFontNormal")
-    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -25)
+    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -20)
     CheckboxShowTargetLabel:SetText("Show Targets:")
 
     -- Label for the "Friendly" checkbox
     local CheckboxFriendlyLabel = optionsFrame:CreateFontString("CheckboxFriendlyLabel", "OVERLAY", "GameFontNormal")
-    CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 50, 0)
+    CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 20, 0)
     CheckboxFriendlyLabel:SetText("Friendly")
 
     -- Create the "Friendly" checkbox
@@ -468,6 +357,7 @@ function HealersMateSettings.InitSettings()
     CheckboxFriendly:SetScript("OnClick", function()
         HMOptions.ShowTargets.Friendly = CheckboxFriendly:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxFriendly, "Show friendly targets in the Target frame")
 
     -- Label for the "Enemy" checkbox
     local CheckboxEnemyLabel = optionsFrame:CreateFontString("CheckboxEnemyLabel", "OVERLAY", "GameFontNormal")
@@ -483,38 +373,264 @@ function HealersMateSettings.InitSettings()
     CheckboxHostile:SetScript("OnClick", function()
         HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxHostile, "Show hostile targets in the Target frame")
 
     local CheckboxAutoTargetLabel = optionsFrame:CreateFontString("CheckboxAutoTargetLabel", "OVERLAY", "GameFontNormal")
     CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
-    CheckboxAutoTargetLabel:SetText("Auto Target:")
+    CheckboxAutoTargetLabel:SetText("Auto Target")
 
-    local CheckboxFriendly = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
-    CheckboxFriendly:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
-    CheckboxFriendly:SetWidth(20) -- width
-    CheckboxFriendly:SetHeight(20) -- height
-    CheckboxFriendly:SetChecked(HMOptions.AutoTarget)
-    CheckboxFriendly:SetScript("OnClick", function()
-        HMOptions.AutoTarget = CheckboxFriendly:GetChecked() == 1
+    local CheckboxAutoTarget = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
+    CheckboxAutoTarget:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
+    CheckboxAutoTarget:SetWidth(20) -- width
+    CheckboxAutoTarget:SetHeight(20) -- height
+    CheckboxAutoTarget:SetChecked(HMOptions.AutoTarget)
+    CheckboxAutoTarget:SetScript("OnClick", function()
+        HMOptions.AutoTarget = CheckboxAutoTarget:GetChecked() == 1
     end)
+    ApplyTooltip(CheckboxAutoTarget, "If enabled, casting a spell on a player will also cause you to target them")
+
+    do
+        local CheckboxShowSpellsTooltipLabel = optionsFrame:CreateFontString("CheckboxShowSpellsTooltipLabel", "OVERLAY", "GameFontNormal")
+        CheckboxShowSpellsTooltipLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -80)
+        CheckboxShowSpellsTooltipLabel:SetText("Show Spells Tooltip")
+
+        local CheckboxShowSpellsTooltip = CreateFrame("CheckButton", "$parentShowSpellsTooltip", optionsFrame, "UICheckButtonTemplate")
+        CheckboxShowSpellsTooltip:SetPoint("LEFT", CheckboxShowSpellsTooltipLabel, "RIGHT", 5, -2)
+        CheckboxShowSpellsTooltip:SetWidth(20) -- width
+        CheckboxShowSpellsTooltip:SetHeight(20) -- height
+        CheckboxShowSpellsTooltip:SetChecked(HMOptions.ShowSpellsTooltip)
+        CheckboxShowSpellsTooltip:SetScript("OnClick", function()
+            HMOptions.ShowSpellsTooltip = CheckboxShowSpellsTooltip:GetChecked() == 1
+        end)
+        ApplyTooltip(CheckboxShowSpellsTooltip, "Show the spells tooltip when hovering over frames")
+    end
+
+    do
+        local castWhenDropdown = CreateFrame("Frame", "$parentCastWhenDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        castWhenDropdown:Show()
+        castWhenDropdown:SetPoint("TOP", -65, -100)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", castWhenDropdown, "RIGHT", -30, 5)
+        label:SetText("Cast When")
+
+        local states = {"Mouse Up", "Mouse Down"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
+                    HMOptions.CastWhen = targetArg
+                    for _, ui in pairs(HealersMate.HealUIs) do
+                        ui:RegisterClicks()
+                    end
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(castWhenDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(castWhenDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(castWhenDropdown, HMOptions.CastWhen, false)
+            end
+        end)
+    end
+
+    do
+        local CheckboxMoveAllLabel = optionsFrame:CreateFontString("$parentMoveAllLabel", "OVERLAY", "GameFontNormal")
+        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -140)
+        CheckboxMoveAllLabel:SetText("Drag All Frames")
+
+        local CheckboxMoveAll = CreateFrame("CheckButton", "$parentMoveAll", optionsFrame, "UICheckButtonTemplate")
+        CheckboxMoveAll:SetPoint("LEFT", CheckboxMoveAllLabel, "RIGHT", 5, -2)
+        CheckboxMoveAll:SetWidth(20)
+        CheckboxMoveAll:SetHeight(20)
+        CheckboxMoveAll:SetChecked(HMOptions.FrameDrag.MoveAll)
+        CheckboxMoveAll:SetScript("OnClick", function()
+            HMOptions.FrameDrag.MoveAll = CheckboxMoveAll:GetChecked() == 1
+        end)
+        ApplyTooltip(CheckboxMoveAll, "If enabled, all frames will be moved when dragging", "Use the inverse key to move a single frame; Opposite effect if disabled")
+
+
+
+        local inverseKeyDropdown = CreateFrame("Frame", "$parentMoveAllInverseKeyDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        inverseKeyDropdown:Show()
+        inverseKeyDropdown:SetPoint("TOP", 40, -130)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", inverseKeyDropdown, "RIGHT", -30, 5)
+        label:SetText("Inverse Key")
+
+        local keys = {"Shift", "Control", "Alt"}
+        local options = {}
+
+        for _, key in ipairs(keys) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(inverseKeyDropdown, targetArg, false)
+                    HMOptions.FrameDrag.AltMoveKey = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(inverseKeyDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(inverseKeyDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(inverseKeyDropdown, HMOptions.FrameDrag.AltMoveKey, false)
+            end
+        end)
+    end
+
 
 
     local soonTM = optionsFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, 0)
+    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, -50)
     soonTM:SetText("More options coming in future updates")
 
 
+    local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
+    customizeScrollFrame:SetWidth(370) -- width
+    customizeScrollFrame:SetHeight(380) -- height
+    customizeScrollFrame:SetPoint("CENTER", container, "CENTER")
+    customizeScrollFrame:Hide() -- Initially hidden
 
-
-    local customizeFrame = CreateFrame("Frame", "$parentOptionsFrame", container)
-    addFrame("Customize", customizeFrame)
-    customizeFrame:SetWidth(250) -- width
-    customizeFrame:SetHeight(380) -- height
+    local customizeFrame = CreateFrame("Frame", "$parentContent", customizeScrollFrame)
+    addFrame("Customize", customizeScrollFrame)
+    customizeFrame:SetWidth(370 + 20) -- width
+    customizeFrame:SetHeight(360) -- height
     customizeFrame:SetPoint("CENTER", container, "CENTER")
-    customizeFrame:Hide() -- Initially hidden
+
+    customizeScrollFrame:SetScrollChild(customizeFrame)
 
     local soonTM = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, 0)
-    soonTM:SetText("Customization coming in future updates")
+    soonTM:SetPoint("CENTER", customizeFrame, "CENTER", 0, 0)
+    soonTM:SetText("Fully customizable frames coming in future updates")
+
+
+
+    do
+        frameDropdown = CreateFrame("Frame", "$parentFrameDropdown", customizeFrame, "UIDropDownMenuTemplate")
+        frameDropdown:Show()
+        frameDropdown:SetPoint("TOP", -60, 0)
+
+        local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", frameDropdown, "RIGHT", -40, 5)
+        label:SetText("Select Frame")
+
+        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+        local targetOptions = {}
+
+        for _, target in ipairs(targets) do
+            table.insert(targetOptions, {
+                text = target,
+                arg1 = target,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(frameDropdown, targetArg, false)
+                    if profileDropdown then
+                        -- Set the profile option. Why do you gotta do it like this? I don't know.
+                        profileDropdown.selectedName = GetSelectedProfileName(targetArg)
+                        UIDropDownMenu_SetText(GetSelectedProfileName(targetArg), profileDropdown)
+                    end
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(frameDropdown, function(self, level)
+            for _, targetOption in ipairs(targetOptions) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(frameDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(frameDropdown, targets[1], false)
+            end
+        end)
+    end
+
+
+    do
+        profileDropdown = CreateFrame("Frame", "$parentProfileDropdown", customizeFrame, "UIDropDownMenuTemplate")
+        profileDropdown:Show()
+        profileDropdown:SetPoint("TOP", -60, -30)
+
+        local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", profileDropdown, "RIGHT", -40, 5)
+        label:SetText("Choose Style")
+
+        local targets = util.ToArray(HMDefaultProfiles)
+        util.RemoveElement(targets, "Base")
+        table.sort(targets, function(a, b)
+            return (HMProfileManager.DefaultProfileOrder[a] or 1000) < (HMProfileManager.DefaultProfileOrder[b] or 1000)
+        end)
+        profileOptions = {}
+
+        for _, target in ipairs(targets) do
+            table.insert(profileOptions, {
+                text = target,
+                arg1 = target,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(profileDropdown, targetArg, false)
+                    local selectedFrame = UIDropDownMenu_GetSelectedName(frameDropdown)
+                    HMOptions.ChosenProfiles[selectedFrame] = targetArg
+
+                    -- Here's some probably buggy profile hotswapping
+                    local group = HealersMate.HealUIGroups[selectedFrame]
+                    group.profile = GetSelectedProfile(selectedFrame)
+                    group.uis = {}
+                    group.container:SetFrameLevel(0) -- Need to lower frame or the added UIs are somehow under it
+                    for _, unit in ipairs(group.units) do
+                        HealersMate.HealUIs[unit]:GetRootContainer():SetParent(nil)
+                        -- Forget about the old UI, and cause a fat memory leak why not
+                        HealersMate.HealUIs[unit]:GetRootContainer():Hide()
+                        local newUI = HealUI:New(unit)
+                        HealersMate.HealUIs[unit] = newUI
+                        group:AddUI(newUI)
+                        HealersMate.CheckGroup()
+                    end
+                    group:ApplyProfile()
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(profileDropdown, function(self, level)
+            for _, targetOption in ipairs(profileOptions) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(profileDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(profileDropdown, 
+                    GetSelectedProfileName(UIDropDownMenu_GetSelectedName(frameDropdown)), false)
+            end
+        end)
+    end
+
+    do
+        local reloadNotify = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
+        reloadNotify:SetPoint("TOP", 0, -80)
+        reloadNotify:SetText("Reload is recommended after changing UI styles")
+
+
+        local reloadUI = CreateFrame("Button", "$parentReloadUIButton", customizeFrame, "UIPanelButtonTemplate")
+        reloadUI:SetPoint("TOP", 0, -100)
+        reloadUI:SetWidth(125)
+        reloadUI:SetHeight(20)
+        reloadUI:SetText("Reload UI")
+        reloadUI:RegisterForClicks("LeftButtonUp")
+        reloadUI:SetScript("OnClick", function()
+            ReloadUI()
+        end)
+    end
+
 
 
 
@@ -560,9 +676,9 @@ function HealersMateSettings.InitSettings()
 
     local keyLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     keyLabel:SetPoint("RIGHT", modifierDropdown, "RIGHT", -65, 5)
-    keyLabel:SetText("Key:")
+    keyLabel:SetText("Key")
 
-    local modifiers = {"None", "Shift", "Control", "Alt"}
+    local modifiers = util.GetKeyModifiers()
     local orderedButtons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
     local readableButtonMap = {
         ["LeftButton"] = "Left",
@@ -602,7 +718,7 @@ function HealersMateSettings.InitSettings()
 
     local spellsForLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     spellsForLabel:SetPoint("RIGHT", targetDropdown, "RIGHT", -65, 5)
-    spellsForLabel:SetText("Spells For:")
+    spellsForLabel:SetText("Spells For")
 
     local targets = {"Friendly", "Hostile"}
     local targetOptions = {}
@@ -655,10 +771,10 @@ function HealersMateSettings.InitSettings()
 
         local txtLabel = spellsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         txtLabel:SetPoint("RIGHT", txt, "LEFT", -10, 0)
-        txtLabel:SetText(readableButtonMap[button]..":")
+        txtLabel:SetText(CustomButtonNames[button] or HealersMate.ReadableButtonMap[button])
     end
 
-    for i, button in ipairs(orderedButtons) do
+    for i, button in ipairs(CustomButtonOrder) do
         createSpellEditBox(button, i)
     end
 

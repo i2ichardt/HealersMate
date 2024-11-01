@@ -1,14 +1,16 @@
-## Interface: 100105
-## Version: 2.0.0-alpha2
+## Interface: 11200
+## Version: 2.0.0-alpha3
 ## Title: HealersMate
 ## Notes: Healing Addon for WoW Client version 1.12
 ## Author: Richard Truax(i2ichardt), OldManAlpha
-## SavedVariables:
+## SavedVariables: HMOnLoadInfoDisabled
 ## SavedVariablesPerCharacter: HMSpells, HMOptions
 
 HMUtil.lua
 HealUI.lua
 HealUIGroup.lua
+Profile.lua
+ProfileManager.lua
 Settings.lua
 
 HealersMate.lua

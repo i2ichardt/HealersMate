@@ -3,16 +3,15 @@ SLASH_HEALERSMATE2 = "/hm"
 SlashCmdList["HEALERSMATE"] = function(args)
     if args == "reset" then
         for _, group in pairs(HealersMate.HealUIGroups) do
-            group:GetContainer():ClearAllPoints()
-            group:GetContainer():SetPoint("CENTER", 0, 0)
+            local gc = group:GetContainer()
+            gc:ClearAllPoints()
+            gc:SetPoint(HMUtil.GetCenterScreenPoint(gc:GetWidth(), gc:GetHeight()))
         end
         HealersMateSettings.HM_SettingsContainer:ClearAllPoints()
         HealersMateSettings.HM_SettingsContainer:SetPoint("CENTER", 0, 0)
         DEFAULT_CHAT_FRAME:AddMessage("Reset all frame positions.")
-        return
     elseif args == "check" then
         HealersMate.CheckGroup()
-        return
     elseif args == "update" then
         for _, ui in pairs(HealersMate.HealUIs) do
             ui:SizeElements()
@@ -22,18 +21,59 @@ SlashCmdList["HEALERSMATE"] = function(args)
             group:ApplyProfile()
             group:UpdateUIPositions()
         end
-        return
-    end
-
-    local container = HealersMateSettings.HM_SettingsContainer
-    if container then
-        if container:IsVisible() then
-            container:Hide()
+    elseif args == "testui" then
+        HMOptions.TestUI = not HMOptions.TestUI
+        HealersMate.TestUI = HMOptions.TestUI
+        if HMOptions.TestUI then
+            for _, ui in pairs(HealersMate.HealUIs) do
+                ui.fakeStats = ui.GenerateFakeStats()
+                ui:Show()
+            end
+        end
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("UI Testing is now "..(not HMOptions.TestUI and 
+            HMUtil.Colorize("off", 1, 0.6, 0.6) or HMUtil.Colorize("on", 0.6, 1, 0.6))..".")
+    elseif args == "toggle" then
+        HMOptions.Hidden = not HMOptions.Hidden
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
+    elseif args == "show" then
+        HMOptions.Hidden = false
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
+    elseif args == "hide" then
+        HMOptions.Hidden = true
+        HealersMate.CheckGroup()
+        DEFAULT_CHAT_FRAME:AddMessage("The HealersMate UI is now "..(HMOptions.Hidden and 
+            HMUtil.Colorize("hidden", 1, 0.6, 0.6) or HMUtil.Colorize("shown", 0.6, 1, 0.6))..".")
+    elseif args == "silent" then
+        HMOnLoadInfoDisabled = not HMOnLoadInfoDisabled
+        DEFAULT_CHAT_FRAME:AddMessage("Load message is now "..(HMOnLoadInfoDisabled and 
+            HMUtil.Colorize("off", 1, 0.6, 0.6) or HMUtil.Colorize("on", 0.6, 1, 0.6))..".")
+    elseif args == "help" or args == "?" then
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm", 0, 0.8, 0).." -- Opens the addon configuration")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm reset", 0, 0.8, 0).." -- Resets all heal frame positions")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm testui", 0, 0.8, 0)..
+            " -- Toggles fake players to see how the UI would look")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm toggle", 0, 0.8, 0).." -- Shows/hides the UI")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm show", 0, 0.8, 0).." -- Shows the UI")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm hide", 0, 0.8, 0).." -- Hides the UI")
+        DEFAULT_CHAT_FRAME:AddMessage(HMUtil.Colorize("/hm silent", 0, 0.8, 0).." -- Turns off/on message when addon loads")
+    elseif args == "" then
+        local container = HealersMateSettings.HM_SettingsContainer
+        if container then
+            if container:IsVisible() then
+                container:Hide()
+            else
+                container:Show()
+            end
         else
-            container:Show()
+            DEFAULT_CHAT_FRAME:AddMessage("HM_SettingsContainer frame not found.")
         end
     else
-        DEFAULT_CHAT_FRAME:AddMessage("HM_SettingsContainer frame not found.")
+        DEFAULT_CHAT_FRAME:AddMessage("Unknown subcommand. See usage with /hm help")
     end
 end
 
@@ -42,7 +82,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha2"
+VERSION = "2.0.0-alpha3"
 
 TestUI = false
 
@@ -56,11 +96,11 @@ PartyUnits = {"player", "party1", "party2", "party3", "party4"}
 PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
 TargetUnits = {"target"}
 RaidUnits = {}
-for i = 1, 40 do
+for i = 1, MAX_RAID_MEMBERS do
     RaidUnits[i] = "raid"..i
 end
 RaidPetUnits = {}
-for i = 1, 40 do
+for i = 1, MAX_RAID_MEMBERS do
     RaidPetUnits[i] = "raidpet"..i
 end
 
@@ -130,13 +170,28 @@ ResurrectionSpells = {
     ["DRUID"] = "Rebirth"
 }
 
+GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
+
+CurrentlyHeldButton = nil
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
 SpellsTooltipOwner = nil
+
+local hmBarsPath = "Interface\\AddOns\\HealersMate\\assets\\textures\\bars\\"
+BarStyles = {
+    ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
+    ["Blizzard Raid"] = hmBarsPath.."Blizzard-Raid",
+    ["HealersMate"] = hmBarsPath.."HealersMate",
+    ["HealersMate Borderless"] = hmBarsPath.."HealersMate-Borderless",
+    ["HealersMate Shineless"] = hmBarsPath.."HealersMate-Shineless",
+    ["HealersMate Shineless Borderless"] = hmBarsPath.."HealersMate-Shineless-Borderless"
+}
 
 -- Contains all individual player healing UIs
 HealUIs = {}
 -- Contains all the healing UI groups
 HealUIGroups = {}
+
+CurrentlyInRaid = false
 
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
@@ -161,7 +216,6 @@ EventHandlerFrame:RegisterEvent("UNIT_ENERGY")
 EventHandlerFrame:RegisterEvent("UNIT_FOCUS")
 EventHandlerFrame:RegisterEvent("UNIT_MAXMANA")
 
--- Not sure if there's a better way to detect key presses. At least this is a relatively lightweight function.
 local lastModifier = "None"
 EventHandlerFrame:SetScript("OnUpdate", function()
     local modifier = GetKeyModifier()
@@ -173,12 +227,59 @@ EventHandlerFrame:SetScript("OnUpdate", function()
     end
 end)
 
-function IsSuperWowEnabled()
-    return SpellInfo ~= nil
+do
+    local almostAllUnits = util.CloneTable(AllUnits) -- Everything except the player
+    table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
+
+    local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
+    local sightTrackedUnits = util.CloneTable(almostAllUnits)
+    local accurateDistance = util.CanClientGetAccurateDistance()
+    local sightTrackingEnabled = util.CanClientSightCheck()
+    local nextTrackingUpdate = GetTime() + 0.5
+    local nextUpdate = GetTime() + 0.6
+    if not accurateDistance and not sightTrackingEnabled then
+        nextUpdate = nextUpdate + 99999999 -- Effectively disable updates
+    end
+    local distanceCheckerFrame = CreateFrame("Frame", "HMDistanceCheckerFrame", UIParent)
+    distanceCheckerFrame:SetScript("OnUpdate", function()
+        local time = GetTime()
+        if time > nextTrackingUpdate then
+            nextTrackingUpdate = time + math.random(0.5, 2)
+    
+            distanceTrackedUnits = {}
+            local prevSightTrackedUnits = sightTrackedUnits
+            sightTrackedUnits = {}
+            for _, unit in ipairs(almostAllUnits) do
+                local dist = util.GetDistanceTo(unit)
+                HealUIs[unit]:CheckRange(dist)
+                if dist < 60 and dist > 20 then -- Only closely track units that are close to the range threshold
+                    table.insert(distanceTrackedUnits, unit)
+                end
+                if dist < 80 and sightTrackingEnabled then
+                    table.insert(sightTrackedUnits, unit)
+                end
+            end
+
+            -- Check sight on previously tracked units in case they got removed
+            for _, unit in ipairs(prevSightTrackedUnits) do
+                HealUIs[unit]:CheckSight()
+            end
+        end
+    
+        if time > nextUpdate then
+            nextUpdate = time + 0.1
+            for _, unit in ipairs(distanceTrackedUnits) do
+                HealUIs[unit]:CheckRange()
+            end
+            for _, unit in ipairs(sightTrackedUnits) do
+                HealUIs[unit]:CheckSight()
+            end
+        end
+    end)
 end
 
 -- If SuperWoW is present, then a GUID map will be populated
-if IsSuperWowEnabled() then
+if util.IsSuperWowPresent() then
     GUIDUnitMap = {} -- Key: GUID, Value: Array of units associated with GUID
 end
 
@@ -324,6 +425,10 @@ function GetAuraInfo(unit, type, index)
 end
 
 function ApplySpellsTooltip(attachTo, unit)
+    if not HMOptions.ShowSpellsTooltip then
+        return
+    end
+
     local spellList = {}
     local modifier = GetKeyModifier()
     local settings = HealersMateSettings
@@ -399,6 +504,11 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                         ..colorize(" ("..casts..")", castsColor)
                 end
             end
+            -- Gray out spells that are not held down
+            if CurrentlyHeldButton and button ~= CurrentlyHeldButton then
+                leftText = colorize(util.StripColors(leftText), 0.3, 0.3, 0.3)
+                rightText = colorize(util.StripColors(rightText), 0.3, 0.3, 0.3)
+            end
             SpellsTooltip:AddDoubleLine(leftText, rightText)
         end
         
@@ -427,8 +537,8 @@ function ReapplySpellsTooltip()
     end
 end
 
-local function createUIGroup(groupName, environment, units, petGroup)
-    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup)
+local function createUIGroup(groupName, environment, units, petGroup, profile)
+    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
         local ui = HealUI:New(unit)
         HealUIs[unit] = ui
@@ -441,21 +551,20 @@ local function createUIGroup(groupName, environment, units, petGroup)
 end
 
 local function initUIs()
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false)
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true)
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false)
-    HealUIGroups["RaidPets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true)
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false)
+    local getSelectedProfile = HealersMateSettings.GetSelectedProfile
+    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
+    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
+    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
+    HealUIGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
 
     HealUIGroups["Target"].ShowCondition = function(self)
-        return UnitExists("target")
+        return UnitExists("target") and not HMOptions.Hidden
     end
     HealUIGroups["Target"]:Hide()
 end
 
-local keyModifiers = {"None", "Shift", "Control", "Alt"}
 function EventAddonLoaded()
-
     local freshInstall = false
     if HMSpells == nil then
         freshInstall = true
@@ -466,18 +575,34 @@ function EventAddonLoaded()
     end
 
     for _, spells in pairs(HMSpells) do
-        for _, modifier in ipairs(keyModifiers) do
+        for _, modifier in ipairs(util.GetKeyModifiers()) do
             if not spells[modifier] then
                 spells[modifier] = {}
             end
         end
     end
 
-    HealersMateSettings.InitProfiles()
+    HealersMateSettings.UpdateTrackedDebuffTypes()
+    HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
     HealersMateSettings.InitSettings()
 
+    TestUI = HMOptions.TestUI
+
+    if TestUI then
+        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] UI Testing is enabled. Use /hm testui to disable.", 1, 0.6, 0.6))
+    end
+
     initUIs()
+
+    if HMOnLoadInfoDisabled == nil then
+        HMOnLoadInfoDisabled = false
+    end
+
+    if not HMOnLoadInfoDisabled then
+        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
+            ..colorize(" to see commands.", 0.5, 1, 0.5))
+    end
 
     --##START## Create Default Values for Settings if Addon has never ran before.
     --TODO: Only Druid, Priest, Paladin currently have some spells set by default on first time use. Haven't gotten to others.
@@ -495,8 +620,36 @@ function EventAddonLoaded()
             spells["None"]["LeftButton"] = "Flash of Light"
             spells["None"]["RightButton"] = "Holy Light"
         end
+    end
+end
 
-        DEFAULT_CHAT_FRAME:AddMessage(colorize("Welcome to HealersMate! Use /hm to configure spell bindings.", 0.4, 1, 0.4))
+function SetPartyFramesEnabled(enabled)
+    if enabled then
+        for i = 1, MAX_PARTY_MEMBERS do
+            local frame = getglobal("PartyMemberFrame"..i)
+            if frame and frame.HMRealShow then
+                frame.Show = frame.HMRealShow
+                frame.HMRealShow = nil
+
+                if UnitExists("party"..i) then
+                    frame:Show()
+                end
+                local prevThis = _G.this
+                _G.this = frame
+                PartyMemberFrame_OnLoad()
+                _G.this = prevThis
+            end
+        end
+    else
+        for i = 1, MAX_PARTY_MEMBERS do
+            local frame = getglobal("PartyMemberFrame"..i)
+            if frame then
+                frame:UnregisterAllEvents()
+                frame.HMRealShow = frame.Show
+                frame.Show = function() end
+                frame:Hide()
+            end
+        end
     end
 end
 
@@ -544,7 +697,7 @@ function ClickHandler(buttonType, unit)
     end
 
     -- Not a special bind
-    if IsSuperWowEnabled() then -- No target changing shenanigans required with SuperWoW
+    if util.IsSuperWowPresent() then -- No target changing shenanigans required with SuperWoW
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -581,8 +734,17 @@ function CheckGroup()
     local environment = "party"
     if GetNumRaidMembers() > 0 then
         environment = "raid"
+        if not CurrentlyInRaid then
+            CurrentlyInRaid = true
+            SetPartyFramesEnabled(not HMOptions.DisablePartyFrames.InRaid)
+        end
+    else
+        if CurrentlyInRaid then
+            CurrentlyInRaid = false
+            SetPartyFramesEnabled(not HMOptions.DisablePartyFrames.InParty)
+        end
     end
-    local superwow = IsSuperWowEnabled()
+    local superwow = util.IsSuperWowPresent()
     if superwow then
         GUIDUnitMap = {}
     end
@@ -621,12 +783,20 @@ end
 function EventHandler()
     if event == "ADDON_LOADED" then
         
+        if arg1 ~= "HealersMate" then
+            return
+        end
+
         EventAddonLoaded()
         EventHandlerFrame:UnregisterEvent("ADDON_LOADED")
     
     elseif event == "PLAYER_ENTERING_WORLD" then
         
         CheckGroup()
+
+        if HMOptions.DisablePartyFrames.InParty then
+            SetPartyFramesEnabled(false)
+        end
         
     elseif event == "PLAYER_LOGOUT" or event == "PLAYER_QUITING" then
         
@@ -666,12 +836,16 @@ function EventHandler()
             CheckGroup()
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
-
+        if HMOptions.Hidden then
+            return
+        end
         if UnitExists("target") then
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 HealUIGroups["Target"]:Show()
+                HealUIs["target"]:CheckRange()
+                HealUIs["target"]:CheckSight()
             end
         else
             HealUIGroups["Target"]:Hide()

@@ -2,6 +2,8 @@ HealUIGroup = {}
 
 HealUIGroup.name = "???"
 
+HealUIGroup.profile = nil
+
 HealUIGroup.container = nil
 HealUIGroup.borderFrame = nil
 HealUIGroup.header = nil
@@ -12,23 +14,31 @@ HealUIGroup.units = nil
 HealUIGroup.petGroup = false
 HealUIGroup.environment = "all" -- party, raid, or all
 
+HealUIGroup.moveContainer = CreateFrame("Frame", "HealUIGroupBulkMoveContainer", UIParent)
+HealUIGroup.moveContainer:EnableMouse(true)
+HealUIGroup.moveContainer:SetMovable(true)
+
 -- Singleton references, assigned in constructor
 local HM
 local util
 
-function HealUIGroup:New(name, environment, units, petGroup)
-    local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup}
-    setmetatable(obj, self)
-    self.__index = self
+function HealUIGroup:New(name, environment, units, petGroup, profile)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
+    local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup, profile = profile}
+    setmetatable(obj, self)
+    self.__index = self
     obj:Initialize()
     return obj
 end
 
 function HealUIGroup:ShowCondition()
+    if HMOptions.Hidden then
+        return false
+    end
+
     for _, ui in pairs(self.uis) do
-        if ui:GetContainer():IsShown() then
+        if ui:IsShown() then
             return true
         end
     end
@@ -68,7 +78,9 @@ function HealUIGroup:Initialize()
     local container = CreateFrame("Frame", self.name.."HealUIGroupContainer", UIParent) --type, name, parent
     self.container = container
     container:SetToplevel(true)
-    container:SetPoint("CENTER", 0, 0) -- position it at the center of the screen
+    if container:GetNumPoints() == 0 then
+        container:SetPoint(util.GetCenterScreenPoint(0, 0))
+    end
     container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"}) -- set a light gray background
     container:SetBackdropColor(0, 0, 0, 0.5)
     container:EnableMouse(true)
@@ -76,18 +88,73 @@ function HealUIGroup:Initialize()
 
     container:SetScript("OnMouseDown", function()
         local button = arg1
-        if button == "LeftButton" and not container.isMoving then
-            container:StartMoving()
-            container.isMoving = true
+
+        if button ~= "LeftButton" or container.isMoving then
+            return
         end
+
+        container.isMoving = true
+
+        if (util.GetKeyModifier() == HMOptions.FrameDrag.AltMoveKey) == HMOptions.FrameDrag.MoveAll then
+            container:StartMoving()
+            return
+        end
+
+        container.bulkMovement = true
+
+        local moveContainer = HealUIGroup.moveContainer
+        moveContainer:ClearAllPoints()
+        moveContainer:SetPoint("TOPLEFT", 0, 0)
+        -- If the container doesn't have a size, it doesn't move
+        moveContainer:SetWidth(1)
+        moveContainer:SetHeight(1)
+        for _, group in pairs(HealersMate.HealUIGroups) do
+            local gc = group:GetContainer()
+            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            gc:ClearAllPoints()
+            gc:SetPoint("TOPLEFT", moveContainer, relativePoint, xofs, yofs)
+        end
+        moveContainer:StartMoving()
     end)
 
     container:SetScript("OnMouseUp", function()
         local button = arg1
-        if button == "LeftButton" and container.isMoving then
-            container:StopMovingOrSizing()
-            container.isMoving = false
+
+        if (button ~= "LeftButton" or not container.isMoving) then
+            return
         end
+
+        container.isMoving = false
+
+        if not container.bulkMovement then
+            container:StopMovingOrSizing()
+            return
+        end
+
+        container.bulkMovement = false
+
+        local moveContainer = HealUIGroup.moveContainer
+        moveContainer:StopMovingOrSizing()
+        for _, group in pairs(HealersMate.HealUIGroups) do
+            local gc = group:GetContainer()
+            local mcpoint, mcrelativeTo, mcrelativePoint, mcxofs, mcyofs = moveContainer:GetPoint(1)
+            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            gc:ClearAllPoints()
+            gc:SetPoint("TOPLEFT", UIParent, mcrelativePoint, mcxofs + xofs, mcyofs + yofs)
+        end
+        -- Prevent container from potentially blocking mouse by setting it back to 0 size
+        moveContainer:SetWidth(0)
+        moveContainer:SetHeight(0)
+    end)
+
+    container:SetScript("OnHide", function()
+        if not container.isMoving then
+            return
+        end
+        local prevArg = arg1
+        arg1 = "LeftButton"
+        container:GetScript("OnMouseUp")()
+        arg1 = prevArg
     end)
 
     local header = CreateFrame("Frame", self.name.."HealUIGroupContainerHeader", container) --type, name, parent
@@ -157,19 +224,21 @@ function HealUIGroup:UpdateUIPositions()
         largestColumn = math.max(largestColumn, table.getn(column))
     end
 
-    
+    local xSpacing = profile.HorizontalSpacing
+    local ySpacing = profile.VerticalSpacing
     for columnIndex, column in ipairs(splitSortedUIs) do
-        
         for i, ui in ipairs(column) do -- Column is guaranteed to be less than max units
-            local container = ui:GetContainer()
-            local x = orientation == "Vertical" and (profileWidth * (columnIndex - 1)) or (profileWidth * (i - 1))
-            local y = orientation == "Vertical" and (profileHeight * (i - 1)) or (profileHeight * (columnIndex - 1))
+            local container = ui:GetRootContainer()
+            local x = orientation == "Vertical" and ((profileWidth + xSpacing) * (columnIndex - 1)) or ((profileWidth + xSpacing) * (i - 1))
+            local y = orientation == "Vertical" and ((profileHeight + ySpacing) * (i - 1)) or ((profileHeight + ySpacing) * (columnIndex - 1))
             container:SetPoint("TOPLEFT", self.container, "TOPLEFT", x, -y - 20)
         end
     end
 
-    local width = orientation == "Vertical" and (profileWidth * table.getn(splitSortedUIs)) or (profileWidth * largestColumn)
-    local height = orientation == "Vertical" and (profileHeight * largestColumn) or (profileHeight * table.getn(splitSortedUIs))
+    local largestRow = table.getn(splitSortedUIs)
+
+    local width = orientation == "Vertical" and (profileWidth * largestRow + (xSpacing * (largestRow - 1))) or (profileWidth * largestColumn + (xSpacing * (largestColumn - 1)))
+    local height = orientation == "Vertical" and (profileHeight * largestColumn + (ySpacing * (largestColumn - 1))) or (profileHeight * largestRow + (ySpacing * (largestRow - 1)))
     height = height + 20
     self.container:SetWidth(width)
     self.container:SetHeight(height)
@@ -230,7 +299,7 @@ function HealUIGroup:GetSortedUIs()
         groups[1] = {}
         local group = groups[1]
         for _, ui in pairs(uis) do
-            if ui:GetContainer():IsShown() then
+            if ui:IsShown() then
                 table.insert(group, ui)
             end
         end
@@ -271,8 +340,8 @@ function HealUIGroup:GetSortedUIs()
         for groupNumber, group in ipairs(groups) do
             if table.getn(group) > 0 then
                 table.sort(group, function(a, b)
-                    local aName = UnitName(a:GetUnit()) or a:GetUnit()
-                    local bName = UnitName(b:GetUnit()) or b:GetUnit()
+                    local aName = UnitName(a:GetUnit()) or a.fakeStats.name or a:GetUnit()
+                    local bName = UnitName(b:GetUnit()) or b.fakeStats.name or b:GetUnit()
                     return aName < bName
                 end)
                 table.insert(sortedGroups, group)
@@ -282,8 +351,8 @@ function HealUIGroup:GetSortedUIs()
         for groupNumber, group in ipairs(groups) do
             if table.getn(group) > 0 then
                 table.sort(group, function(a, b)
-                    local aName = HM.GetClass(a:GetUnit()) or a.testClass
-                    local bName = HM.GetClass(b:GetUnit()) or b.testClass
+                    local aName = util.GetClass(a:GetUnit()) or a.fakeStats.class
+                    local bName = util.GetClass(b:GetUnit()) or b.fakeStats.class
                     return aName < bName
                 end)
                 table.insert(sortedGroups, group)
@@ -294,5 +363,5 @@ function HealUIGroup:GetSortedUIs()
 end
 
 function HealUIGroup:GetProfile()
-    return HealersMateSettings.Profiles[self.name]
+    return self.profile
 end
