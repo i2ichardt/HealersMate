@@ -115,7 +115,8 @@ TrackedDebuffTypes = {} -- Default tracked is variable based on class
 do
     -- Tracked buffs for all classes
     local defaultTrackedBuffs = {
-        "Blessing of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+        "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+            "Bulwark of the Righteous",
         "Power Infusion", "Spirit of Redemption", -- Priest
         "Shield Wall", -- Warrior
         "Evasion", "Vanish", -- Rogue
@@ -130,15 +131,15 @@ do
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
             "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
             "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
-            "Blessing of Freedom", "Redoubt", "Holy Shield"},
+            "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
-            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Empower Champion", "Fear Ward", 
-            "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", 
-            "Spirit Tap"},
+            "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
+            "Fear Ward", "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", 
+            "Fade", "Spirit Tap"},
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
         ["SHAMAN"] = {"Water Walking"},
         ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
-        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
+        ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
     }
@@ -150,6 +151,7 @@ do
     local defaultTrackedDebuffs = {
         "Forbearance", -- Paladin
         "Death Wish", -- Warrior
+        "Enrage", -- Druid
         "Blood Fury", -- Racial
         "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
     }
