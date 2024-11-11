@@ -271,7 +271,7 @@ function HealUIGroup:GetSortedUIs()
         for i = 1, 8 do
             groups[i] = {}
             local group = groups[i]
-            if RAID_SUBGROUP_LISTS then
+            if RAID_SUBGROUP_LISTS and RAID_SUBGROUP_LISTS[i] then
                 for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[i]) do
                     table.insert(group, uis["raid"..raidNumber]) -- Effectively sorts raid members by ID at this point
                     foundRaidNumbers[raidNumber] = 1
@@ -289,7 +289,7 @@ function HealUIGroup:GetSortedUIs()
             for i = 1, 8 do
                 local group = groups[i]
                 for frameNumber = 1, 5 do
-                    if not RAID_SUBGROUP_LISTS[i][frameNumber] then
+                    if not RAID_SUBGROUP_LISTS[i] or not RAID_SUBGROUP_LISTS[i][frameNumber] then
                         table.insert(group, uis["raid"..table.remove(unoccupied, table.getn(unoccupied))])
                     end
                 end
