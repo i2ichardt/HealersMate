@@ -92,25 +92,12 @@ local GetKeyModifier = util.GetKeyModifier
 local GetClass = util.GetClass
 local GetPowerType = util.GetPowerType
 
-PartyUnits = {"player", "party1", "party2", "party3", "party4"}
-PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
-TargetUnits = {"target"}
-RaidUnits = {}
-for i = 1, MAX_RAID_MEMBERS do
-    RaidUnits[i] = "raid"..i
-end
-RaidPetUnits = {}
-for i = 1, MAX_RAID_MEMBERS do
-    RaidPetUnits[i] = "raidpet"..i
-end
-
-local unitArrays = {PartyUnits, PetUnits, RaidUnits, RaidPetUnits, TargetUnits}
-AllUnits = {}
-for _, unitArray in ipairs(unitArrays) do
-    for _, unit in ipairs(unitArray) do
-        table.insert(AllUnits, unit)
-    end
-end
+PartyUnits = util.PartyUnits
+PetUnits = util.PetUnits
+TargetUnits = util.TargetUnits
+RaidUnits = util.RaidUnits
+RaidPetUnits = util.RaidPetUnits
+AllUnits = util.AllUnits
 
 -- TODO: Actually use this
 UIGroupInfo = {}
@@ -233,11 +220,11 @@ do
 
     local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
     local sightTrackedUnits = util.CloneTable(almostAllUnits)
-    local accurateDistance = util.CanClientGetAccurateDistance()
+    local preciseDistance = util.CanClientGetPreciseDistance()
     local sightTrackingEnabled = util.CanClientSightCheck()
     local nextTrackingUpdate = GetTime() + 0.5
     local nextUpdate = GetTime() + 0.6
-    if not accurateDistance and not sightTrackingEnabled then
+    if not preciseDistance and not sightTrackingEnabled then
         nextUpdate = nextUpdate + 99999999 -- Effectively disable updates
     end
     local distanceCheckerFrame = CreateFrame("Frame", "HMDistanceCheckerFrame", UIParent)
@@ -437,12 +424,15 @@ function ApplySpellsTooltip(attachTo, unit)
     local deadFriend = util.IsDeadFriend(unit)
     local selfClass = GetClass("player")
     local canResurrect = deadFriend and ResurrectionSpells[selfClass]
+    -- Holy Champion Texture: Interface\\Icons\\Spell_Holy_ProclaimChampion_02
+    local canReviveChampion = canResurrect and GetSpellID("Revive Champion") and 
+        HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
 
     for _, btn in ipairs(settings.CustomButtonOrder) do
         if canResurrect then -- Show all spells as the resurrection spell
             local kv = {}
             local readableButton = settings.CustomButtonNames[btn] or ReadableButtonMap[btn]
-            kv[readableButton] = ResurrectionSpells[selfClass]
+            kv[readableButton] = canReviveChampion and "Revive Champion" or ResurrectionSpells[selfClass]
             table.insert(spellList, kv)
         else
             if spells[modifier][btn] or (settings.ShowEmptySpells and not settings.IgnoredEmptySpells[btn]) then
@@ -582,10 +572,24 @@ function EventAddonLoaded()
         end
     end
 
+    HMUnit.CreateCaches(AllUnits)
     HealersMateSettings.UpdateTrackedDebuffTypes()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
     HealersMateSettings.InitSettings()
+    if HMHealPredict then
+        HMHealPredict.OnLoad()
+
+        HMHealPredict.HookUpdates(function(guid, incomingHealing)
+            if not GUIDUnitMap[guid] then
+                return
+            end
+            for _, unit in ipairs(GUIDUnitMap[guid]) do
+                HealUIs[unit].incomingHealing = incomingHealing
+                HealUIs[unit]:UpdateHealth()
+            end
+        end)
+    end
 
     TestUI = HMOptions.TestUI
 
@@ -662,20 +666,40 @@ SpecialBinds = {
     end,
     ["follow"] = function(unit)
         FollowUnit(unit)
+    end,
+    ["context"] = function(unit, frame)
+        -- Trying to figure out how to get raid context menus still
+        local map = {
+            ["party1"] = 1,
+            ["party2"] = 2,
+            ["party3"] = 3,
+            ["party4"] = 4
+        }
+        if map[unit] then
+            ToggleDropDownMenu(1, nil, _G["PartyMemberFrame"..map[unit].."DropDown"], frame:GetName(), frame:GetWidth(), 0)
+        end
     end
 }
 
-function ClickHandler(buttonType, unit)
-    if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
-        return
-    end
-    
+function ClickHandler(buttonType, unit, frame)
     local currentTargetEnemy = UnitCanAttack("player", "target")
     
     local spells = UnitCanAttack("player", unit) and GetHostileSpells() or GetSpells()
     local spell = spells[GetKeyModifier()][buttonType]
+
+    if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
+        if SpecialBinds[spell] then
+            SpecialBinds[spell](unit, frame)
+        end
+        return
+    end
     if util.IsDeadFriend(unit) then
-        spell = ResurrectionSpells[GetClass("player")]
+        if HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and GetSpellID("Revive Champion") 
+            and UnitAffectingCombat("player") then
+                spell = "Revive Champion"
+        else
+            spell = ResurrectionSpells[GetClass("player")]
+        end
     end
     
     if spell == nil then
@@ -772,6 +796,10 @@ function CheckGroup()
             group:Hide()
         end
     end
+    HMUnit.UpdateAllUnits()
+    if superwow then
+        HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+    end
 end
 
 
@@ -825,6 +853,7 @@ function EventHandler()
         if not IsRelevantUnit(unit) then
             return
         end
+        HMUnit.Get(unit):UpdateAuras()
         HealUIs[unit]:UpdateAuras()
         HealUIs[unit]:UpdateHealth() -- Update health because there may be an aura that changes health bar color
 
@@ -839,13 +868,35 @@ function EventHandler()
         if HMOptions.Hidden then
             return
         end
-        if UnitExists("target") then
+        HMUnit.Get("target"):UpdateAll()
+        local exists, guid = UnitExists("target")
+        if exists then
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 HealUIGroups["Target"]:Show()
                 HealUIs["target"]:CheckRange()
                 HealUIs["target"]:CheckSight()
+
+                if guid then -- If the guid isn't nil, then SuperWoW is present
+                    for guidInMap, units in pairs(GUIDUnitMap) do
+                        if util.ArrayContains(units, "target") then
+                            util.RemoveElement(units, "target")
+                            if table.getn(units) == 0 then
+                                GUIDUnitMap[guidInMap] = nil
+                            end
+                            break
+                        end
+                    end
+                
+                    if not GUIDUnitMap[guid] then
+                        GUIDUnitMap[guid] = {}
+                    end
+                    table.insert(GUIDUnitMap[guid], "target")
+                    HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+                    HealUIs["target"].incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+                    HealUIs["target"]:UpdateHealth()
+                end
             end
         else
             HealUIGroups["Target"]:Hide()
@@ -856,3 +907,26 @@ function EventHandler()
 end
 
 EventHandlerFrame:SetScript("OnEvent", EventHandler)
+
+
+function hmprint(msg)
+    if not HMOptions or not HMOptions["Debug"] then
+        return
+    end
+    local window
+    local i = 1
+    while not window do
+        local name = GetChatWindowInfo(i)
+        if not name then
+            break
+        end
+        if name == "Debug" then
+            window = getglobal("ChatFrame"..i)
+            break
+        end
+        i = i + 1
+    end
+    if window then
+        window:AddMessage(tostring(msg))
+    end
+end

@@ -52,6 +52,7 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
             end
         end
     end
+    HealersMateSettings.TrackedDebuffTypesSet = trackedDebuffTypes
     trackedDebuffTypes = util.ToArray(trackedDebuffTypes)
 
     HealersMateSettings.TrackedDebuffTypes = trackedDebuffTypes
@@ -112,6 +113,11 @@ TrackedBuffs = nil -- Default tracked is variable based on class
 TrackedDebuffs = nil -- Default tracked is variable based on class
 TrackedDebuffTypes = {} -- Default tracked is variable based on class
 
+-- Buffs/debuffs that significantly modify healing
+TrackedHealingBuffs = {"Amplify Magic", "Dampen Magic"}
+TrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Gehennas' Curse", 
+    "Necrotic Poison", "Blood Fury", "Necrotic Aura"}
+
 do
     -- Tracked buffs for all classes
     local defaultTrackedBuffs = {
@@ -130,20 +136,21 @@ do
     local defaultClassTrackedBuffs = {
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
             "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
-            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
+            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Daybreak", 
             "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
             "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
             "Fear Ward", "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", 
             "Fade", "Spirit Tap"},
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
-        ["SHAMAN"] = {"Water Walking"},
+        ["SHAMAN"] = {"Water Walking", "Healing Way", "Ancestral Fortitude"},
         ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
         ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
     }
     local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
+    util.AppendArrayElements(trackedBuffs, TrackedHealingBuffs)
     util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
     trackedBuffs = util.ToSet(trackedBuffs, true)
 
@@ -152,7 +159,6 @@ do
         "Forbearance", -- Paladin
         "Death Wish", -- Warrior
         "Enrage", -- Druid
-        "Blood Fury", -- Racial
         "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
     }
     -- Tracked debuffs for specific classes
@@ -160,11 +166,15 @@ do
         ["PRIEST"] = {"Weakened Soul"}
     }
     local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
+    util.AppendArrayElements(trackedDebuffs, TrackedHealingDebuffs)
     util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
     trackedDebuffs = util.ToSet(trackedDebuffs, true)
 
     TrackedBuffs = trackedBuffs
     TrackedDebuffs = trackedDebuffs
+
+    TrackedHealingBuffs = util.ToSet(TrackedHealingBuffs)
+    TrackedHealingDebuffs = util.ToSet(TrackedHealingDebuffs)
 end
 
 ShowEmptySpells = true

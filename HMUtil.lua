@@ -41,6 +41,26 @@ PowerTypeMap = {
 -- The default color Blizzard uses for text
 DefaultTextColor = {1, 0.82, 0}
 
+PartyUnits = {"player", "party1", "party2", "party3", "party4"}
+PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
+TargetUnits = {"target"}
+RaidUnits = {}
+for i = 1, MAX_RAID_MEMBERS do
+    RaidUnits[i] = "raid"..i
+end
+RaidPetUnits = {}
+for i = 1, MAX_RAID_MEMBERS do
+    RaidPetUnits[i] = "raidpet"..i
+end
+
+local unitArrays = {PartyUnits, PetUnits, RaidUnits, RaidPetUnits, TargetUnits}
+AllUnits = {}
+for _, unitArray in ipairs(unitArrays) do
+    for _, unit in ipairs(unitArray) do
+        table.insert(AllUnits, unit)
+    end
+end
+
 -- Returns a new table with the elements of the given array being the keys with 1 being the value of all keys, 
 -- or the index if indexValue is true
 function ToSet(array, indexValue)
@@ -190,6 +210,69 @@ function HasAura(unit, auraType, auraTexture, auraID)
     return false
 end
 
+-- Returns an array of the units in the party number or the unit's raid group
+function GetRaidPartyMembers(partyNumberOrUnit)
+    if not RAID_SUBGROUP_LISTS then
+        return {}
+    end
+    if type(partyNumberOrUnit) == "string" then
+        partyNumberOrUnit = FindUnitRaidGroup(partyNumberOrUnit)
+    end
+    local members = {}
+    for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
+        table.insert(members, "raid"..raidNumber)
+    end
+    return members
+end
+
+-- Returns the raid unit that this unit is, or nil if the unit is not in the raid
+function FindRaidUnit(unit)
+    for party = 1, 8 do
+        if RAID_SUBGROUP_LISTS[party] then
+            for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
+                local raidUnit = "raid"..raidNumber
+                if UnitIsUnit(unit, raidUnit) then
+                    return raidUnit
+                end
+            end
+        end
+    end
+end
+
+-- Returns the raid group number the unit is part of, or nil if the unit is not in the raid
+function FindUnitRaidGroup(unit)
+    for party = 1, 8 do
+        if RAID_SUBGROUP_LISTS[party] then
+            for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
+                local raidUnit = "raid"..raidNumber
+                if UnitIsUnit(unit, raidUnit) then
+                    return party
+                end
+            end
+        end
+    end
+end
+
+-- Requires SuperWoW
+function GetSurroundingPartyMembers(player)
+    local units
+    if UnitInRaid("player") then
+        units = GetRaidPartyMembers(player)
+    else
+        units = CloneTable(PartyUnits)
+        AppendArrayElements(units, PetUnits)
+    end
+
+    local inRange = {}
+    for _, unit in ipairs(units) do
+        local exists, guid = UnitExists(unit)
+        if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(player, unit) <= 30 then
+            table.insert(inRange, guid)
+        end
+    end
+    return inRange
+end
+
 -- Returns the class without the first return variable fluff
 function GetClass(unit)
     local _, class = UnitClass(unit)
@@ -291,22 +374,53 @@ function GetPowerColor(unit)
     return PowerColors[GetPowerType(unit)]
 end
 
--- Returns distance if UnitXP SP3 is present;
--- 0 if unit is offline;
+-- Returns distance if UnitXP SP3 or SuperWoW is present;
+-- 0 if unit is offline, not visible, or unit is enemy and SuperWoW is the distance provider;
 -- 9999 if unit is not visible or UnitXP SP3 is not present.
--- Might try to do hacky stuff for people without the mod later on.
+-- Might try to do hacky stuff for people without mods later on.
 function GetDistanceTo(unit)
     if not UnitIsConnected(unit) then
         return 0
     end
-    if not UnitXPSP3 then
-        return UnitIsVisible(unit) and 0 or 9999
+
+    if UnitXPSP3 then
+        return math.max((UnitXP("distanceBetween", "player", unit) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+    elseif SuperWoW then -- Try to fallback to SuperWoW distance
+        return math.max((GetDistanceBetween_SuperWow("player", unit) or (9999 + 3)) - 3, 0)
     end
-    return math.max((UnitXP("distanceBetween", "player", unit) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+    return UnitIsVisible(unit) and 0 or 9999
 end
 
-function CanClientGetAccurateDistance()
-    return UnitXPSP3
+local function getDistance(x1, z1, x2, z2)
+    local dx = x2 - x1
+    local dz = z2 - z1
+    return math.sqrt(dx*dx + dz*dz)
+end
+
+function GetDistanceBetween_SuperWow(unit1, unit2)
+    local x1, z1 = UnitPosition(unit1)
+    local x2, z2 = UnitPosition(unit2)
+    if not x1 or not x2 then
+        return 0
+    end
+    return getDistance(x1, z1, x2, z2)
+end
+
+function GetDistanceBetween(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 9999
+    end
+    if UnitXPSP3 then
+        return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+    elseif SuperWoW then
+        return math.max((GetDistanceBetween_SuperWow(unit1, unit2) or (9999 + 3)) - 3, 0)
+    end
+    return (UnitIsVisible(unit1) and UnitIsVisible(unit2)) and 0 or 9999
+end
+
+-- SuperWoW cannot provide precise distance for enemies
+function CanClientGetPreciseDistance(alsoEnemies)
+    return UnitXPSP3 or (SuperWoW and not alsoEnemies)
 end
 
 -- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
@@ -323,4 +437,8 @@ end
 
 function IsSuperWowPresent()
     return SuperWoW
+end
+
+function IsUnitXPSP3Present()
+    return UnitXPSP3
 end

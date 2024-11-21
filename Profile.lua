@@ -132,6 +132,16 @@ function HMUIProfile.SetDefaults()
         ["Color"] = {1, 0.4, 0.4}
     })
 
+    profile.IncomingHealDisplay = "Hidden" -- "Overheal", "Heal", "Hidden"
+    profile.IncomingHealText = createTextObject({
+        ["FontSize"] = 9,
+        ["AlignmentV"] = "BOTTOM",
+        ["AlignmentH"] = "RIGHT",
+        ["Anchor"] = "Health Bar",
+        ["Color"] = {0.5, 1, 0.5},
+        ["Outline"] = true
+    })
+
     profile.AlertPercent = 100
     profile.NotAlertedOpacity = 60
 

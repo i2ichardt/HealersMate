@@ -11,7 +11,7 @@ setfenv(1, HMProfileManager)
 local util = getglobal("HMUtil")
 
 DefaultProfileOrder = {
-    "Compact", "Compact (Small)", "Long", "Long (Small)", "Long (Integrated)", "Legacy"
+    "Compact", "Compact (Short Bar)", "Compact (Small)", "Long", "Long (Small)", "Long (Integrated)", "Legacy"
 }
 DefaultProfileOrder = util.ToSet(DefaultProfileOrder, true)
 
@@ -76,7 +76,7 @@ function InitializeDefaultProfiles()
         profile.NameText.MaxWidth = 47
         profile.PowerBarHeight = 6
         profile.PaddingBottom = 0
-        profile.AuraTracker.Height = 15
+        profile.AuraTracker.Height = 12
         profile.AuraTracker.Anchor = "Health Bar"
         profile.AuraTracker.AlignmentH = "LEFT"
         profile.TrackedAurasAlignment = "BOTTOM"
@@ -95,6 +95,13 @@ function InitializeDefaultProfiles()
         healthTexts.Missing.AlignmentH = "RIGHT"
         healthTexts.Missing.AlignmentV = "CENTER"
         healthTexts.Missing.OffsetY = 2
+
+        profile.IncomingHealDisplay = "Overheal"
+        profile.IncomingHealText.AlignmentH = "RIGHT"
+        profile.IncomingHealText.AlignmentV = "CENTER"
+        profile.IncomingHealText.OffsetY = -6
+        profile.IncomingHealText.PaddingH = 2
+        profile.IncomingHealText.FontSize = 7
 
         profile.RangeText.AlignmentV = "CENTER"
         profile.RangeText.OffsetY = -6
@@ -134,7 +141,7 @@ function InitializeDefaultProfiles()
         healthTexts.Normal.AlignmentV = "CENTER"
         healthTexts.Normal.OffsetY = 2
         healthTexts.WithMissing.FontSize = 11
-        healthTexts.WithMissing.AlignmentH = "LEFT"
+        healthTexts.WithMissing.AlignmentH = "CENTER"
         healthTexts.WithMissing.AlignmentV = "CENTER"
         healthTexts.WithMissing.OffsetY = 2
         healthTexts.WithMissing.PaddingH = 8
@@ -142,10 +149,74 @@ function InitializeDefaultProfiles()
         healthTexts.Missing.AlignmentH = "RIGHT"
         healthTexts.Missing.AlignmentV = "CENTER"
         healthTexts.Missing.OffsetY = 2
-        healthTexts.Missing.PaddingH = 8
+        healthTexts.Missing.PaddingH = 2
+        
+        profile.IncomingHealDisplay = "Overheal"
+        profile.IncomingHealText.AlignmentH = "LEFT"
+        profile.IncomingHealText.AlignmentV = "CENTER"
+        profile.IncomingHealText.OffsetY = 2
+        profile.IncomingHealText.PaddingH = 2
 
         profile.RangeText.AlignmentV = "CENTER"
         profile.RangeText.OffsetY = -7
+        profile.RangeText.FontSize = 9
+        profile.LineOfSightIcon.Width = 20
+        profile.LineOfSightIcon.Height = 20
+        profile.LineOfSightIcon.Anchor = "Health Bar"
+        profile.LineOfSightIcon.Opacity = 80
+        profile.HealthDisplay = "Health"
+        profile.MissingHealthDisplay = "-Health"
+        profile.PowerText.FontSize = 8
+        profile.PowerText.AlignmentH = "CENTER"
+    end
+
+    do
+        local profile = HMUIProfile:New(GetProfile("Base"))
+        HMDefaultProfiles["Compact (Short Bar)"] = profile
+
+        profile.Width = 100
+        profile.HealthBarHeight = 24
+        profile.PowerBarHeight = 9
+        profile.NameText.FontSize = 11
+        profile.NameText.AlignmentH = "CENTER"
+        profile.NameText.AlignmentV = "TOP"
+        profile.NameText.PaddingV = 0
+        profile.NameText.MaxWidth = 80
+        profile.NameText.Anchor = "Container"
+        profile.PaddingTop = 12
+        profile.PaddingBottom = 0
+        profile.AuraTracker.Height = 14
+        profile.AuraTracker.Anchor = "Health Bar"
+        profile.AuraTracker.AlignmentH = "LEFT"
+        profile.TrackedAurasAlignment = "BOTTOM"
+        profile.TrackedAurasSpacing = 1
+
+        local healthTexts = profile.HealthTexts
+        healthTexts.Normal.FontSize = 11
+        healthTexts.Normal.AlignmentH = "CENTER"
+        healthTexts.Normal.AlignmentV = "TOP"
+        healthTexts.Normal.OffsetY = 0
+        healthTexts.Normal.PaddingV = 0
+        healthTexts.WithMissing.FontSize = 11
+        healthTexts.WithMissing.AlignmentH = "CENTER"
+        healthTexts.WithMissing.AlignmentV = "TOP"
+        healthTexts.WithMissing.OffsetY = 0
+        healthTexts.WithMissing.PaddingH = 8
+        healthTexts.Missing.FontSize = 11
+        healthTexts.Missing.AlignmentH = "RIGHT"
+        healthTexts.Missing.AlignmentV = "TOP"
+        healthTexts.Missing.OffsetY = 0
+        healthTexts.Missing.PaddingH = 2
+        
+        profile.IncomingHealDisplay = "Overheal"
+        profile.IncomingHealText.AlignmentH = "LEFT"
+        profile.IncomingHealText.AlignmentV = "TOP"
+        profile.IncomingHealText.OffsetY = 0
+        profile.IncomingHealText.PaddingH = 2
+        profile.IncomingHealText.PaddingV = 2
+
+        profile.RangeText.AlignmentV = "CENTER"
+        profile.RangeText.OffsetY = -4
         profile.RangeText.FontSize = 9
         profile.LineOfSightIcon.Width = 20
         profile.LineOfSightIcon.Height = 20
@@ -180,6 +251,10 @@ function InitializeDefaultProfiles()
         healthTexts.Normal.AlignmentH = "CENTER"
         profile.HealthDisplay = "Health/Max Health"
         profile.PowerDisplay = "Hidden"
+
+        profile.IncomingHealDisplay = "Overheal"
+        profile.IncomingHealText.AlignmentH = "LEFT"
+        profile.IncomingHealText.AlignmentV = "CENTER"
 
         profile.BorderStyle = "Hidden"
     end

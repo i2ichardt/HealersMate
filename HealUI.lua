@@ -9,8 +9,10 @@ HealUI.overlayContainer = nil -- Contains elements that should not be affected b
 HealUI.container = nil -- Most elements are contained in this
 HealUI.nameText = nil
 HealUI.healthBar = nil
+HealUI.incomingHealthBar = nil
 HealUI.healthText = nil
 HealUI.missingHealthText = nil
+HealUI.incomingHealText = nil
 HealUI.powerBar = nil
 HealUI.powerText = nil
 HealUI.button = nil
@@ -19,7 +21,8 @@ HealUI.scrollingDamageFrame = nil -- Unimplemented
 HealUI.scrollingHealFrame = nil -- Unimplemented
 HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
 HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
-HealUI.afflictedDebuffTypes = {} -- A set cache of debuff types currently on the player
+
+HealUI.incomingHealing = 0
 
 HealUI.hovered = false
 HealUI.pressed = false
@@ -40,7 +43,7 @@ local util
 function HealUI:New(unit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
-    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, afflictedDebuffTypes = {}, fakeStats = HealUI.GenerateFakeStats()}
+    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HealUI.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
     return obj
@@ -207,7 +210,7 @@ function HealUI:UpdateOpacity()
         alpha = alpha * (profile.OutOfRangeOpacity / 100)
     end
     if profile.AlertPercent < math.ceil((self:GetCurrentHealth() / self:GetMaxHealth()) * 100) and 
-            table.getn(self.afflictedDebuffTypes) == 0 then
+            table.getn(self:GetAfflictedDebuffTypes()) == 0 then
         alpha = alpha * (profile.NotAlertedOpacity / 100)
     end
     self.container:SetAlpha(alpha)
@@ -470,18 +473,15 @@ function HealUI:UpdateAuras()
     if not UnitExists(unit) then
         return
     end
+
+    local cache = self:GetCache()
     
-    -- Track player buffs
-    local buffs = {}
     local trackedBuffs = HealersMateSettings.TrackedBuffs
-    for index = 1, 32 do
-        local texturePath, stacks = UnitBuff(unit, index)
-        if not texturePath then
-            break
-          end
-        local name, type = HM.GetAuraInfo(unit, "Buff", index)
+
+    local buffs = {} -- Buffs that are tracked because of matching name
+    for name, array in pairs(cache.BuffsMap) do
         if trackedBuffs[name] or enemy then
-            table.insert(buffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
+            util.AppendArrayElements(buffs, array)
         end
     end
 
@@ -490,31 +490,23 @@ function HealUI:UpdateAuras()
             return trackedBuffs[a.name] < trackedBuffs[b.name]
         end)
     end
+    
 
-    self.afflictedDebuffTypes = {}
-    -- Track player debuffs
-    local debuffs = {}
-    local typedDebuffs = {} -- Dispellable debuffs
     local trackedDebuffs = HealersMateSettings.TrackedDebuffs
-    for index = 1, 16 do
-        local texturePath, stacks = UnitDebuff(unit, index)
-        if not texturePath then
-            break
-        end
-        local name, type = HM.GetAuraInfo(unit, "Debuff", index)
-        if type ~= "" then
-            self.afflictedDebuffTypes[type] = 1
-        end
-        local alreadyTracked = false
-        for _, trackedType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
-            if type == trackedType then
-                table.insert(typedDebuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
-                alreadyTracked = true
-                break
+    local trackedDebuffTypes = HealersMateSettings.TrackedDebuffTypesSet
+
+    local debuffs = {} -- Debuffs that are tracked because of matching name, later combined with typed debuffs
+    local typedDebuffs = {} -- Debuffs that are tracked because it's a tracked type (like "Magic" or "Disease")
+    for name, array in pairs(cache.DebuffsMap) do
+        if trackedDebuffs[name] or enemy then
+            util.AppendArrayElements(debuffs, array)
+        else
+            -- Check if debuff is a tracked type
+            for _, debuff in ipairs(array) do
+                if trackedDebuffTypes[debuff.type] then
+                    table.insert(typedDebuffs, debuff)
+                end
             end
-        end
-        if (trackedDebuffs[name] and not alreadyTracked) or enemy then
-            table.insert(debuffs, {name = name, index = index, texturePath = texturePath, stacks = stacks})
         end
     end
 
@@ -543,13 +535,13 @@ function HealUI:UpdateAuras()
     local yOffset = profile.TrackedAurasAlignment == "TOP" and 0 or origSize - auraSize
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.index, buff.texturePath, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
+        self:CreateAura(aura, buff.index, buff.texture, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
         xOffset = xOffset + auraSize + spacing
     end
     xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.index, debuff.texturePath, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
+        self:CreateAura(aura, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
     end
 
@@ -583,28 +575,19 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
         end
     end
     
-    -- TODO: Use SuperWoW to use buff IDs instead of textures
     frame:SetScript("OnEnter", function()
-        local texture = icon:GetTexture()
-
-        local auraFunc = type == "Buff" and UnitBuff or UnitDebuff
-        local tooltipSetAuraFunc = type == "Buff" and HM.GameTooltip.SetUnitBuff or HM.GameTooltip.SetUnitDebuff
-        local count = type == "Buff" and 32 or 16
-
-        for i = 1, count do
-            if texture == nil then
-                break
-            end
-            if auraFunc(unit, i) == texture then
-                HM.GameTooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
-                HM.GameTooltip.OwningFrame = frame
-                HM.GameTooltip.OwningIcon = icon
-                HM.GameTooltip.IconTexture = texture
-                tooltipSetAuraFunc(HM.GameTooltip, unit, i)
-                HM.GameTooltip:Show()
-                break
-            end
+        local tooltip = HM.GameTooltip
+        local cache = self:GetCache()
+        tooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
+        tooltip.OwningFrame = frame
+        tooltip.OwningIcon = icon
+        tooltip.IconTexture = cache.Buffs[index].texture
+        if type == "Buff" then
+            tooltip:SetUnitBuff(unit, index)
+        else
+            tooltip:SetUnitDebuff(unit, index)
         end
+        tooltip:Show()
 
         wrapScript("OnEnter")()
     end)
@@ -672,7 +655,13 @@ function HealUI:Initialize()
 
     -- Health Bar Element
 
-    local healthBar = CreateFrame("StatusBar", unit.."StatusBar", container)
+    local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
+    self.incomingHealthBar = incomingHealthBar
+    incomingHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
+    incomingHealthBar:SetMinMaxValues(0, 1)
+    incomingHealthBar:SetAlpha(0.5)
+
+    local healthBar = CreateFrame("StatusBar", unit.."HealthBar", container)
     self.healthBar = healthBar
     healthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
     healthBar:SetMinMaxValues(0, 1)
@@ -689,11 +678,37 @@ function HealUI:Initialize()
     bg:SetAllPoints(true)
     bg:SetTexture(0.5, 0.5, 0.5, 0.25) -- set color to light gray with high transparency
 
+    -- Incoming Text
+    local incomingHealText = overlayContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    self.incomingHealText = incomingHealText
+    incomingHealText:SetTextColor(0.5, 1, 0.5)
+
     local origSetValue = healthBar.SetValue
     --local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
     local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
+    local greenToOverhealColors = {{0, 0.8, 0}, {0.2, 1, 0.2}}
     healthBar.SetValue = function(healthBarSelf, value)
         origSetValue(healthBarSelf, value)
+        local healthIncMaxRatio = 0
+        if self.incomingHealing > 0 then
+            healthIncMaxRatio = value + (self.incomingHealing / self:GetMaxHealth())
+            incomingHealthBar:SetValue(healthIncMaxRatio)
+            if profile.IncomingHealDisplay == "Overheal" then
+                if healthIncMaxRatio > 1 then
+                    incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + self.incomingHealing - self:GetMaxHealth()))
+                else
+                    incomingHealText:SetText("")
+                end
+            elseif profile.IncomingHealDisplay == "Heal" then
+                incomingHealText:SetText("+"..self.incomingHealing)
+            else
+                incomingHealText:SetText("")
+            end
+        else
+            incomingHealthBar:SetValue(0)
+            incomingHealText:SetText("")
+        end
+        incomingHealthBar:SetAlpha(0.5)
         local rgb
 
         local profile = self:GetProfile()
@@ -701,7 +716,7 @@ function HealUI:Initialize()
         local enemy = self:IsEnemy()
         if not enemy then -- Do not display debuff colors for enemies
             for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
-                if self.afflictedDebuffTypes[trackedDebuffType] then
+                if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
                     rgb = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
                     break
                 end
@@ -716,19 +731,28 @@ function HealUI:Initialize()
         if rgb == nil then -- If there's no debuff color, proceed to normal colors
             local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
             if hbc == "Class" then
-                local _, class = UnitClass(unit)
+                local class = util.GetClass(unit)
                 if class == nil then
                     class = self.fakeStats.class
                 end
                 local r, g, b = util.GetClassColor(class)
                 rgb = {r, g, b}
             elseif hbc == "Green" then
-                rgb = {0, 0.8, 0}
+                if healthIncMaxRatio > 1 and value == 1 then
+                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
+                else
+                    rgb = {0, 0.8, 0}
+                end
             elseif hbc == "Green To Red" then
-                rgb = util.InterpolateColors(greenToRedColors, value)
+                if healthIncMaxRatio > 1 and value == 1 then
+                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
+                else
+                    rgb = util.InterpolateColors(greenToRedColors, value)
+                end
             end
         end
         healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
+        incomingHealthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
 
         if value == 0 then
             bg:SetTexture(0.5, 0.5, 0.5, 0.5)
@@ -774,7 +798,7 @@ function HealUI:Initialize()
     self:RegisterClicks()
     button:SetScript("OnClick", function()
         local buttonType = arg1
-        HM.ClickHandler(buttonType, unit)
+        HM.ClickHandler(buttonType, unit, rootContainer)
     end)
     button:SetScript("OnMouseDown", function()
         local buttonType = arg1
@@ -856,6 +880,11 @@ function HealUI:SizeElements()
     healthBar:SetHeight(healthBarHeight)
     healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
 
+    local incomingHealthBar = self.incomingHealthBar
+    incomingHealthBar:SetWidth(width)
+    incomingHealthBar:SetHeight(healthBarHeight)
+    incomingHealthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
+
     local powerBar = self.powerBar
     powerBar:SetWidth(width)
     powerBar:SetHeight(powerBarHeight)
@@ -873,6 +902,9 @@ function HealUI:SizeElements()
 
     local powerText = self.powerText
     self:UpdateComponent(powerText, profile.PowerText)
+
+    local incomingHealText = self.incomingHealText
+    self:UpdateComponent(incomingHealText, profile.IncomingHealText)
 
     local distanceText = self.distanceText
     self:UpdateComponent(distanceText, profile.RangeText)
@@ -934,7 +966,10 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
     if component.SetFont then -- Must be a FontString
         component:SetWidth(math.min(props.MaxWidth, anchor:GetWidth()))
         component:SetHeight(props.FontSize * 1.25)
-        component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, "GameFontNormal")
+        component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, props.Outline and "OUTLINE" or nil)
+        if props.Outline then
+            component:SetShadowOffset(0, 0)
+        end
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
     else
@@ -943,6 +978,14 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
     end
     local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
     component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
+end
+
+function HealUI:GetCache()
+    return HMUnit.Get(self.unit)
+end
+
+function HealUI:GetAfflictedDebuffTypes()
+    return self:GetCache().AfflictedDebuffTypes
 end
 
 function HealUI:GetWidth()

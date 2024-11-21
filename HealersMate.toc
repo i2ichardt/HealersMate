@@ -3,7 +3,7 @@
 ## Title: HealersMate
 ## Notes: Healing Addon for WoW Client version 1.12
 ## Author: Richard Truax(i2ichardt), OldManAlpha
-## SavedVariables: HMOnLoadInfoDisabled
+## SavedVariables: HMOnLoadInfoDisabled, HMHealCache, HMPlayerHealCache
 ## SavedVariablesPerCharacter: HMSpells, HMOptions
 
 HMUtil.lua
@@ -12,5 +12,9 @@ HealUIGroup.lua
 Profile.lua
 ProfileManager.lua
 Settings.lua
+
+libs\HMUnit.lua
+libs\ShaguUtil.lua
+libs\HealPredict.lua
 
 HealersMate.lua
