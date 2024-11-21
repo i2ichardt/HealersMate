@@ -581,10 +581,11 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
         tooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
         tooltip.OwningFrame = frame
         tooltip.OwningIcon = icon
-        tooltip.IconTexture = cache.Buffs[index].texture
         if type == "Buff" then
+            tooltip.IconTexture = cache.Buffs[index].texture
             tooltip:SetUnitBuff(unit, index)
         else
+            tooltip.IconTexture = cache.Debuffs[index].texture
             tooltip:SetUnitDebuff(unit, index)
         end
         tooltip:Show()

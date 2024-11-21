@@ -95,7 +95,7 @@ function HMUnit:UpdateAuras()
 
     local afflictedDebuffTypes = self.AfflictedDebuffTypes
     -- Track player debuffs
-    local debuffs = {}
+    local debuffs = self.Debuffs
     local debuffsMap = self.DebuffsMap
     local typedDebuffs = self.TypedDebuffs -- Dispellable debuffs
     for index = 1, 16 do
