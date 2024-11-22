@@ -99,11 +99,12 @@ function HMUnit:UpdateAuras()
     local debuffsMap = self.DebuffsMap
     local typedDebuffs = self.TypedDebuffs -- Dispellable debuffs
     for index = 1, 16 do
-        local texture, stacks, id = UnitDebuff(unit, index)
+        local texture, stacks, type, id = UnitDebuff(unit, index)
         if not texture then
             break
         end
-        local name, type = HM.GetAuraInfo(unit, "Debuff", index)
+        type = type or ""
+        local name = HM.GetAuraInfo(unit, "Debuff", index)
         if HealersMateSettings.TrackedHealingDebuffs[name] then
             self.HasHealingModifier = true
         end
