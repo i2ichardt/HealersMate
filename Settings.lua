@@ -506,6 +506,7 @@ function InitSettings()
         end)
     end
 
+    local superwow = util.IsSuperWowPresent()
     do
         local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
         SuperWoWLabel:SetPoint("CENTER", 0, -10)
@@ -514,7 +515,7 @@ function InitSettings()
         local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
         SuperWoWDetectedLabel:SetPoint("CENTER", 0, -25)
         SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
-        SuperWoWDetectedLabel:SetText(util.IsSuperWowPresent() and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
+        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
             util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
     end
 
@@ -528,6 +529,9 @@ function InitSettings()
         CheckboxHealPredict:SetWidth(20)
         CheckboxHealPredict:SetHeight(20)
         CheckboxHealPredict:SetChecked(HMOptions.UseHealPredictions)
+        if not superwow then
+            CheckboxHealPredict:Disable()
+        end
         CheckboxHealPredict:SetScript("OnClick", function()
             HMOptions.UseHealPredictions = CheckboxHealPredict:GetChecked() == 1
             HealersMate.UpdateAllIncomingHealing()
@@ -546,6 +550,9 @@ function InitSettings()
         CheckboxMouseover:SetWidth(20)
         CheckboxMouseover:SetHeight(20)
         CheckboxMouseover:SetChecked(HMOptions.SetMouseover)
+        if not superwow then
+            CheckboxMouseover:Disable()
+        end
         CheckboxMouseover:SetScript("OnClick", function()
             HMOptions.SetMouseover = CheckboxMouseover:GetChecked() == 1
         end)
