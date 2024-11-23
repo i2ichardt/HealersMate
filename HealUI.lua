@@ -828,11 +828,17 @@ function HealUI:Initialize()
         HM.ApplySpellsTooltip(button, unit)
         self.hovered = true
         self:UpdateHealth()
+        if HMOptions.SetMouseover and util.IsSuperWowPresent() then
+            SetMouseoverUnit(unit)
+        end
     end)
     button:SetScript("OnLeave", function()
         HM.HideSpellsTooltip()
         self.hovered = false
         self:UpdateHealth()
+        if HMOptions.SetMouseover and util.IsSuperWowPresent() then
+            SetMouseoverUnit(nil)
+        end
     end)
     button:EnableMouse(true)
 

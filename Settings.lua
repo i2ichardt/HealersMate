@@ -80,6 +80,8 @@ function HealersMateSettings.SetDefaults()
             },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["ShowSpellsTooltip"] = true,
+            ["UseHealPredictions"] = true,
+            ["SetMouseover"] = false,
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
@@ -504,11 +506,52 @@ function InitSettings()
         end)
     end
 
+    do
+        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWLabel:SetPoint("CENTER", 0, -10)
+        SuperWoWLabel:SetText("SuperWoW Required Settings")
 
+        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWDetectedLabel:SetPoint("CENTER", 0, -25)
+        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
+        SuperWoWDetectedLabel:SetText(util.IsSuperWowPresent() and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
+            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
+    end
 
-    local soonTM = optionsFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, -50)
-    soonTM:SetText("More options coming in future updates")
+    do
+        local CheckboxHealPredictLabel = optionsFrame:CreateFontString("$parentHealPredictionsLabel", "OVERLAY", "GameFontNormal")
+        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -245)
+        CheckboxHealPredictLabel:SetText("Use Heal Predictions")
+
+        local CheckboxHealPredict = CreateFrame("CheckButton", "$parentHealPredictions", optionsFrame, "UICheckButtonTemplate")
+        CheckboxHealPredict:SetPoint("LEFT", CheckboxHealPredictLabel, "RIGHT", 5, -2)
+        CheckboxHealPredict:SetWidth(20)
+        CheckboxHealPredict:SetHeight(20)
+        CheckboxHealPredict:SetChecked(HMOptions.UseHealPredictions)
+        CheckboxHealPredict:SetScript("OnClick", function()
+            HMOptions.UseHealPredictions = CheckboxHealPredict:GetChecked() == 1
+            HealersMate.UpdateAllIncomingHealing()
+        end)
+        ApplyTooltip(CheckboxHealPredict, "Requires SuperWoW Mod To Work", 
+            "If enabled, you will see predictions on incoming healing")
+    end
+
+    do
+        local CheckboxMouseoverLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
+        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -275)
+        CheckboxMouseoverLabel:SetText("Set Mouseover")
+
+        local CheckboxMouseover = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")
+        CheckboxMouseover:SetPoint("LEFT", CheckboxMouseoverLabel, "RIGHT", 5, -2)
+        CheckboxMouseover:SetWidth(20)
+        CheckboxMouseover:SetHeight(20)
+        CheckboxMouseover:SetChecked(HMOptions.SetMouseover)
+        CheckboxMouseover:SetScript("OnClick", function()
+            HMOptions.SetMouseover = CheckboxMouseover:GetChecked() == 1
+        end)
+        ApplyTooltip(CheckboxMouseover, "Requires SuperWoW Mod To Work", 
+            "If enabled, hovering over frames will set your mouseover target")
+    end
 
 
     local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
@@ -658,7 +701,7 @@ function InitSettings()
     TxtAboutLabel:SetPoint("CENTER", AboutFrame, "CENTER", 0, 100)
     TxtAboutLabel:SetText("HealersMate Version "..HealersMate.VERSION..
     "\n\n\nOriginal Author: i2ichardt\nEmail: rj299@yahoo.com"..
-    "\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana"..
+    "\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana, Lowall, Jmdruid"..
     "\n\nContributer: ChatGPT"..
     "\n\n\nCheck For Updates, Report Issues, Make Suggestions:\n https://github.com/i2ichardt/HealersMate")
 

@@ -535,6 +535,21 @@ function ReapplySpellsTooltip()
     end
 end
 
+function UpdateAllIncomingHealing()
+    if not HMHealPredict then
+        return
+    end
+    for _, ui in pairs(HealUIs) do
+        if HMOptions.UseHealPredictions then
+            local _, guid = UnitExists(ui:GetUnit())
+            ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+        else
+            ui.incomingHealing = 0
+        end
+        ui:UpdateHealth()
+    end
+end
+
 local function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
@@ -598,6 +613,9 @@ function EventAddonLoaded()
         HMHealPredict.OnLoad()
 
         HMHealPredict.HookUpdates(function(guid, incomingHealing)
+            if not HMOptions.UseHealPredictions then
+                return
+            end
             if not GUIDUnitMap[guid] then
                 return
             end
