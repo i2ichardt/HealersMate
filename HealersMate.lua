@@ -1044,6 +1044,9 @@ function CheckGroup()
         end
     end
     HMUnit.UpdateAllUnits()
+    for _, ui in pairs(HealUIs) do
+        ui:UpdateAuras()
+    end
     if superwow then
         HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
     end
