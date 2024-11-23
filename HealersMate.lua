@@ -1023,6 +1023,7 @@ function CheckGroup()
         if unit ~= "target" then
             if exists then
                 ui:Show()
+                ui:UpdateAuras()
             else
                 ui:Hide()
             end
