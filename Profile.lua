@@ -178,6 +178,17 @@ function HMUIProfile.SetDefaults()
         ["Opacity"] = 80
     })
 
+    profile.RoleIcon = createSizedObject({
+        ["Width"] = 14,
+        ["Height"] = 14,
+        ["AlignmentH"] = "LEFT",
+        ["AlignmentV"] = "TOP",
+        ["PaddingH"] = 1,
+        ["PaddingV"] = 1,
+        ["Anchor"] = "Container",
+        ["Opacity"] = 80
+    })
+
     profile.TrackAuras = true
     profile.AuraTracker = createSizedObject({
         ["Height"] = 20,

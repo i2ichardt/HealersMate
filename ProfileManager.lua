@@ -26,6 +26,13 @@ function InitializeDefaultProfiles()
     HMDefaultProfiles["Base"] = HMUIProfile:New()
 
     HMDefaultProfiles["Long"] = HMUIProfile:New(GetProfile("Base"))
+    
+    do
+        local profile = GetProfile("Long")
+        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RoleIcon.PaddingV = 0
+        profile.RoleIcon.OffsetY = 3
+    end
 
     do
         local profile = HMUIProfile:New(GetProfile("Base"))
@@ -43,6 +50,12 @@ function InitializeDefaultProfiles()
         healthTexts.WithMissing.FontSize = 8
         healthTexts.Missing.FontSize = 9
         profile.PowerText.FontSize = 8
+        
+        profile.RoleIcon.Width = 12
+        profile.RoleIcon.Height = 12
+        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RoleIcon.PaddingV = 0
+        profile.RoleIcon.OffsetY = 2
     end
 
     do
@@ -61,6 +74,10 @@ function InitializeDefaultProfiles()
         healthTexts.Normal.AlignmentV = "TOP"
         healthTexts.WithMissing = util.CloneTable(healthTexts.Normal, true)
         healthTexts.Missing.PaddingV = 4
+
+        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RoleIcon.PaddingV = 0
+        profile.RoleIcon.OffsetY = 3
     end
 
     do
@@ -110,6 +127,8 @@ function InitializeDefaultProfiles()
         profile.LineOfSightIcon.Height = 20
         profile.LineOfSightIcon.Anchor = "Health Bar"
         profile.LineOfSightIcon.Opacity = 70
+        profile.RoleIcon.Width = 12
+        profile.RoleIcon.Height = 12
         profile.HealthDisplay = "Health"
         profile.MissingHealthDisplay = "-Health"
         profile.PowerDisplay = "Hidden"
@@ -185,7 +204,7 @@ function InitializeDefaultProfiles()
         profile.NameText.Anchor = "Container"
         profile.PaddingTop = 12
         profile.PaddingBottom = 0
-        profile.AuraTracker.Height = 14
+        profile.AuraTracker.Height = 12
         profile.AuraTracker.Anchor = "Health Bar"
         profile.AuraTracker.AlignmentH = "LEFT"
         profile.TrackedAurasAlignment = "BOTTOM"
@@ -255,6 +274,10 @@ function InitializeDefaultProfiles()
         profile.IncomingHealDisplay = "Overheal"
         profile.IncomingHealText.AlignmentH = "LEFT"
         profile.IncomingHealText.AlignmentV = "CENTER"
+
+        profile.RoleIcon.AlignmentH = "RIGHT"
+        profile.RoleIcon.Width = 16
+        profile.RoleIcon.Height = 16
 
         profile.BorderStyle = "Hidden"
     end

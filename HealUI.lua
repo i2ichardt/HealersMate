@@ -15,6 +15,7 @@ HealUI.missingHealthText = nil
 HealUI.incomingHealText = nil
 HealUI.powerBar = nil
 HealUI.powerText = nil
+HealUI.roleIcon = nil
 HealUI.button = nil
 HealUI.auraPanel = nil
 HealUI.scrollingDamageFrame = nil -- Unimplemented
@@ -654,6 +655,15 @@ function HealUI:Initialize()
     losIcon:SetAlpha(profile.LineOfSightIcon:GetAlpha())
     losFrame:Hide()
 
+    -- Role Icon
+
+    local roleFrame = CreateFrame("Frame", nil, container)
+    roleFrame:SetFrameLevel(container:GetFrameLevel() + 3)
+    local roleIcon = roleFrame:CreateTexture(nil, "OVERLAY")
+    self.roleIcon = {frame = roleFrame, icon = roleIcon}
+    roleIcon:SetAlpha(profile.RoleIcon:GetAlpha())
+    roleFrame:Hide()
+
     -- Health Bar Element
 
     local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
@@ -799,7 +809,7 @@ function HealUI:Initialize()
     self:RegisterClicks()
     button:SetScript("OnClick", function()
         local buttonType = arg1
-        HM.ClickHandler(buttonType, unit, rootContainer)
+        HM.ClickHandler(buttonType, unit, self)
     end)
     button:SetScript("OnMouseDown", function()
         local buttonType = arg1
@@ -916,6 +926,12 @@ function HealUI:SizeElements()
     local losIcon = self.lineOfSightIcon.icon
     losIcon:SetAllPoints(losFrame)
 
+    local roleFrame = self.roleIcon.frame
+    self:UpdateComponent(self.roleIcon.frame, profile.RoleIcon)
+
+    local roleIcon = self.roleIcon.icon
+    roleIcon:SetAllPoints(roleFrame)
+
     local auraPanel = self.auraPanel
     self:UpdateComponent(auraPanel, profile.AuraTracker)
 
@@ -997,12 +1013,36 @@ function HealUI:GetHeight()
     return self:GetProfile():GetHeight()
 end
 
+function HealUI:IsPlayer()
+    return UnitIsPlayer(self.unit)
+end
+
 function HealUI:IsEnemy()
     return UnitCanAttack("player", self.unit)
 end
 
 function HealUI:IsFake()
     return HealersMate.TestUI and not UnitExists(self.unit)
+end
+
+function HealUI:GetRole()
+    return HealersMate.GetUnitAssignedRole(self:GetUnit())
+end
+
+local roleTexturesPath = HMUtil.GetAssetsPath().."textures\\roles\\"
+local roleTextures = {
+    ["Tank"] = roleTexturesPath.."Tank",
+    ["Healer"] = roleTexturesPath.."Healer",
+    ["Damage"] = roleTexturesPath.."Damage"
+}
+function HealUI:UpdateRole()
+    local role = self:GetRole()
+    self.roleIcon.icon:SetTexture(roleTextures[role])
+    if role then
+        self.roleIcon.frame:Show()
+    else
+        self.roleIcon.frame:Hide()
+    end
 end
 
 function HealUI:GetProfile()

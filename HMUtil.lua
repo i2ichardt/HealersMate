@@ -61,6 +61,11 @@ for _, unitArray in ipairs(unitArrays) do
     end
 end
 
+local assetsPath = "Interface\\AddOns\\HealersMate\\assets\\"
+function GetAssetsPath()
+    return assetsPath
+end
+
 -- Returns a new table with the elements of the given array being the keys with 1 being the value of all keys, 
 -- or the index if indexValue is true
 function ToSet(array, indexValue)
@@ -168,6 +173,19 @@ function StripColors(text)
     text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
     text = string.gsub(text, "|r", "")
     return text
+end
+
+local coloredRoles = {
+    ["Tank"] = Colorize("Tank", 0.3, 0.6, 1),
+    ["Healer"] = Colorize("Healer", 0.2, 1, 0.2),
+    ["Damage"] = Colorize("Damage", 1, 0.4, 0.4),
+    ["No Role"] = "No Role"
+}
+function GetColoredRoleText(role)
+    if not role then
+        return coloredRoles["No Role"]
+    end
+    return coloredRoles[role]
 end
 
 function IsFeigning(unit)

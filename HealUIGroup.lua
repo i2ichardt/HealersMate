@@ -359,6 +359,23 @@ function HealUIGroup:GetSortedUIs()
             end
         end
     end
+    for _, group in ipairs(sortedGroups) do
+        local rolePriority = {
+            ["Tank"] = 1,
+            ["Healer"] = 2,
+            ["Damage"] = 3
+        }
+        local groupCopy = util.CloneTable(group)
+        local roleSorter = function(a, b)
+            local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
+            local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
+            return aRank < bRank
+        end
+        table.sort(group, roleSorter)
+        for _, ui in ipairs(group) do
+            ui:UpdateRole()
+        end
+    end
     return sortedGroups
 end
 
