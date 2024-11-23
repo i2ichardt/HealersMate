@@ -444,11 +444,17 @@ function HealUI:GetUnusedAura()
 end
 
 function HealUI:ReleaseAuras()
+    if table.getn(self.auraIcons) == 0 then
+        return
+    end
     -- Release all icons back to the icon pool
     for _, aura in ipairs(self.auraIcons) do
         local frame = aura.frame
         frame:SetScript("OnEnter", nil)
         frame:SetScript("OnLeave", nil)
+        frame:SetScript("OnClick", nil)
+        frame:SetScript("OnMouseUp", nil)
+        frame:SetScript("OnMouseDown", nil)
         frame:Hide()
         frame:ClearAllPoints()
 
