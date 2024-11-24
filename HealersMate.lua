@@ -82,7 +82,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha3"
+VERSION = "2.0.0-alpha4"
 
 TestUI = false
 
@@ -91,26 +91,14 @@ local colorize = util.Colorize
 local GetKeyModifier = util.GetKeyModifier
 local GetClass = util.GetClass
 local GetPowerType = util.GetPowerType
+local GetColoredRoleText = util.GetColoredRoleText
 
-PartyUnits = {"player", "party1", "party2", "party3", "party4"}
-PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
-TargetUnits = {"target"}
-RaidUnits = {}
-for i = 1, MAX_RAID_MEMBERS do
-    RaidUnits[i] = "raid"..i
-end
-RaidPetUnits = {}
-for i = 1, MAX_RAID_MEMBERS do
-    RaidPetUnits[i] = "raidpet"..i
-end
-
-local unitArrays = {PartyUnits, PetUnits, RaidUnits, RaidPetUnits, TargetUnits}
-AllUnits = {}
-for _, unitArray in ipairs(unitArrays) do
-    for _, unit in ipairs(unitArray) do
-        table.insert(AllUnits, unit)
-    end
-end
+PartyUnits = util.PartyUnits
+PetUnits = util.PetUnits
+TargetUnits = util.TargetUnits
+RaidUnits = util.RaidUnits
+RaidPetUnits = util.RaidPetUnits
+AllUnits = util.AllUnits
 
 -- TODO: Actually use this
 UIGroupInfo = {}
@@ -176,7 +164,7 @@ CurrentlyHeldButton = nil
 SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
 SpellsTooltipOwner = nil
 
-local hmBarsPath = "Interface\\AddOns\\HealersMate\\assets\\textures\\bars\\"
+local hmBarsPath = util.GetAssetsPath().."textures\\bars\\"
 BarStyles = {
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
     ["Blizzard Raid"] = hmBarsPath.."Blizzard-Raid",
@@ -192,6 +180,8 @@ HealUIs = {}
 HealUIGroups = {}
 
 CurrentlyInRaid = false
+
+AssignedRoles = nil
 
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
@@ -233,11 +223,11 @@ do
 
     local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
     local sightTrackedUnits = util.CloneTable(almostAllUnits)
-    local accurateDistance = util.CanClientGetAccurateDistance()
+    local preciseDistance = util.CanClientGetPreciseDistance()
     local sightTrackingEnabled = util.CanClientSightCheck()
     local nextTrackingUpdate = GetTime() + 0.5
     local nextUpdate = GetTime() + 0.6
-    if not accurateDistance and not sightTrackingEnabled then
+    if not preciseDistance and not sightTrackingEnabled then
         nextUpdate = nextUpdate + 99999999 -- Effectively disable updates
     end
     local distanceCheckerFrame = CreateFrame("Frame", "HMDistanceCheckerFrame", UIParent)
@@ -295,6 +285,11 @@ function GetHostileSpells()
     return HMSpells["Hostile"]
 end
 
+function UpdateHealUIGroups()
+    for _, group in pairs(HealUIGroups) do
+        group:UpdateUIPositions()
+    end
+end
 
 local ScanningTooltip = CreateFrame("GameTooltip", "HMScanningTooltip", nil, "GameTooltipTemplate");
 ScanningTooltip:SetOwner(WorldFrame, "ANCHOR_NONE");
@@ -437,12 +432,15 @@ function ApplySpellsTooltip(attachTo, unit)
     local deadFriend = util.IsDeadFriend(unit)
     local selfClass = GetClass("player")
     local canResurrect = deadFriend and ResurrectionSpells[selfClass]
+    -- Holy Champion Texture: Interface\\Icons\\Spell_Holy_ProclaimChampion_02
+    local canReviveChampion = canResurrect and GetSpellID("Revive Champion") and 
+        HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
 
     for _, btn in ipairs(settings.CustomButtonOrder) do
         if canResurrect then -- Show all spells as the resurrection spell
             local kv = {}
             local readableButton = settings.CustomButtonNames[btn] or ReadableButtonMap[btn]
-            kv[readableButton] = ResurrectionSpells[selfClass]
+            kv[readableButton] = canReviveChampion and "Revive Champion" or ResurrectionSpells[selfClass]
             table.insert(spellList, kv)
         else
             if spells[modifier][btn] or (settings.ShowEmptySpells and not settings.IgnoredEmptySpells[btn]) then
@@ -479,7 +477,7 @@ function ShowSpellsTooltip(attachTo, spells, owner)
             if spell == "Unbound" then
                 leftText = colorize(button, 0.6, 0.6, 0.6)
                 rightText = colorize("Unbound", 0.6, 0.6, 0.6)
-            elseif SpecialBinds[spell] then
+            elseif SpecialBinds[string.upper(spell)] then
                 rightText = spell
             else -- There is a bound spell
                 local cost, resource = GetResourceCost(spell)
@@ -537,6 +535,21 @@ function ReapplySpellsTooltip()
     end
 end
 
+function UpdateAllIncomingHealing()
+    if not HMHealPredict then
+        return
+    end
+    for _, ui in pairs(HealUIs) do
+        if HMOptions.UseHealPredictions then
+            local _, guid = UnitExists(ui:GetUnit())
+            ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+        else
+            ui.incomingHealing = 0
+        end
+        ui:UpdateHealth()
+    end
+end
+
 local function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
@@ -582,10 +595,36 @@ function EventAddonLoaded()
         end
     end
 
+    if not _G.HMRoleCache then
+        _G.HMRoleCache = {}
+    end
+    if not _G.HMRoleCache[GetRealmName()] then
+        _G.HMRoleCache[GetRealmName()] = {}
+    end
+    AssignedRoles = _G.HMRoleCache[GetRealmName()]
+    PruneAssignedRoles()
+
+    HMUnit.CreateCaches(AllUnits)
     HealersMateSettings.UpdateTrackedDebuffTypes()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
     HealersMateSettings.InitSettings()
+    if HMHealPredict then
+        HMHealPredict.OnLoad()
+
+        HMHealPredict.HookUpdates(function(guid, incomingHealing)
+            if not HMOptions.UseHealPredictions then
+                return
+            end
+            if not GUIDUnitMap[guid] then
+                return
+            end
+            for _, unit in ipairs(GUIDUnitMap[guid]) do
+                HealUIs[unit].incomingHealing = incomingHealing
+                HealUIs[unit]:UpdateHealth()
+            end
+        end)
+    end
 
     TestUI = HMOptions.TestUI
 
@@ -653,6 +692,177 @@ function SetPartyFramesEnabled(enabled)
     end
 end
 
+function GetAssignedRole(name)
+    if not AssignedRoles or not AssignedRoles[name] then
+        return
+    end
+    AssignedRoles[name]["lastSeen"] = time()
+    return AssignedRoles[name]["role"]
+end
+
+function GetUnitAssignedRole(unit)
+    if not UnitIsPlayer(unit) then
+        return
+    end
+    return GetAssignedRole(UnitName(unit))
+end
+
+function SetAssignedRole(name, role)
+    if role == nil or role == "No Role" then
+        AssignedRoles[name] = nil
+        return
+    end
+    AssignedRoles[name] = {
+        ["role"] = role,
+        ["lastSeen"] = time()
+    }
+end
+
+-- Returns true if role assignment failed
+function SetUnitAssignedRole(unit, role)
+    if not UnitIsPlayer(unit) then
+        return true
+    end
+    SetAssignedRole(UnitName(unit), role)
+end
+
+function PruneAssignedRoles()
+    local currentTime = time()
+    for name, data in pairs(AssignedRoles) do
+        if not data["lastSeen"] or data["lastSeen"] < currentTime - (24 * 60 * 60) then
+            AssignedRoles[name] = nil
+            --hmprint("Pruned "..name.."'s role")
+        end
+    end
+end
+
+local roleTarget
+local roleTargetClassColor
+local roleTargetGroup
+
+local function setUnassignedRoles(role)
+    if not roleTargetGroup then
+        return
+    end
+    for _, ui in pairs(roleTargetGroup.uis) do
+        if not ui:GetRole() and UnitIsPlayer(ui:GetUnit()) then
+            SetAssignedRole(UnitName(ui:GetUnit()), role)
+        end
+    end
+    UpdateHealUIGroups()
+    ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
+end
+
+local function applyTargetRole(role)
+    SetAssignedRole(roleTarget, role)
+    UpdateHealUIGroups()
+end
+
+do
+    local roleDropdown = CreateFrame("Frame", "HMRoleDropdown", UIParent, "UIDropDownMenuTemplate")
+
+    local options = {
+        {
+            ["text"] = "",
+            ["arg1"] = "Assign Role",
+            ["notCheckable"] = true,
+            ["disabled"] = true
+        }, {
+            ["text"] = GetColoredRoleText("Tank"),
+            ["arg1"] = "Tank",
+            ["func"] = applyTargetRole
+        }, {
+            ["text"] = GetColoredRoleText("Healer"),
+            ["arg1"] = "Healer",
+            ["func"] = applyTargetRole
+        }, {
+            ["text"] = GetColoredRoleText("Damage"),
+            ["arg1"] = "Damage",
+            ["func"] = applyTargetRole
+        }, {
+            ["text"] = GetColoredRoleText("No Role"),
+            ["arg1"] = "No Role",
+            ["func"] = applyTargetRole
+        }, {
+            ["text"] = "",
+            ["notCheckable"] = true,
+            ["disabled"] = true
+        }, {
+            ["text"] = "Set Unassigned As",
+            ["tooltipTitle"] = "Set Unassigned As",
+            ["tooltipText"] = "Mass-set the roles of unassigned players. Only applies to players contained in this UI group.",
+            ["notCheckable"] = true,
+            ["hasArrow"] = true,
+            ["suboptions"] = {
+                {
+                    ["text"] = GetColoredRoleText("Tank"),
+                    ["arg1"] = "Tank",
+                    ["notCheckable"] = true,
+                    ["func"] = setUnassignedRoles
+                }, {
+                    ["text"] = GetColoredRoleText("Healer"),
+                    ["arg1"] = "Healer",
+                    ["notCheckable"] = true,
+                    ["func"] = setUnassignedRoles
+                }, {
+                    ["text"] = GetColoredRoleText("Damage"),
+                    ["arg1"] = "Damage",
+                    ["notCheckable"] = true,
+                    ["func"] = setUnassignedRoles
+                }
+            }
+        }, {
+            ["text"] = "Clear Roles",
+            ["arg1"] = "Clear Roles",
+            ["tooltipTitle"] = "Clear Roles",
+            ["tooltipText"] = "Clear all players' roles. Only applies to players contained in this UI group.",
+            ["notCheckable"] = true,
+            ["func"] = function()
+                if not roleTargetGroup then
+                    return
+                end
+                for _, ui in pairs(roleTargetGroup.uis) do
+                    if ui:GetRole() and UnitIsPlayer(ui:GetUnit()) then
+                        SetAssignedRole(UnitName(ui:GetUnit()), nil)
+                    end
+                end
+                UpdateHealUIGroups()
+                ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
+            end
+        }
+    }
+
+    UIDropDownMenu_Initialize(roleDropdown, function(level)
+        level = level or 1
+        if level == 1 then
+            for _, option in ipairs(options) do
+                option.checked = (GetAssignedRole(roleTarget) or "No Role") == option.arg1
+
+                if option.arg1 == "Assign Role" and roleTarget then
+                    option.text = colorize("Assign Role: ", 1, 0.5, 1)..colorize(roleTarget, roleTargetClassColor)
+                end
+                UIDropDownMenu_AddButton(option)
+            end
+        elseif level == 2 then
+            local suboptions
+            for _, option in ipairs(options) do
+                if option.text == UIDROPDOWNMENU_MENU_VALUE then
+                    suboptions = option.suboptions
+                end
+            end
+            for _, option in ipairs(suboptions) do
+                UIDropDownMenu_AddButton(option, level)
+            end
+        end
+    end, "MENU")
+end
+
+local function setUnitRoleAndUpdate(unit, role)
+    if not SetUnitAssignedRole(unit, role) then
+        UpdateHealUIGroups()
+    end
+end
+
 SpecialBinds = {
     ["target"] = function(unit)
         TargetUnit(unit)
@@ -662,28 +872,88 @@ SpecialBinds = {
     end,
     ["follow"] = function(unit)
         FollowUnit(unit)
+    end,
+    ["context"] = function(unit, ui)
+        -- Trying to figure out how to get raid context menus still
+        local map = {
+            ["party1"] = 1,
+            ["party2"] = 2,
+            ["party3"] = 3,
+            ["party4"] = 4
+        }
+        if map[unit] then
+            local frame = ui:GetRootContainer()
+            ToggleDropDownMenu(1, nil, _G["PartyMemberFrame"..map[unit].."DropDown"], frame:GetName(), frame:GetWidth(), 0)
+        end
+    end,
+    ["Role: Tank"] = function(unit)
+        setUnitRoleAndUpdate(unit, "Tank")
+    end,
+    ["Role: Healer"] = function(unit)
+        setUnitRoleAndUpdate(unit, "Healer")
+    end,
+    ["Role: Damage"] = function(unit)
+        setUnitRoleAndUpdate(unit, "Damage")
+    end,
+    ["Role: None"] = function(unit)
+        setUnitRoleAndUpdate(unit, nil)
+    end,
+    ["Role"] = function(unit, ui)
+        if not UnitIsPlayer(unit) then
+            return
+        end
+        roleTarget = UnitName(unit)
+        roleTargetClassColor = util.GetClassColor(util.GetClass(unit), true)
+        roleTargetGroup = ui.owningGroup
+        local frame = ui:GetRootContainer()
+        local dropdown = _G["HMRoleDropdown"]
+        if dropdown:IsShown() then
+            ToggleDropDownMenu(1, nil, dropdown)
+        end
+        ToggleDropDownMenu(1, nil, dropdown, frame:GetName(), frame:GetWidth(), frame:GetHeight())
+        PlaySound("igMainMenuOpen")
     end
 }
 
-function ClickHandler(buttonType, unit)
-    if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
-        return
+-- Create aliases for special binds
+SpecialBinds["Set Role"] = SpecialBinds["Role"]
+
+-- Make all the special binds upper case
+do
+    local upperSpecialBinds = {}
+    for name, func in pairs(SpecialBinds) do
+        upperSpecialBinds[string.upper(name)] = func
     end
-    
+    SpecialBinds = upperSpecialBinds
+end
+
+function ClickHandler(buttonType, unit, ui)
     local currentTargetEnemy = UnitCanAttack("player", "target")
     
     local spells = UnitCanAttack("player", unit) and GetHostileSpells() or GetSpells()
     local spell = spells[GetKeyModifier()][buttonType]
+
+    if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
+        if SpecialBinds[string.upper(spell)] then
+            SpecialBinds[string.upper(spell)](unit, ui)
+        end
+        return
+    end
     if util.IsDeadFriend(unit) then
-        spell = ResurrectionSpells[GetClass("player")]
+        if HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and GetSpellID("Revive Champion") 
+            and UnitAffectingCombat("player") then
+                spell = "Revive Champion"
+        else
+            spell = ResurrectionSpells[GetClass("player")]
+        end
     end
     
     if spell == nil then
         return
     end
 
-    if SpecialBinds[spell] then
-        SpecialBinds[spell](unit)
+    if SpecialBinds[string.upper(spell)] then
+        SpecialBinds[string.upper(spell)](unit, ui)
         return
     end
 
@@ -753,6 +1023,7 @@ function CheckGroup()
         if unit ~= "target" then
             if exists then
                 ui:Show()
+                ui:UpdateAuras()
             else
                 ui:Hide()
             end
@@ -771,6 +1042,13 @@ function CheckGroup()
         else
             group:Hide()
         end
+    end
+    HMUnit.UpdateAllUnits()
+    for _, ui in pairs(HealUIs) do
+        ui:UpdateAuras()
+    end
+    if superwow then
+        HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
     end
 end
 
@@ -825,6 +1103,7 @@ function EventHandler()
         if not IsRelevantUnit(unit) then
             return
         end
+        HMUnit.Get(unit):UpdateAuras()
         HealUIs[unit]:UpdateAuras()
         HealUIs[unit]:UpdateHealth() -- Update health because there may be an aura that changes health bar color
 
@@ -839,13 +1118,36 @@ function EventHandler()
         if HMOptions.Hidden then
             return
         end
-        if UnitExists("target") then
+        HMUnit.Get("target"):UpdateAll()
+        local exists, guid = UnitExists("target")
+        if exists then
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 HealUIGroups["Target"]:Show()
                 HealUIs["target"]:CheckRange()
                 HealUIs["target"]:CheckSight()
+
+                if guid then -- If the guid isn't nil, then SuperWoW is present
+                    for guidInMap, units in pairs(GUIDUnitMap) do
+                        if util.ArrayContains(units, "target") then
+                            util.RemoveElement(units, "target")
+                            if table.getn(units) == 0 then
+                                GUIDUnitMap[guidInMap] = nil
+                            end
+                            break
+                        end
+                    end
+                
+                    if not GUIDUnitMap[guid] then
+                        GUIDUnitMap[guid] = {}
+                    end
+                    table.insert(GUIDUnitMap[guid], "target")
+                    HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+                    HealUIs["target"].incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+                    HealUIs["target"]:UpdateHealth()
+                    HealUIs["target"]:UpdateRole()
+                end
             end
         else
             HealUIGroups["Target"]:Hide()
@@ -856,3 +1158,26 @@ function EventHandler()
 end
 
 EventHandlerFrame:SetScript("OnEvent", EventHandler)
+
+
+function hmprint(msg)
+    if not HMOptions or not HMOptions["Debug"] then
+        return
+    end
+    local window
+    local i = 1
+    while not window do
+        local name = GetChatWindowInfo(i)
+        if not name then
+            break
+        end
+        if name == "Debug" then
+            window = getglobal("ChatFrame"..i)
+            break
+        end
+        i = i + 1
+    end
+    if window then
+        window:AddMessage(tostring(msg))
+    end
+end

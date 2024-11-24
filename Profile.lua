@@ -132,6 +132,16 @@ function HMUIProfile.SetDefaults()
         ["Color"] = {1, 0.4, 0.4}
     })
 
+    profile.IncomingHealDisplay = "Hidden" -- "Overheal", "Heal", "Hidden"
+    profile.IncomingHealText = createTextObject({
+        ["FontSize"] = 9,
+        ["AlignmentV"] = "BOTTOM",
+        ["AlignmentH"] = "RIGHT",
+        ["Anchor"] = "Health Bar",
+        ["Color"] = {0.5, 1, 0.5},
+        ["Outline"] = true
+    })
+
     profile.AlertPercent = 100
     profile.NotAlertedOpacity = 60
 
@@ -166,6 +176,17 @@ function HMUIProfile.SetDefaults()
         ["AlignmentV"] = "CENTER",
         ["Anchor"] = "Button",
         ["Opacity"] = 80
+    })
+
+    profile.RoleIcon = createSizedObject({
+        ["Width"] = 14,
+        ["Height"] = 14,
+        ["AlignmentH"] = "LEFT",
+        ["AlignmentV"] = "TOP",
+        ["PaddingH"] = 1,
+        ["PaddingV"] = 1,
+        ["Anchor"] = "Container",
+        ["Opacity"] = 85
     })
 
     profile.TrackAuras = true

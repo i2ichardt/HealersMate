@@ -52,6 +52,7 @@ function HealersMateSettings.UpdateTrackedDebuffTypes()
             end
         end
     end
+    HealersMateSettings.TrackedDebuffTypesSet = trackedDebuffTypes
     trackedDebuffTypes = util.ToArray(trackedDebuffTypes)
 
     HealersMateSettings.TrackedDebuffTypes = trackedDebuffTypes
@@ -79,6 +80,8 @@ function HealersMateSettings.SetDefaults()
             },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["ShowSpellsTooltip"] = true,
+            ["UseHealPredictions"] = true,
+            ["SetMouseover"] = false,
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
@@ -112,37 +115,44 @@ TrackedBuffs = nil -- Default tracked is variable based on class
 TrackedDebuffs = nil -- Default tracked is variable based on class
 TrackedDebuffTypes = {} -- Default tracked is variable based on class
 
+-- Buffs/debuffs that significantly modify healing
+TrackedHealingBuffs = {"Amplify Magic", "Dampen Magic"}
+TrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Gehennas' Curse", 
+    "Necrotic Poison", "Blood Fury", "Necrotic Aura"}
+
 do
     -- Tracked buffs for all classes
     local defaultTrackedBuffs = {
-        "Blessing of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+        "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
+            "Bulwark of the Righteous",
         "Power Infusion", "Spirit of Redemption", -- Priest
         "Shield Wall", -- Warrior
         "Evasion", "Vanish", -- Rogue
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", -- Druid
         "Soulstone Resurrection", "Hellfire", -- Warlock
-        "Quel'dorei Meditation", -- Racial
+        "Quel'dorei Meditation", "Grace of the Sunwell", -- Racial
         "First Aid", "Food", "Drink" -- Generic
     }
     -- Tracked buffs for specific classes
     local defaultClassTrackedBuffs = {
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
             "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
-            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", 
-            "Blessing of Freedom", "Redoubt", "Holy Shield"},
+            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Daybreak", 
+            "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
-            "Prayer of Shadow Protection", "Shadow Protection", "Champion's Grace", "Empower Champion", "Fear Ward", 
-            "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", "Fade", 
-            "Spirit Tap"},
+            "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
+            "Fear Ward", "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", "Abolish Disease", 
+            "Fade", "Spirit Tap"},
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
-        ["SHAMAN"] = {"Water Walking"},
+        ["SHAMAN"] = {"Water Walking", "Healing Way", "Ancestral Fortitude"},
         ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Evocation"},
-        ["WARLOCK"] = {"Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
+        ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
     }
     local trackedBuffs = defaultClassTrackedBuffs[playerClass] or {}
+    util.AppendArrayElements(trackedBuffs, TrackedHealingBuffs)
     util.AppendArrayElements(trackedBuffs, defaultTrackedBuffs)
     trackedBuffs = util.ToSet(trackedBuffs, true)
 
@@ -150,7 +160,7 @@ do
     local defaultTrackedDebuffs = {
         "Forbearance", -- Paladin
         "Death Wish", -- Warrior
-        "Blood Fury", -- Racial
+        "Enrage", -- Druid
         "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
     }
     -- Tracked debuffs for specific classes
@@ -158,11 +168,15 @@ do
         ["PRIEST"] = {"Weakened Soul"}
     }
     local trackedDebuffs = defaultClassTrackedDebuffs[playerClass] or {}
+    util.AppendArrayElements(trackedDebuffs, TrackedHealingDebuffs)
     util.AppendArrayElements(trackedDebuffs, defaultTrackedDebuffs)
     trackedDebuffs = util.ToSet(trackedDebuffs, true)
 
     TrackedBuffs = trackedBuffs
     TrackedDebuffs = trackedDebuffs
+
+    TrackedHealingBuffs = util.ToSet(TrackedHealingBuffs)
+    TrackedHealingDebuffs = util.ToSet(TrackedHealingDebuffs)
 end
 
 ShowEmptySpells = true
@@ -492,11 +506,59 @@ function InitSettings()
         end)
     end
 
+    local superwow = util.IsSuperWowPresent()
+    do
+        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWLabel:SetPoint("CENTER", 0, -10)
+        SuperWoWLabel:SetText("SuperWoW Required Settings")
 
+        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWDetectedLabel:SetPoint("CENTER", 0, -25)
+        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
+        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
+            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
+    end
 
-    local soonTM = optionsFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", optionsFrame, "CENTER", 0, -50)
-    soonTM:SetText("More options coming in future updates")
+    do
+        local CheckboxHealPredictLabel = optionsFrame:CreateFontString("$parentHealPredictionsLabel", "OVERLAY", "GameFontNormal")
+        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -245)
+        CheckboxHealPredictLabel:SetText("Use Heal Predictions")
+
+        local CheckboxHealPredict = CreateFrame("CheckButton", "$parentHealPredictions", optionsFrame, "UICheckButtonTemplate")
+        CheckboxHealPredict:SetPoint("LEFT", CheckboxHealPredictLabel, "RIGHT", 5, -2)
+        CheckboxHealPredict:SetWidth(20)
+        CheckboxHealPredict:SetHeight(20)
+        CheckboxHealPredict:SetChecked(HMOptions.UseHealPredictions)
+        if not superwow then
+            CheckboxHealPredict:Disable()
+        end
+        CheckboxHealPredict:SetScript("OnClick", function()
+            HMOptions.UseHealPredictions = CheckboxHealPredict:GetChecked() == 1
+            HealersMate.UpdateAllIncomingHealing()
+        end)
+        ApplyTooltip(CheckboxHealPredict, "Requires SuperWoW Mod To Work", 
+            "If enabled, you will see predictions on incoming healing")
+    end
+
+    do
+        local CheckboxMouseoverLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
+        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -275)
+        CheckboxMouseoverLabel:SetText("Set Mouseover")
+
+        local CheckboxMouseover = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")
+        CheckboxMouseover:SetPoint("LEFT", CheckboxMouseoverLabel, "RIGHT", 5, -2)
+        CheckboxMouseover:SetWidth(20)
+        CheckboxMouseover:SetHeight(20)
+        CheckboxMouseover:SetChecked(HMOptions.SetMouseover)
+        if not superwow then
+            CheckboxMouseover:Disable()
+        end
+        CheckboxMouseover:SetScript("OnClick", function()
+            HMOptions.SetMouseover = CheckboxMouseover:GetChecked() == 1
+        end)
+        ApplyTooltip(CheckboxMouseover, "Requires SuperWoW Mod To Work", 
+            "If enabled, hovering over frames will set your mouseover target")
+    end
 
 
     local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
@@ -646,8 +708,8 @@ function InitSettings()
     TxtAboutLabel:SetPoint("CENTER", AboutFrame, "CENTER", 0, 100)
     TxtAboutLabel:SetText("HealersMate Version "..HealersMate.VERSION..
     "\n\n\nOriginal Author: i2ichardt\nEmail: rj299@yahoo.com"..
-    "\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana"..
-    "\n\nContributer: ChatGPT"..
+    "\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana, Lowall, Jmdruid"..
+    "\n\nContributers: Turtle WoW Community, ChatGPT"..
     "\n\n\nCheck For Updates, Report Issues, Make Suggestions:\n https://github.com/i2ichardt/HealersMate")
 
     --START--Combobox
