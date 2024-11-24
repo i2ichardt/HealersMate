@@ -131,7 +131,7 @@ do
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", -- Druid
         "Soulstone Resurrection", "Hellfire", -- Warlock
-        "Quel'dorei Meditation", -- Racial
+        "Quel'dorei Meditation", "Grace of the Sunwell", -- Racial
         "First Aid", "Food", "Drink" -- Generic
     }
     -- Tracked buffs for specific classes

@@ -186,7 +186,7 @@ function HMUIProfile.SetDefaults()
         ["PaddingH"] = 1,
         ["PaddingV"] = 1,
         ["Anchor"] = "Container",
-        ["Opacity"] = 80
+        ["Opacity"] = 85
     })
 
     profile.TrackAuras = true
