@@ -709,7 +709,7 @@ function InitSettings()
     TxtAboutLabel:SetText("HealersMate Version "..HealersMate.VERSION..
     "\n\n\nOriginal Author: i2ichardt\nEmail: rj299@yahoo.com"..
     "\n\nMaintainer: OldManAlpha\nDiscord: oldmana\nTurtle IGN: Oldmana, Lowall, Jmdruid"..
-    "\n\nContributer: ChatGPT"..
+    "\n\nContributers: Turtle WoW Community, ChatGPT"..
     "\n\n\nCheck For Updates, Report Issues, Make Suggestions:\n https://github.com/i2ichardt/HealersMate")
 
     --START--Combobox
