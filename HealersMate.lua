@@ -731,7 +731,7 @@ function PruneAssignedRoles()
     for name, data in pairs(AssignedRoles) do
         if not data["lastSeen"] or data["lastSeen"] < currentTime - (24 * 60 * 60) then
             AssignedRoles[name] = nil
-            hmprint("Pruned "..name.."'s role")
+            --hmprint("Pruned "..name.."'s role")
         end
     end
 end

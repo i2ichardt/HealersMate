@@ -157,12 +157,12 @@ function UpdateCache(heal, name)
     -- A rather messy dependency on HealersMate
     local units = HealersMate.GUIDUnitMap[lastCastedSpell["unit"]]
     if not units then
-        hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
+        --hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
         return
     end
     local normalUnit = units[1]
     if HMUnit.Get(normalUnit).HasHealingModifier then
-        hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+        --hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
         return
     end
 
@@ -173,7 +173,7 @@ function UpdateCache(heal, name)
         local prevHeal = HealCache[spellID]
         local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * GENERIC_CHANGE_FACTOR), 2)
         HealCache[spellID] = adjustedHeal
-        hmprint(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
+        --hmprint(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
     end
 
     if not PlayerHealCache[name] then
@@ -183,14 +183,14 @@ function UpdateCache(heal, name)
     local playerCache = PlayerHealCache[name]
     if not playerCache[spellID] then
         playerCache[spellID] = heal
-        hmprint(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
+        --hmprint(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
     end
     local prevHeal = playerCache[spellID]
     local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * PLAYER_CHANGE_FACTOR), 2)
     playerCache[spellID] = adjustedHeal
     playerCache["lastSeen"] = time()
 
-    hmprint(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
+    --hmprint(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
 end
 
 local PRAYER_OF_HEALING_IDS = HMUtil.ToSet({596, 996, 10960, 10961, 25316})
@@ -244,7 +244,7 @@ eventFrame:SetScript("OnUpdate", function()
         for receiver, casts in pairs(IncomingHeals) do
             for caster, cast in pairs(casts) do
                 if cast["startTime"] + 15 < time then
-                    hmprint(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
+                    --hmprint(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
                     casts[caster] = nil
                     UpdateTarget(receiver)
                 end
