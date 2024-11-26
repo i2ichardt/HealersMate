@@ -656,9 +656,10 @@ function InitSettings()
                         HealersMate.HealUIs[unit]:GetRootContainer():Hide()
                         local newUI = HealUI:New(unit)
                         HealersMate.HealUIs[unit] = newUI
-                        group:AddUI(newUI)
-                        HealersMate.CheckGroup()
+                        group:AddUI(newUI, true)
                     end
+                    HealersMate.CheckGroup()
+                    group:UpdateUIPositions()
                     group:ApplyProfile()
                 end
             })

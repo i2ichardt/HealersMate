@@ -934,7 +934,7 @@ function ClickHandler(buttonType, unit, ui)
     local spell = spells[GetKeyModifier()][buttonType]
 
     if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
-        if SpecialBinds[string.upper(spell)] then
+        if spell and SpecialBinds[string.upper(spell)] then
             SpecialBinds[string.upper(spell)](unit, ui)
         end
         return
