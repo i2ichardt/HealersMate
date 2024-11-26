@@ -45,10 +45,12 @@ function HealUIGroup:ShowCondition()
     return false
  end
 
-function HealUIGroup:AddUI(ui)
+function HealUIGroup:AddUI(ui, noUpdate)
     self.uis[ui:GetUnit()] = ui
     ui:SetOwningGroup(self)
-    self:UpdateUIPositions()
+    if not noUpdate then
+        self:UpdateUIPositions()
+    end
 end
 
 function HealUIGroup:GetContainer()
