@@ -95,7 +95,7 @@ function HealersMateSettings.SetDefaults()
         }
     
         for field, value in pairs(defaults) do
-            if not HMOptions[field] then
+            if HMOptions[field] == nil then
                 if type(value) == "table" then
                     HMOptions[field] = HMUtil.CloneTable(value, true)
                 else
