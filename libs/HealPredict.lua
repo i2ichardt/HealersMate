@@ -263,6 +263,10 @@ combatLogFrame:SetScript("OnEvent", function()
         return
     end
 
+    if string.find(arg1, "Bonus Healing") then
+        return
+    end
+
     local cmatch = HMUtil.cmatch
 
     local spell, targetName, heal = cmatch(arg1, HEALEDSELFOTHER) -- "Your %s heals %s for %d."
