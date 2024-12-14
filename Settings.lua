@@ -78,6 +78,10 @@ function HealersMateSettings.SetDefaults()
                 ["InParty"] = false,
                 ["InRaid"] = false
             },
+            ["SpellsTooltip"] = {
+                ["ShowManaCost"] = false,
+                ["ShowManaPercentCost"] = true
+            },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["ShowSpellsTooltip"] = true,
             ["UseHealPredictions"] = true,

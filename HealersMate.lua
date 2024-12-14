@@ -480,8 +480,13 @@ end
 
 local ITEM_PREFIX = "Item: "
 local MACRO_PREFIX = "Macro: "
+local lowToHighColors = {
+    {1, 0, 0}, 
+    {1, 1, 0}, 
+    {0, 1, 0}
+}
 local tooltipPowerColors = {
-    ["mana"] = {0.4, 0.4, 1}, -- Not the accurate color, but more readable
+    ["mana"] = {0.5, 0.7, 1}, -- Not the accurate color, but more readable
     ["rage"] = {1, 0, 0},
     ["energy"] = {1, 1, 0}
 }
@@ -494,7 +499,12 @@ function ShowSpellsTooltip(attachTo, spells, owner)
     local maxPower = UnitManaMax("player")
     local powerType = GetPowerType("player")
     local powerColor = tooltipPowerColors[powerType]
-    SpellsTooltip:AddDoubleLine("Key: "..modifier, colorize(currentPower.."/"..maxPower, powerColor), 1, 1, 1)
+    local powerText = colorize(currentPower.."/"..maxPower, powerColor)
+    if powerType == "mana" then
+        local color = util.InterpolateColors(lowToHighColors, (currentPower / maxPower))
+        powerText = powerText.." "..colorize(util.RoundNumber((currentPower / maxPower) * 100).."%", color)
+    end
+    SpellsTooltip:AddDoubleLine("Key: "..modifier, powerText, 1, 1, 1)
 
     for _, kv in ipairs(spells) do
         for button, spell in pairs(kv) do
@@ -538,11 +548,28 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                     local castsColor = {0.6, 1, 0.6}
                     if casts == 0 then
                         castsColor = {1, 0.5, 0.5}
-                    elseif casts == 1 then
+                    elseif casts <= 2 then
                         castsColor = {1, 1, 0}
                     end
-                    rightText = spell.." "..colorize(cost, resourceColor)
-                        ..colorize(" ("..casts..")", castsColor)
+                    local costText
+                    if powerType == "mana" and resource == powerType then
+                        if HMOptions.SpellsTooltip.ShowManaCost then
+                            costText = cost
+                        end
+                        if HMOptions.SpellsTooltip.ShowManaPercentCost then
+                            costText = (costText and (costText.." ") or "")..util.RoundNumber((cost / maxPower) * 100, 1).."%"
+                        end
+                    else
+                        costText = cost
+                    end
+                    rightText = spell
+                    if casts == 0 then
+                        rightText = colorize(util.StripColors(rightText), 0.5, 0.5, 0.5)
+                    end
+                    rightText = rightText.." "..colorize(costText, resourceColor)
+                    if casts <= 2 then
+                        rightText = rightText..colorize(" ("..casts..")", castsColor)
+                    end
                 end
             end
             -- Gray out spells that are not held down
