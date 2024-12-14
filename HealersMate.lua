@@ -223,6 +223,10 @@ do
     local almostAllUnits = util.CloneTable(AllUnits) -- Everything except the player
     table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
 
+    local TRACKING_MIN_DIST = 20
+    local TRACKING_MAX_DIST = 60
+    local SIGHT_MAX_DIST = 80
+
     local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
     local sightTrackedUnits = util.CloneTable(almostAllUnits)
     local preciseDistance = util.CanClientGetPreciseDistance()
@@ -244,10 +248,10 @@ do
             for _, unit in ipairs(almostAllUnits) do
                 local dist = util.GetDistanceTo(unit)
                 HealUIs[unit]:CheckRange(dist)
-                if dist < 60 and dist > 20 then -- Only closely track units that are close to the range threshold
+                if dist < TRACKING_MAX_DIST and dist > TRACKING_MIN_DIST then -- Only closely track units that are close to the range threshold
                     table.insert(distanceTrackedUnits, unit)
                 end
-                if dist < 80 and sightTrackingEnabled then
+                if dist < SIGHT_MAX_DIST and sightTrackingEnabled then
                     table.insert(sightTrackedUnits, unit)
                 end
             end
