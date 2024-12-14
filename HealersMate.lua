@@ -92,6 +92,8 @@ local GetKeyModifier = util.GetKeyModifier
 local GetClass = util.GetClass
 local GetPowerType = util.GetPowerType
 local GetColoredRoleText = util.GetColoredRoleText
+local UseItem = util.UseItem
+local GetItemCount = util.GetItemCount
 
 PartyUnits = util.PartyUnits
 PetUnits = util.PetUnits
@@ -454,6 +456,30 @@ function ApplySpellsTooltip(attachTo, unit)
     ShowSpellsTooltip(attachTo, spellList, attachTo)
 end
 
+function IsValidMacro(name)
+    return GetMacroIndexByName(name) ~= 0
+end
+
+function RunMacro(name, target)
+    if not IsValidMacro(name) then
+        return
+    end
+    if target then
+        _G.HM_MacroTarget = target
+    end
+    local _, _, body = GetMacroInfo(GetMacroIndexByName(name))
+    local commands = util.SplitString(body, "\n")
+    for i = 1, table.getn(commands) do
+        ChatFrameEditBox:SetText(commands[i])
+        ChatEdit_SendText(ChatFrameEditBox)
+    end
+    if target then
+        _G.HM_MacroTarget = nil
+    end
+end
+
+local ITEM_PREFIX = "Item: "
+local MACRO_PREFIX = "Macro: "
 local tooltipPowerColors = {
     ["mana"] = {0.4, 0.4, 1}, -- Not the accurate color, but more readable
     ["rage"] = {1, 0, 0},
@@ -477,6 +503,23 @@ function ShowSpellsTooltip(attachTo, spells, owner)
             if spell == "Unbound" then
                 leftText = colorize(button, 0.6, 0.6, 0.6)
                 rightText = colorize("Unbound", 0.6, 0.6, 0.6)
+            elseif util.StartsWith(spell, ITEM_PREFIX) then
+                local item = string.sub(spell, string.len(ITEM_PREFIX) + 1)
+                local itemCount = GetItemCount(item)
+                local castsColor = {0.6, 1, 0.6}
+                if itemCount == 0 then
+                    castsColor = {1, 0.5, 0.5}
+                elseif itemCount == 1 then
+                    castsColor = {1, 1, 0}
+                end
+                rightText = colorize(item, 1, 1, 1)..colorize(" ("..itemCount..")", castsColor)
+            elseif util.StartsWith(spell, MACRO_PREFIX) then
+                local macro = string.sub(spell, string.len(MACRO_PREFIX) + 1)
+                if IsValidMacro(macro) then
+                    rightText = colorize(macro, 1, 0.6, 1)
+                else
+                    rightText = colorize(macro.." (Invalid Macro)", 1, 0.4, 0.4)
+                end
             elseif SpecialBinds[string.upper(spell)] then
                 rightText = spell
             else -- There is a bound spell
@@ -957,6 +1000,10 @@ function ClickHandler(buttonType, unit, ui)
         return
     end
 
+    local isItem = util.StartsWith(spell, ITEM_PREFIX)
+    local isMacro = util.StartsWith(spell, MACRO_PREFIX)
+    local isNonSpell = isItem or isMacro
+
     -- Auto targeting requires no special logic to cast spells
     if HMOptions.AutoTarget then
         if not UnitIsUnit("target", unit) then
@@ -967,7 +1014,7 @@ function ClickHandler(buttonType, unit, ui)
     end
 
     -- Not a special bind
-    if util.IsSuperWowPresent() then -- No target changing shenanigans required with SuperWoW
+    if util.IsSuperWowPresent() and not isNonSpell then -- No target changing shenanigans required with SuperWoW
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -978,8 +1025,14 @@ function ClickHandler(buttonType, unit, ui)
             TargetUnit(unit)
             targetChanged = true
         end
-        
-        CastSpellByName(spell)
+
+        if isItem then
+            UseItem(string.sub(spell, string.len(ITEM_PREFIX) + 1))
+        elseif isMacro then
+            RunMacro(string.sub(spell, string.len(MACRO_PREFIX) + 1), unit)
+        else
+            CastSpellByName(spell)
+        end
 
         --Put Target of player back to whatever it was before casting spell
         if targetChanged then

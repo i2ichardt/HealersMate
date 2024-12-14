@@ -127,6 +127,20 @@ function CloneTable(table, deep)
 end
 
 -- Courtesy of ChatGPT
+function SplitString(str, delimiter)
+    local result = {}
+    local pattern = "([^" .. delimiter .. "]+)"  -- The pattern to match substrings excluding the delimiter
+    for part in string.gmatch(str, pattern) do
+        table.insert(result, part)
+    end
+    return result
+end
+
+function StartsWith(str, starts)
+    return string.sub(str, 1, string.len(starts)) == starts
+end
+
+-- Courtesy of ChatGPT
 function InterpolateColors(colors, t)
     local numColors = table.getn(colors)
     
@@ -226,6 +240,57 @@ function HasAura(unit, auraType, auraTexture, auraID)
         end
     end
     return false
+end
+
+function GetBagSlotInfo(bag, slot)
+    local link = GetContainerItemLink(bag, slot)
+    if not link then
+        return
+    end
+    local _, _, name = string.find(link, "%[(.*)%]")
+    local _, count = GetContainerItemInfo(bag, slot)
+    return name, count
+end
+
+-- Returns: Bag index, Slot index
+function FindBagSlot(itemName)
+    local bestBag, bestSlot, lowestStackSize
+    for bag = 0, NUM_BAG_FRAMES do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local name, count = GetBagSlotInfo(bag, slot)
+            if itemName == name then
+                if not lowestStackSize or lowestStackSize > count then
+                    bestBag = bag
+                    bestSlot = slot
+                    lowestStackSize = count
+                end
+            end
+        end
+    end
+    return bestBag, bestSlot
+end
+
+-- Returns true if an item was found and attempted to be used
+function UseItem(itemName)
+    local bag, slot = FindBagSlot(itemName)
+    if not bag then
+        return
+    end
+    UseContainerItem(bag, slot)
+    return true
+end
+
+function GetItemCount(itemName)
+    local total = 0
+    for bag = 0, NUM_BAG_FRAMES do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local name, count = GetBagSlotInfo(bag, slot)
+            if itemName == name then
+                total = total + count
+            end
+        end
+    end
+    return total
 end
 
 -- Returns an array of the units in the party number or the unit's raid group
