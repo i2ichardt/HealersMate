@@ -140,6 +140,11 @@ function StartsWith(str, starts)
     return string.sub(str, 1, string.len(starts)) == starts
 end
 
+function RoundNumber(number, decimalPlaces)
+    decimalPlaces = decimalPlaces or 0
+    return math.floor(number * 10^decimalPlaces + 0.5) / 10^decimalPlaces
+end
+
 -- Courtesy of ChatGPT
 function InterpolateColors(colors, t)
     local numColors = table.getn(colors)

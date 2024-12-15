@@ -25,6 +25,12 @@ function HMUIProfile.CreatePositionedObject()
     obj.OffsetY = 0
     obj.Anchor = "Health Bar" -- Health Bar, Power Bar, Button, Container
     obj.Opacity = 100
+    obj.GetWidth = function(self, ui)
+        return (self.Width ~= "Anchor" and self.Width or self:GetAnchorComponent(ui):GetWidth()) + (self.Width2 or 0)
+    end
+    obj.GetHeight = function(self, ui)
+        return (self.Height ~= "Anchor" and self.Height or self:GetAnchorComponent(ui):GetHeight()) + (self.Height2 or 0)
+    end
     obj.GetOffsetX = function(self)
         if self.AlignmentH == "LEFT" then
             return self.PaddingH + self.OffsetX
@@ -201,6 +207,23 @@ function HMUIProfile.SetDefaults()
     })
     profile.TrackedAurasSpacing = 2
     profile.TrackedAurasAlignment = "TOP"
+
+    profile.AggroBorder = createSizedObject({
+        ["Height"] = "Anchor",
+        ["Width"] = "Anchor",
+        ["Height2"] = 2,
+        ["Width2"] = 2,
+        ["Anchor"] = "Button",
+        ["Thickness"] = 2
+    })
+
+    profile.Flash = createSizedObject({
+        ["Height"] = "Anchor",
+        ["Width"] = "Anchor",
+        ["Anchor"] = "Health Bar"
+    })
+    profile.FlashThreshold = 25
+    profile.FlashOpacity = 70
 
     profile.MaxUnitsInAxis = 5
     profile.Orientation = "Vertical" --"Vertical", "Horizontal"

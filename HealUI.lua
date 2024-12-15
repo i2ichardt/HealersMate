@@ -23,6 +23,12 @@ HealUI.scrollingHealFrame = nil -- Unimplemented
 HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
 HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 
+HealUI.aggroBorder = nil
+
+HealUI.flashTexture = nil -- {"frame", "texture"}
+HealUI.flashTime = 0
+HealUI.lastHealthPercent = 0
+
 HealUI.incomingHealing = 0
 
 HealUI.hovered = false
@@ -217,6 +223,36 @@ function HealUI:UpdateOpacity()
     self.container:SetAlpha(alpha)
 end
 
+function HealUI:SetAggroBorderEnabled(enabled)
+    if enabled then
+        self.aggroBorder:Show()
+    else
+        self.aggroBorder:Hide()
+    end
+end
+
+function HealUI:Flash()
+    local FLASH_TIME = 0.15
+    local START_OPACITY = self:GetProfile().FlashOpacity / 100
+
+    self.flashTime = FLASH_TIME
+    local frame = self.flashTexture.frame
+    frame:Show()
+    frame:SetAlpha(START_OPACITY)
+
+    if not frame:GetScript("OnUpdate") then
+        frame:SetScript("OnUpdate", function()
+            self.flashTime = self.flashTime - arg1
+            frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
+
+            if self.flashTime <= 0 then
+                frame:Hide()
+                frame:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+end
+
 function HealUI:GetCurrentHealth()
     if self:IsFake() then
         if not self.fakeStats.online then
@@ -256,7 +292,8 @@ function HealUI:ShouldShowMissingHealth()
     end
     local missingHealth = self:GetMaxHealth() - currentHealth
     return (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" 
-                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) and not UnitIsGhost(self.unit)
+                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) 
+                and not UnitIsGhost(self.unit) and (UnitIsConnected(self.unit) or self:IsFake())
 end
 
 function HealUI.GetColorizedText(color, class, theText)
@@ -327,7 +364,8 @@ function HealUI:UpdateHealth()
         local text = util.Colorize("DEAD", 1, 0.3, 0.3)
 
         -- Check for Feign Death so the healer doesn't get alarmed
-        if util.IsFeigning(unit) then
+        local feign = util.IsFeigning(unit)
+        if feign then
             text = "Feign"
         end
 
@@ -335,6 +373,12 @@ function HealUI:UpdateHealth()
         missingHealthText:SetText("")
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
+        if self.lastHealthPercent > 0 and not self:IsEnemy() then
+            if not feign then
+                self:Flash()
+            end
+            self.lastHealthPercent = 0
+        end
     elseif UnitIsGhost(unit) then
         healthText:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
         missingHealthText:SetText("")
@@ -378,6 +422,12 @@ function HealUI:UpdateHealth()
         missingHealthText:SetText(missingText)
 
         self.healthBar:SetValue(currentHealth / maxHealth)
+
+        local healthPercent = (currentHealth / maxHealth) * 100
+        if healthPercent < self.lastHealthPercent - profile.FlashThreshold and not self:IsEnemy() then
+            self:Flash()
+        end
+        self.lastHealthPercent = healthPercent
     end
 
     self:UpdateOpacity()
@@ -858,6 +908,20 @@ function HealUI:Initialize()
     self.auraPanel = buffPanel
     buffPanel:SetFrameLevel(container:GetFrameLevel() + 2)
 
+    local aggroBorder = CreateFrame("Frame", "$parentAggroBorder", container)
+    self.aggroBorder = aggroBorder
+    aggroBorder:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = profile.AggroBorder.Thickness})
+    aggroBorder:SetBackdropBorderColor(1, 0, 0, 0.75)
+    aggroBorder:SetFrameLevel(container:GetFrameLevel() + 10)
+    aggroBorder:Hide()
+
+    local flashFrame = CreateFrame("Frame", "$parentFlash", container)
+    flashFrame:SetFrameLevel(container:GetFrameLevel() + 9)
+    local flashTexture = flashFrame:CreateTexture(nil, "OVERLAY")
+    self.flashTexture = {frame = flashFrame, texture = flashTexture}
+    flashTexture:SetTexture(1, 1, 1)
+    flashFrame:Hide()
+
     --[[
     local scrollingDamageFrame = CreateFrame("Frame", unit.."ScrollingDamageFrame", container)
     self.scrollingDamageFrame = scrollingDamageFrame
@@ -947,6 +1011,11 @@ function HealUI:SizeElements()
     local auraPanel = self.auraPanel
     self:UpdateComponent(auraPanel, profile.AuraTracker)
 
+    self:UpdateComponent(self.aggroBorder, profile.AggroBorder)
+
+    self:UpdateComponent(self.flashTexture.frame, profile.Flash)
+    self.flashTexture.texture:SetAllPoints(self.flashTexture.frame)
+
     rootContainer:SetHeight(self:GetHeight())
     overlayContainer:SetHeight(self:GetHeight())
     container:SetHeight(self:GetHeight())
@@ -1002,8 +1071,8 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
     else
-        component:SetWidth(props.Width == "Anchor" and anchor:GetWidth() or props.Width)
-        component:SetHeight(props.Height == "Anchor" and anchor:GetHeight() or props.Height)
+        component:SetWidth(props:GetWidth(self))
+        component:SetHeight(props:GetHeight(self))
     end
     local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
     component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)

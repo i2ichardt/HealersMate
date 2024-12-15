@@ -77,6 +77,8 @@ SlashCmdList["HEALERSMATE"] = function(args)
     end
 end
 
+HealersMateLib = AceLibrary("AceAddon-2.0"):new("AceEvent-2.0")
+Banzai = AceLibrary("Banzai-1.0")
 HealersMate = {}
 local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
@@ -624,6 +626,12 @@ function UpdateAllIncomingHealing()
     end
 end
 
+function UpdateAllAggro()
+    for unit, ui in pairs(HealUIs) do
+        ui:SetAggroBorderEnabled(Banzai:GetUnitAggroByUnitId(unit))
+    end
+end
+
 local function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
@@ -707,6 +715,17 @@ function EventAddonLoaded()
     end
 
     initUIs()
+
+    HealersMateLib:RegisterEvent("Banzai_UnitGainedAggro", function(unit)
+        if HealUIs[unit] then
+            HealUIs[unit]:SetAggroBorderEnabled(true)
+        end
+    end)
+	HealersMateLib:RegisterEvent("Banzai_UnitLostAggro", function(unit)
+        if HealUIs[unit] then
+            HealUIs[unit]:SetAggroBorderEnabled(false)
+        end
+    end)
 
     if HMOnLoadInfoDisabled == nil then
         HMOnLoadInfoDisabled = false
@@ -1134,6 +1153,7 @@ function CheckGroup()
     if superwow then
         HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
     end
+    UpdateAllAggro()
 end
 
 
@@ -1208,9 +1228,12 @@ function EventHandler()
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
+                local ui = HealUIs["target"]
+                ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+                ui:CheckRange()
+                ui:CheckSight()
+                ui:UpdateRole()
                 HealUIGroups["Target"]:Show()
-                HealUIs["target"]:CheckRange()
-                HealUIs["target"]:CheckSight()
 
                 if guid then -- If the guid isn't nil, then SuperWoW is present
                     for guidInMap, units in pairs(GUIDUnitMap) do
@@ -1228,9 +1251,8 @@ function EventHandler()
                     end
                     table.insert(GUIDUnitMap[guid], "target")
                     HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
-                    HealUIs["target"].incomingHealing = HMHealPredict.GetIncomingHealing(guid)
-                    HealUIs["target"]:UpdateHealth()
-                    HealUIs["target"]:UpdateRole()
+                    ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+                    ui:UpdateHealth()
                 end
             end
         else
