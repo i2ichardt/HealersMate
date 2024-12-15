@@ -655,7 +655,7 @@ function InitSettings()
                     local group = HealersMate.HealUIGroups[selectedFrame]
                     group.profile = GetSelectedProfile(selectedFrame)
                     group.uis = {}
-                    group.container:SetFrameLevel(0) -- Need to lower frame or the added UIs are somehow under it
+                    group:ResetFrameLevel() -- Need to lower frame or the added UIs are somehow under it
                     for _, unit in ipairs(group.units) do
                         HealersMate.HealUIs[unit]:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not

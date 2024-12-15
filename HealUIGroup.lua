@@ -57,6 +57,11 @@ function HealUIGroup:GetContainer()
     return self.container
 end
 
+function HealUIGroup:ResetFrameLevel()
+    self.container:SetFrameLevel(0)
+    self.borderFrame:SetFrameLevel(1)
+end
+
 function HealUIGroup:GetEnvironment()
     return self.environment
 end
@@ -184,11 +189,11 @@ function HealUIGroup:ApplyProfile()
     
     local borderFrame = self.borderFrame
     if profile.BorderStyle == "Tooltip" then
-        borderFrame:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16, 
-            insets = { left = 6, right = 6, top = 6, bottom = 6 }, tile = true, tileSize = 16})
+        borderFrame:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 17, 
+            tile = true, tileSize = 17})
     elseif profile.BorderStyle == "Dialog Box" then
         borderFrame:SetBackdrop({edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 24, 
-            insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 24})
+            tile = true, tileSize = 24})
     else
         borderFrame:SetBackdrop({})
     end
@@ -369,6 +374,9 @@ function HealUIGroup:GetSortedUIs()
         }
         local groupCopy = util.CloneTable(group)
         local roleSorter = function(a, b)
+            if not a or not b then
+                return false
+            end
             local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
             local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
             return aRank < bRank
