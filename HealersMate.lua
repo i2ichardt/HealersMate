@@ -618,11 +618,10 @@ function UpdateAllIncomingHealing()
     for _, ui in pairs(HealUIs) do
         if HMOptions.UseHealPredictions then
             local _, guid = UnitExists(ui:GetUnit())
-            ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
+            ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
         else
-            ui.incomingHealing = 0
+            ui:SetIncomingHealing(0)
         end
-        ui:UpdateHealth()
     end
 end
 
@@ -694,7 +693,7 @@ function EventAddonLoaded()
     if HMHealPredict then
         HMHealPredict.OnLoad()
 
-        HMHealPredict.HookUpdates(function(guid, incomingHealing)
+        HMHealPredict.HookUpdates(function(guid, incomingHealing, incomingDirectHealing)
             if not HMOptions.UseHealPredictions then
                 return
             end
@@ -702,8 +701,7 @@ function EventAddonLoaded()
                 return
             end
             for _, unit in ipairs(GUIDUnitMap[guid]) do
-                HealUIs[unit].incomingHealing = incomingHealing
-                HealUIs[unit]:UpdateHealth()
+                HealUIs[unit]:SetIncomingHealing(incomingHealing, incomingDirectHealing)
             end
         end)
     end
@@ -1265,8 +1263,7 @@ function EventHandler()
                     end
                     table.insert(GUIDUnitMap[guid], "target")
                     HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
-                    ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
-                    ui:UpdateHealth()
+                    ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
                 end
             end
         else

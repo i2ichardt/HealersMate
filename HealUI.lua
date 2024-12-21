@@ -10,6 +10,7 @@ HealUI.container = nil -- Most elements are contained in this
 HealUI.nameText = nil
 HealUI.healthBar = nil
 HealUI.incomingHealthBar = nil
+HealUI.incomingDirectHealthBar = nil
 HealUI.healthText = nil
 HealUI.missingHealthText = nil
 HealUI.incomingHealText = nil
@@ -32,7 +33,7 @@ HealUI.flashTime = 0
 HealUI.lastHealthPercent = 0
 
 HealUI.incomingHealing = 0
-HealUI.directIncomingHealing = 0
+HealUI.incomingDirectHealing = 0
 
 HealUI.hovered = false
 HealUI.pressed = false
@@ -283,6 +284,13 @@ function HealUI:Flash()
             end
         end)
     end
+end
+
+-- If direct healing is nil, it will be assumed that all the incoming healing is direct healing
+function HealUI:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+    self.incomingHealing = incomingHealing
+    self.incomingDirectHealing = incomingDirectHealing or incomingHealing
+    self:UpdateHealth()
 end
 
 function HealUI:GetCurrentHealth()
@@ -758,16 +766,22 @@ function HealUI:Initialize()
 
     -- Health Bar Element
 
-    local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
-    self.incomingHealthBar = incomingHealthBar
-    incomingHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
-    incomingHealthBar:SetMinMaxValues(0, 1)
-    incomingHealthBar:SetAlpha(0.5)
-
     local healthBar = CreateFrame("StatusBar", unit.."HealthBar", container)
     self.healthBar = healthBar
     healthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
     healthBar:SetMinMaxValues(0, 1)
+
+    local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
+    self.incomingHealthBar = incomingHealthBar
+    incomingHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
+    incomingHealthBar:SetMinMaxValues(0, 1)
+    incomingHealthBar:SetFrameLevel(healthBar:GetFrameLevel() - 1)
+
+    local incomingDirectHealthBar = CreateFrame("StatusBar", unit.."IncomingDirectHealthBar", container)
+    self.incomingDirectHealthBar = incomingDirectHealthBar
+    incomingDirectHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
+    incomingDirectHealthBar:SetMinMaxValues(0, 1)
+    incomingDirectHealthBar:SetFrameLevel(healthBar:GetFrameLevel() - 1)
 
     -- Name Element
 
@@ -787,15 +801,16 @@ function HealUI:Initialize()
     incomingHealText:SetTextColor(0.5, 1, 0.5)
 
     local origSetValue = healthBar.SetValue
-    --local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
     local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
-    local greenToOverhealColors = {{0, 0.8, 0}, {0.2, 1, 0.2}}
     healthBar.SetValue = function(healthBarSelf, value)
         origSetValue(healthBarSelf, value)
         local healthIncMaxRatio = 0
+        local healthIncDirectMaxRatio = 0
         if self.incomingHealing > 0 then
             healthIncMaxRatio = value + (self.incomingHealing / self:GetMaxHealth())
+            healthIncDirectMaxRatio = value + (self.incomingDirectHealing / self:GetMaxHealth())
             incomingHealthBar:SetValue(healthIncMaxRatio)
+            incomingDirectHealthBar:SetValue(healthIncDirectMaxRatio)
             if profile.IncomingHealDisplay == "Overheal" then
                 if healthIncMaxRatio > 1 then
                     incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + self.incomingHealing - self:GetMaxHealth()))
@@ -809,9 +824,11 @@ function HealUI:Initialize()
             end
         else
             incomingHealthBar:SetValue(0)
+            incomingDirectHealthBar:SetValue(0)
             incomingHealText:SetText("")
         end
-        incomingHealthBar:SetAlpha(0.5)
+        incomingHealthBar:SetAlpha(0.35)
+        incomingDirectHealthBar:SetAlpha(0.4)
         local rgb
 
         local profile = self:GetProfile()
@@ -841,21 +858,23 @@ function HealUI:Initialize()
                 local r, g, b = util.GetClassColor(class)
                 rgb = {r, g, b}
             elseif hbc == "Green" then
-                if healthIncMaxRatio > 1 and value == 1 then
-                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
-                else
-                    rgb = {0, 0.8, 0}
-                end
+                rgb = {0, 0.8, 0}
             elseif hbc == "Green To Red" then
-                if healthIncMaxRatio > 1 and value == 1 then
-                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
-                else
-                    rgb = util.InterpolateColors(greenToRedColors, value)
+                rgb = util.InterpolateColors(greenToRedColors, value)
+            end
+
+            if healthIncMaxRatio > 1 then
+                local prevRgb = rgb
+                rgb = {}
+                local brightenFactor = math.min(((healthIncMaxRatio - 1) / 4) + 1, 1.25)
+                for i = 1, 3 do
+                    rgb[i] = math.min(prevRgb[i] * brightenFactor, 1)
                 end
             end
         end
         healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
-        incomingHealthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
+        incomingHealthBar:SetStatusBarColor(0, 0.8, 0)
+        incomingDirectHealthBar:SetStatusBarColor(0, 0.8, 0)
 
         local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
         if value == 0 and not feign then
@@ -1007,6 +1026,11 @@ function HealUI:SizeElements()
     incomingHealthBar:SetWidth(width)
     incomingHealthBar:SetHeight(healthBarHeight)
     incomingHealthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
+
+    local directIncomingHealthBar = self.incomingDirectHealthBar
+    directIncomingHealthBar:SetWidth(width)
+    directIncomingHealthBar:SetHeight(healthBarHeight)
+    directIncomingHealthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
 
     local powerBar = self.powerBar
     powerBar:SetWidth(width)

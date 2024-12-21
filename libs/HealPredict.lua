@@ -14,6 +14,7 @@ setfenv(1, HMHealPredict)
 RelevantGUIDs = {} -- A set of GUIDs to listen to
 
 IncomingHeals = {} -- Key: Receiver | Value: List of incoming casts
+IncomingHots = {} -- Key: Receiver | Value: {HoT Name: {"caster", "id", "heal"}}
 Casts = {} -- Key: Caster | Value: {"targets", "spellID"}
 LastCastedSpells = {}
 
@@ -39,6 +40,31 @@ function OnLoad()
     end
     HealCache = HMHealCache
 
+    local hardcodedHots = {
+        -- Bandages
+        [746] = 11, -- Linen
+        [1159] = 19, -- Heavy Linen
+        [3267] = 23, -- Wool
+        [3268] = 43, -- Heavy Wool
+        [7926] = 50, -- Silk
+        [7927] = 80, -- Heavy Silk
+        [10838] = 100, -- Mageweave
+        [10839] = 138, -- Heavy Mageweave
+        [18608] = 170, -- Runecloth
+        [18610] = 250, -- Heavy Runecloth
+        -- Mend Pet
+        [136] = 20,
+        [3111] = 38,
+        [3661] = 68,
+        [3662] = 103,
+        [13542] = 142,
+        [13543] = 189,
+        [13544] = 245
+    }
+    for k, v in pairs(hardcodedHots) do
+        HealCache[k.."-HoT"] = v
+    end
+
     if not HMPlayerHealCache then
         setglobal("HMPlayerHealCache", {})
     end
@@ -61,14 +87,33 @@ function GetGenericExpectedHeal(spellID)
     return HealCache[spellID] or 0
 end
 
+-- Returns all incoming healing and incoming direct healing
 function GetIncomingHealing(guid)
-    local casts = IncomingHeals[guid]
-    if not casts then
-        return 0
-    end
     local healing = 0
-    for _, cast in pairs(casts) do
-        healing = healing + cast["heal"]
+    local casts = IncomingHeals[guid]
+    if casts then
+        for _, cast in pairs(casts) do
+            healing = healing + cast["heal"]
+        end
+    end
+    local directHealing = healing
+    local hots = IncomingHots[guid]
+    if hots then
+        for _, hot in pairs(hots) do
+            healing = healing + hot["heal"]
+        end
+    end
+    return healing, directHealing
+end
+
+-- Returns non-HoT incoming healing
+function GetIncomingDirectHealing(guid)
+    local healing = 0
+    local casts = IncomingHeals[guid]
+    if casts then
+        for _, cast in pairs(casts) do
+            healing = healing + cast["heal"]
+        end
     end
     return healing
 end
@@ -130,6 +175,23 @@ function GetCurrentCast(caster)
     end
 end
 
+function AddHot(target, caster, spellID, spellName, healAmount)
+    local hot = {
+        ["caster"] = caster,
+        ["id"] = spellID,
+        ["heal"] = healAmount,
+        ["startTime"] = GetTime()
+    }
+    local targetTable = IncomingHots[target]
+    if not targetTable then
+        targetTable = {}
+        IncomingHots[target] = targetTable
+    end
+    targetTable[spellName] = hot
+
+    UpdateTarget(target)
+end
+
 function UpdateTarget(target)
     for _, listener in ipairs(Listeners) do
         listener(target, GetIncomingHealing(target))
@@ -157,12 +219,12 @@ function UpdateCache(heal, name)
     -- A rather messy dependency on HealersMate
     local units = HealersMate.GUIDUnitMap[lastCastedSpell["unit"]]
     if not units then
-        --hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
+        hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
         return
     end
     local normalUnit = units[1]
     if HMUnit.Get(normalUnit).HasHealingModifier then
-        --hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+        hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
         return
     end
 
@@ -173,7 +235,7 @@ function UpdateCache(heal, name)
         local prevHeal = HealCache[spellID]
         local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * GENERIC_CHANGE_FACTOR), 2)
         HealCache[spellID] = adjustedHeal
-        --hmprint(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
+        hmprint(colorize("Generic "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.8))
     end
 
     if not PlayerHealCache[name] then
@@ -183,17 +245,94 @@ function UpdateCache(heal, name)
     local playerCache = PlayerHealCache[name]
     if not playerCache[spellID] then
         playerCache[spellID] = heal
-        --hmprint(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
+        hmprint(colorize("Created cache for "..name.."'s "..spellID, 1, 0.5, 1))
     end
     local prevHeal = playerCache[spellID]
     local adjustedHeal = trimDecimal(prevHeal + ((heal - prevHeal) * PLAYER_CHANGE_FACTOR), 2)
     playerCache[spellID] = adjustedHeal
     playerCache["lastSeen"] = time()
 
-    --hmprint(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
+    hmprint(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
+end
+
+function UpdateCacheHot(spellName, heal, targetGuid, targetName, casterGuid, casterName)
+    if not IncomingHots[targetGuid] then
+        return
+    end
+    local hots = IncomingHots[targetGuid]
+    if not hots[spellName] then
+        return
+    end
+    local hot = hots[spellName]
+    if hot["heal"] ~= heal then
+        local prevHeal = hot["heal"]
+        hot["heal"] = heal
+        UpdateTarget(targetGuid)
+        if not PlayerHealCache[casterName] then
+            PlayerHealCache[casterName] = {}
+        end
+        local spellID = hot["id"]
+        -- Update the player-specific cache
+        local playerCache = PlayerHealCache[casterName]
+        spellID = spellID.."-HoT"
+        if not playerCache[spellID] then
+            playerCache[spellID] = heal
+            hmprint(colorize("Created cache for "..casterName.."'s "..spellID.." ("..spellName..")", 1, 0.5, 1))
+        end
+        PlayerHealCache[casterName][spellID] = heal
+        hmprint(colorize(casterName.."'s "..spellID.." ("..spellName..")"..": "..prevHeal.." -> "..heal, 0, 0.8, 0.2))
+    end
+end
+
+function RemoveHoT(spellName, targetGuid)
+    if not IncomingHots[targetGuid] then
+        return
+    end
+    if not IncomingHots[targetGuid][spellName] then
+        return
+    end
+    local hot = IncomingHots[targetGuid][spellName]
+    -- A hack needed because overwritten HoTs cause the previous HoT to be removed,
+    -- which happens after the UNIT_CASTEVENT
+    if hot["startTime"] + 0.5 > GetTime() and not hot["swiftmend"] then
+        return
+    end
+    IncomingHots[targetGuid][spellName] = nil
+    UpdateTarget(targetGuid)
+end
+
+local roster = AceLibrary("RosterLib-2.0")
+local function getGuidFromLogName(name)
+    local petName, owner = HMUtil.cmatch(name, "%s (%s)")
+    local unit
+    if owner then -- A pet is being healed
+        local ownerUnit = roster:GetUnitIDFromName(owner)
+        if not ownerUnit then
+            return
+        end
+        unit = roster:GetPetFromOwner(ownerUnit)
+    else
+        unit = roster:GetUnitIDFromName(name)
+    end
+    if unit then
+        local _, guid = UnitExists(unit)
+        return guid
+    end
+end
+
+local function getSelfGuid()
+    local _, guid = UnitExists("player")
+    return guid
 end
 
 local PRAYER_OF_HEALING_IDS = HMUtil.ToSet({596, 996, 10960, 10961, 25316})
+
+local TRACKED_HOTS = HMUtil.ToSet({
+    "Rejuvenation", "Regrowth", -- Druid
+    "Renew", -- Priest
+    "Mend Pet", -- Hunter
+    "First Aid" -- Generic
+})
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("UNIT_CASTEVENT")
@@ -206,6 +345,40 @@ eventFrame:SetScript("OnEvent", function()
 
     if not UnitIsPlayer(caster) then
         return
+    end
+
+    if event == "CAST" or event == "CHANNEL" then
+        local spellName = SpellInfo(spellID)
+
+        -- Swiftmend could cause Rejuvenation or Regrowth to end very quickly, 
+        -- so there needs to be a flag to allow the removal of the HoT
+        if spellName == "Swiftmend" then
+            if IncomingHots[target] then
+                local hots = IncomingHots[target]
+                if hots["Rejuvenation"] then
+                    hots["Rejuvenation"]["swiftmend"] = true
+                end
+                if hots["Regrowth"] then
+                    hots["Regrowth"]["swiftmend"] = true
+                end
+            end
+        end
+
+        if TRACKED_HOTS[spellName] then
+            if spellName == "Mend Pet" then -- Mend pet doesn't "target" the pet, so we have to aquire the pet
+                local casterUnit = HealersMate.GUIDUnitMap[caster][1]
+                if not casterUnit then
+                    return
+                end
+                local petUnit = roster:GetPetFromOwner(casterUnit)
+                if not petUnit then
+                    return
+                end
+                local _, guid = UnitExists(petUnit)
+                target = guid
+            end
+            AddHot(target, caster, spellID, spellName, GetExpectedHeal(UnitName(caster), spellID.."-HoT"))
+        end
     end
 
     -- Check started cast spell ID to prevent instant mid-cast spells from removing incoming healing
@@ -244,8 +417,19 @@ eventFrame:SetScript("OnUpdate", function()
         for receiver, casts in pairs(IncomingHeals) do
             for caster, cast in pairs(casts) do
                 if cast["startTime"] + 15 < time then
-                    --hmprint(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
+                    hmprint(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
                     casts[caster] = nil
+                    UpdateTarget(receiver)
+                end
+            end
+        end
+
+        for receiver, hots in pairs(IncomingHots) do
+            for name, hot in pairs(hots) do
+                if hot["startTime"] + 25 < time then
+                    hmprint(colorize("Removed "..hot["caster"].."'s "..name.." (HoT) on "..
+                        receiver.." for taking too long", 1, 0, 0))
+                    hots[name] = nil
                     UpdateTarget(receiver)
                 end
             end
@@ -258,6 +442,14 @@ combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_FRIENDLYPLAYER_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_HOSTILEPLAYER_BUFF") -- Needed to see casts coming from other players to yourself
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PARTY_BUFF")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_SELF_BUFFS")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_BUFFS")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_PARTY_BUFFS")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_HOSTILEPLAYER_BUFFS")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_OTHER")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_PARTY")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_SELF")
+combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PET_BUFF")
 combatLogFrame:SetScript("OnEvent", function()
     if string.find(arg1, "critically") then
         return
@@ -290,6 +482,53 @@ combatLogFrame:SetScript("OnEvent", function()
     local name, spell, targetName, heal = cmatch(arg1, HEALEDOTHEROTHER) -- "%s's %s heals %s for %d."
     if name and spell and targetName and heal then
         UpdateCache(tonumber(heal), name)
+        return
+    end
+
+    local heal, spell = cmatch(arg1, PERIODICAURAHEALSELFSELF) -- "You gain %d health from %s."
+    if heal and spell then
+        local selfName = UnitName("player")
+        local selfGuid = getSelfGuid()
+        UpdateCacheHot(spell, heal, selfGuid, selfName, selfGuid, selfName)
+        return
+    end
+
+    local name, heal, spell = cmatch(arg1, PERIODICAURAHEALSELFOTHER) -- "%s gains %d health from your %s."
+    if name and heal and spell then
+        local casterGuid = getSelfGuid()
+        local targetGuid = getGuidFromLogName(name)
+        UpdateCacheHot(spell, heal, targetGuid, name, casterGuid, UnitName(casterGuid))
+        return
+    end
+
+    local heal, name, spell = cmatch(arg1, PERIODICAURAHEALOTHERSELF) -- "You gain %d health from %s's %s."
+    if heal and name and spell then
+        local casterGuid = getGuidFromLogName(name)
+        local targetGuid = getSelfGuid()
+        UpdateCacheHot(spell, heal, targetGuid, UnitName("player"), casterGuid, name)
+        return
+    end
+
+    local targetName, heal, name, spell = cmatch(arg1, PERIODICAURAHEALOTHEROTHER) -- "%s gains %d health from %s's %s."
+    if targetName and heal and name and spell then
+        local casterGuid = getGuidFromLogName(name)
+        local targetGuid = getGuidFromLogName(targetName)
+        UpdateCacheHot(spell, heal, targetGuid, targetName, casterGuid, name)
+        return
+    end
+
+    local spell, name = cmatch(arg1, AURAREMOVEDOTHER) -- "%s fades from %s."
+    if spell and name and name ~= "you" then
+        local guid = getGuidFromLogName(name)
+        if not guid then
+            return
+        end
+        RemoveHoT(spell, guid)
+        return
+    end
+    local spell = cmatch(arg1, AURAREMOVEDSELF) -- "%s fades from you."
+    if spell then
+        RemoveHoT(spell, getSelfGuid())
         return
     end
 end)
