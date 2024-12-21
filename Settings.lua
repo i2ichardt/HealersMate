@@ -130,13 +130,13 @@ do
     local defaultTrackedBuffs = {
         "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
             "Bulwark of the Righteous",
-        "Power Infusion", "Spirit of Redemption", "Abolish Disease", -- Priest
-        "Shield Wall", -- Warrior
+        "Power Infusion", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", -- Priest
+        "Shield Wall", "Recklessness", -- Warrior
         "Evasion", "Vanish", -- Rogue
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", "Abolish Poison", -- Druid
         "Soulstone Resurrection", "Hellfire", -- Warlock
-        "Ice Block", "Evocation", -- Mage
+        "Ice Block", "Evocation", "Ice Barrier", "Mana Shield", -- Mage
         "Quel'dorei Meditation", "Grace of the Sunwell", -- Racial
         "First Aid", "Food", "Drink" -- Generic
     }
@@ -148,12 +148,12 @@ do
             "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
             "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
-            "Fear Ward", "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", 
+            "Fear Ward", "Inner Fire", "Renew", "Lightwell Renew", "Inspiration", 
             "Fade", "Spirit Tap"},
         ["WARRIOR"] = {"Battle Shout"},
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
         ["SHAMAN"] = {"Water Walking", "Healing Way", "Ancestral Fortitude"},
-        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor", "Ice Barrier"},
+        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor"},
         ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
@@ -168,7 +168,8 @@ do
         "Forbearance", -- Paladin
         "Death Wish", -- Warrior
         "Enrage", -- Druid
-        "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
+        "Recently Bandaged", "Resurrection Sickness", "Ghost", -- Generic
+        "Deafening Screech" -- Applied by mobs
     }
     -- Tracked debuffs for specific classes
     local defaultClassTrackedDebuffs = {
