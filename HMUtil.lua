@@ -7,6 +7,7 @@ setmetatable(HMUtil, {__index = getfenv(1)})
 setfenv(1, HMUtil)
 
 Classes = {"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID"}
+HealerClasses = {"PRIEST", "DRUID", "SHAMAN", "PALADIN"}
 
 UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to check for UnitXP SP3
 SuperWoW = SpellInfo ~= nil
@@ -207,6 +208,7 @@ function GetColoredRoleText(role)
     return coloredRoles[role]
 end
 
+-- Deprecated
 function IsFeigning(unit)
     local unitClass = GetClass(unit)
     if unitClass == "HUNTER" then
@@ -367,13 +369,17 @@ function GetClass(unit)
     return class
 end
 
-local classes = {"HUNTER", "ROGUE", "PRIEST", "PALADIN", "DRUID", "SHAMAN", "WARRIOR", "MAGE", "WARLOCK"}
 function GetClasses()
-    return classes
+    return Classes
 end
 
 function GetRandomClass()
-    return classes[math.random(1, 9)]
+    return Classes[math.random(1, 9)]
+end
+
+local healerClassesSet = ToSet(HealerClasses)
+function IsHealerClass(unit)
+    return healerClassesSet[GetClass(unit)] == 1
 end
 
 local classColors = {

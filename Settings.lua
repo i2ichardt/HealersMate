@@ -63,10 +63,11 @@ function HealersMateSettings.SetDefaults()
         HMOptions = {}
     end
     
+    local isHealer = util.IsHealerClass("player")
     do
         local defaults = {
             ["ShowTargets"] = {
-                ["Friendly"] = true,
+                ["Friendly"] = isHealer,
                 ["Hostile"] = false
             },
             ["AutoTarget"] = false,
@@ -83,9 +84,9 @@ function HealersMateSettings.SetDefaults()
                 ["ShowManaPercentCost"] = true
             },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
-            ["ShowSpellsTooltip"] = true,
+            ["ShowSpellsTooltip"] = isHealer,
             ["UseHealPredictions"] = true,
-            ["SetMouseover"] = false,
+            ["SetMouseover"] = true,
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {

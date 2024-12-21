@@ -736,8 +736,7 @@ function EventAddonLoaded()
             ..colorize(" to see commands.", 0.5, 1, 0.5))
     end
 
-    --##START## Create Default Values for Settings if Addon has never ran before.
-    --TODO: Only Druid, Priest, Paladin currently have some spells set by default on first time use. Haven't gotten to others.
+    -- Create default bindings for new characters
     if freshInstall then
         local class = GetClass("player")
         local spells = GetSpells()
@@ -745,12 +744,24 @@ function EventAddonLoaded()
             spells["None"]["LeftButton"] = "Power Word: Shield"
             spells["None"]["MiddleButton"] = "Renew"
             spells["None"]["RightButton"] = "Lesser Heal"
+            spells["Shift"]["LeftButton"] = "Target"
         elseif class == "DRUID" then
             spells["None"]["LeftButton"] = "Rejuvenation"
             spells["None"]["RightButton"] = "Healing Touch"
+            spells["Shift"]["LeftButton"] = "Target"
         elseif class == "PALADIN" then
             spells["None"]["LeftButton"] = "Flash of Light"
             spells["None"]["RightButton"] = "Holy Light"
+            spells["Shift"]["LeftButton"] = "Target"
+        elseif class == "SHAMAN" then
+            spells["None"]["LeftButton"] = "Healing Wave"
+            spells["None"]["RightButton"] = "Lesser Healing Wave"
+            spells["Shift"]["LeftButton"] = "Target"
+        else
+            -- Non-healer classes can use this addon like traditional raid frames
+            spells["None"]["LeftButton"] = "Target"
+            spells["None"]["MiddleButton"] = "Role"
+            spells["None"]["RightButton"] = "Context"
         end
     end
 end
