@@ -396,7 +396,7 @@ function HealUI:UpdateHealth()
         local text = util.Colorize("DEAD", 1, 0.3, 0.3)
 
         -- Check for Feign Death so the healer doesn't get alarmed
-        local feign = util.IsFeigning(unit)
+        local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
         if feign then
             text = "Feign"
         end
@@ -460,6 +460,10 @@ function HealUI:UpdateHealth()
             self:Flash()
         end
         self.lastHealthPercent = healthPercent
+
+        if self:GetCache():HasBuff("Spirit of Redemption") then
+            healthText:SetText(util.Colorize("Spirit", 1, 0.3, 0.3))
+        end
     end
 
     self:UpdateOpacity()
@@ -853,9 +857,10 @@ function HealUI:Initialize()
         healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
         incomingHealthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
 
-        if value == 0 then
+        local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
+        if value == 0 and not feign then
             bg:SetTexture(0.5, 0.5, 0.5, 0.5)
-        elseif value < 0.3 and not enemy then
+        elseif value < 0.3 and not enemy and not feign then
             bg:SetTexture(1, 0.4, 0.4, 0.25)
         else
             bg:SetTexture(0.5, 0.5, 0.5, 0.25)
