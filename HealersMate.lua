@@ -626,9 +626,9 @@ function UpdateAllIncomingHealing()
     end
 end
 
-function UpdateAllAggro()
-    for unit, ui in pairs(HealUIs) do
-        ui:SetAggroBorderEnabled(Banzai:GetUnitAggroByUnitId(unit))
+function UpdateAllOutlines()
+    for _, ui in pairs(HealUIs) do
+        ui:UpdateOutline()
     end
 end
 
@@ -718,12 +718,12 @@ function EventAddonLoaded()
 
     HealersMateLib:RegisterEvent("Banzai_UnitGainedAggro", function(unit)
         if HealUIs[unit] then
-            HealUIs[unit]:SetAggroBorderEnabled(true)
+            HealUIs[unit]:UpdateOutline()
         end
     end)
 	HealersMateLib:RegisterEvent("Banzai_UnitLostAggro", function(unit)
         if HealUIs[unit] then
-            HealUIs[unit]:SetAggroBorderEnabled(false)
+            HealUIs[unit]:UpdateOutline()
         end
     end)
 
@@ -1153,7 +1153,7 @@ function CheckGroup()
     if superwow then
         HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
     end
-    UpdateAllAggro()
+    UpdateAllOutlines()
 end
 
 
@@ -1219,6 +1219,9 @@ function EventHandler()
             CheckGroup()
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
+        for _, ui in pairs(HealUIs) do
+            ui:EvaluateTarget()
+        end
         if HMOptions.Hidden then
             return
         end

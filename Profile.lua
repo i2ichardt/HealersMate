@@ -208,7 +208,7 @@ function HMUIProfile.SetDefaults()
     profile.TrackedAurasSpacing = 2
     profile.TrackedAurasAlignment = "TOP"
 
-    profile.AggroBorder = createSizedObject({
+    profile.TargetOutline = createSizedObject({
         ["Height"] = "Anchor",
         ["Width"] = "Anchor",
         ["Height2"] = 2,

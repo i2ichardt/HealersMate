@@ -23,13 +23,16 @@ HealUI.scrollingHealFrame = nil -- Unimplemented
 HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
 HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 
-HealUI.aggroBorder = nil
+HealUI.targetOutline = nil
+
+HealUI.targeted = false
 
 HealUI.flashTexture = nil -- {"frame", "texture"}
 HealUI.flashTime = 0
 HealUI.lastHealthPercent = 0
 
 HealUI.incomingHealing = 0
+HealUI.directIncomingHealing = 0
 
 HealUI.hovered = false
 HealUI.pressed = false
@@ -223,11 +226,40 @@ function HealUI:UpdateOpacity()
     self.container:SetAlpha(alpha)
 end
 
-function HealUI:SetAggroBorderEnabled(enabled)
-    if enabled then
-        self.aggroBorder:Show()
+-- Evaluate if the unit of this frame is the target and update the target outline if the state has changed
+function HealUI:EvaluateTarget()
+    if self.unit == "target" then -- "target" frames should not show a border since it's obvious they're the target
+        return
+    end
+    local wasTargeted = self.targeted
+    self.targeted = UnitIsUnit(self.unit, "target")
+    if self.targeted ~= wasTargeted then
+        self:UpdateOutline()
+    end
+end
+
+function HealUI:UpdateOutline()
+    local aggro = self:HasAggro()
+    local targeted = self.targeted
+
+    local rgb
+    if aggro and targeted then
+        rgb = {1, 0.6, 0.6}
+    elseif aggro then
+        rgb = {1, 0, 0}
+    elseif targeted then
+        rgb = {1, 1, 1}
+    end
+
+    self:SetOutlineColor(rgb)
+end
+
+function HealUI:SetOutlineColor(rgb)
+    if rgb then
+        self.targetOutline:Show()
+        self.targetOutline:SetBackdropBorderColor(rgb[1], rgb[2], rgb[3], 0.75)
     else
-        self.aggroBorder:Hide()
+        self.targetOutline:Hide()
     end
 end
 
@@ -908,12 +940,11 @@ function HealUI:Initialize()
     self.auraPanel = buffPanel
     buffPanel:SetFrameLevel(container:GetFrameLevel() + 2)
 
-    local aggroBorder = CreateFrame("Frame", "$parentAggroBorder", container)
-    self.aggroBorder = aggroBorder
-    aggroBorder:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = profile.AggroBorder.Thickness})
-    aggroBorder:SetBackdropBorderColor(1, 0, 0, 0.75)
-    aggroBorder:SetFrameLevel(container:GetFrameLevel() + 10)
-    aggroBorder:Hide()
+    local targetOutline = CreateFrame("Frame", "$parentTargetOutline", container)
+    self.targetOutline = targetOutline
+    targetOutline:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = profile.TargetOutline.Thickness})
+    targetOutline:SetFrameLevel(container:GetFrameLevel() + 10)
+    targetOutline:Hide()
 
     local flashFrame = CreateFrame("Frame", "$parentFlash", container)
     flashFrame:SetFrameLevel(container:GetFrameLevel() + 9)
@@ -1011,7 +1042,7 @@ function HealUI:SizeElements()
     local auraPanel = self.auraPanel
     self:UpdateComponent(auraPanel, profile.AuraTracker)
 
-    self:UpdateComponent(self.aggroBorder, profile.AggroBorder)
+    self:UpdateComponent(self.targetOutline, profile.TargetOutline)
 
     self:UpdateComponent(self.flashTexture.frame, profile.Flash)
     self.flashTexture.texture:SetAllPoints(self.flashTexture.frame)
@@ -1108,6 +1139,10 @@ end
 
 function HealUI:GetRole()
     return HealersMate.GetUnitAssignedRole(self:GetUnit())
+end
+
+function HealUI:HasAggro()
+    return HealersMate.Banzai:GetUnitAggroByUnitId(self.unit)
 end
 
 local roleTexturesPath = HMUtil.GetAssetsPath().."textures\\roles\\"
