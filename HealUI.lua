@@ -197,17 +197,17 @@ function HealUI:UpdateRangeText()
     local dist = math.ceil(self.distance)
     local distanceText = self.distanceText
     local text = ""
-    if dist >= 30 and dist < 1000 then
+    if dist >= 30 and dist < 9999 then
         local color
-        if dist <= 40 then
-            color = {1, 0.6, 0}
-        else
+        if dist > 80 then
+            color = {0.75, 0.75, 0.75}
+        elseif dist > 40 then
             color = {1, 0.3, 0.3}
+        else
+            color = {1, 0.6, 0}
         end
 
         text = text..util.Colorize(dist.." yd", color)
-    elseif dist >= 100 and dist < 9999 then
-        text = text..util.Colorize("999+ yd", {1, 0.3, 0.3})
     end
     distanceText:SetText(text)
 end
