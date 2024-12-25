@@ -217,7 +217,7 @@ function UpdateCache(heal, name)
     local spellID = lastCastedSpell["spellID"]
 
     -- A rather messy dependency on HealersMate
-    local units = HealersMate.GUIDUnitMap[lastCastedSpell["unit"]]
+    local units = HMGuidRoster.GetUnits(lastCastedSpell["unit"])
     if not units then
         hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
         return
@@ -366,7 +366,11 @@ eventFrame:SetScript("OnEvent", function()
 
         if TRACKED_HOTS[spellName] then
             if spellName == "Mend Pet" then -- Mend pet doesn't "target" the pet, so we have to aquire the pet
-                local casterUnit = HealersMate.GUIDUnitMap[caster][1]
+                local units = HMGuidRoster.GetUnits(caster)
+                if not units then
+                    return
+                end
+                local casterUnit = units[1]
                 if not casterUnit then
                     return
                 end

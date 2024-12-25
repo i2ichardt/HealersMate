@@ -78,7 +78,6 @@ SlashCmdList["HEALERSMATE"] = function(args)
 end
 
 HealersMateLib = AceLibrary("AceAddon-2.0"):new("AceEvent-2.0")
-Banzai = AceLibrary("Banzai-1.0")
 HealersMate = {}
 local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
@@ -87,6 +86,9 @@ setfenv(1, HealersMate)
 VERSION = "2.0.0-alpha4.2"
 
 TestUI = false
+
+Banzai = AceLibrary("Banzai-1.0")
+GuidRoster = HMGuidRoster -- Will be nil if SuperWoW isn't present
 
 local util = HMUtil
 local colorize = util.Colorize
@@ -274,11 +276,6 @@ do
             end
         end
     end)
-end
-
--- If SuperWoW is present, then a GUID map will be populated
-if util.IsSuperWowPresent() then
-    GUIDUnitMap = {} -- Key: GUID, Value: Array of units associated with GUID
 end
 
 function Debug(msg)
@@ -697,10 +694,11 @@ function EventAddonLoaded()
             if not HMOptions.UseHealPredictions then
                 return
             end
-            if not GUIDUnitMap[guid] then
+            local units = GuidRoster.GetUnits(guid)
+            if not units then
                 return
             end
-            for _, unit in ipairs(GUIDUnitMap[guid]) do
+            for _, unit in ipairs(units) do
                 HealUIs[unit]:SetIncomingHealing(incomingHealing, incomingDirectHealing)
             end
         end)
@@ -1128,7 +1126,7 @@ function CheckGroup()
     end
     local superwow = util.IsSuperWowPresent()
     if superwow then
-        GUIDUnitMap = {}
+        GuidRoster.ResetRoster()
     end
     for unit, ui in pairs(HealUIs) do
         local exists, guid = UnitExists(unit)
@@ -1141,10 +1139,7 @@ function CheckGroup()
             end
         end
         if guid then -- If the guid isn't nil, then SuperWoW is present
-            if not GUIDUnitMap[guid] then
-                GUIDUnitMap[guid] = {}
-            end
-            table.insert(GUIDUnitMap[guid], unit)
+            GuidRoster.AddUnit(guid, unit)
         end
     end
     for _, group in pairs(HealUIGroups) do
@@ -1160,7 +1155,7 @@ function CheckGroup()
         ui:UpdateAuras()
     end
     if superwow then
-        HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+        HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
     end
     UpdateAllOutlines()
 end
@@ -1248,21 +1243,8 @@ function EventHandler()
                 HealUIGroups["Target"]:Show()
 
                 if guid then -- If the guid isn't nil, then SuperWoW is present
-                    for guidInMap, units in pairs(GUIDUnitMap) do
-                        if util.ArrayContains(units, "target") then
-                            util.RemoveElement(units, "target")
-                            if table.getn(units) == 0 then
-                                GUIDUnitMap[guidInMap] = nil
-                            end
-                            break
-                        end
-                    end
-                
-                    if not GUIDUnitMap[guid] then
-                        GUIDUnitMap[guid] = {}
-                    end
-                    table.insert(GUIDUnitMap[guid], "target")
-                    HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+                    GuidRoster.SetTargetGuid(guid)
+                    HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
                     ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
                 end
             end
