@@ -485,19 +485,17 @@ function GetDistanceTo(unit)
     return UnitIsVisible(unit) and 0 or 9999
 end
 
-local function getDistance(x1, z1, x2, z2)
-    local dx = x2 - x1
-    local dz = z2 - z1
-    return math.sqrt(dx*dx + dz*dz)
-end
-
 function GetDistanceBetween_SuperWow(unit1, unit2)
-    local x1, z1 = UnitPosition(unit1)
-    local x2, z2 = UnitPosition(unit2)
+    local x1, z1, y1 = UnitPosition(unit1)
+    local x2, z2, y2 = UnitPosition(unit2)
+    
     if not x1 or not x2 then
         return 0
     end
-    return getDistance(x1, z1, x2, z2)
+    local dx = x2 - x1
+    local dz = z2 - z1
+    local dy = y2 - y1
+    return math.sqrt(dx*dx + dz*dz + dy*dy)
 end
 
 function GetDistanceBetween(unit1, unit2)
