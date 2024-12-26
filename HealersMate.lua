@@ -255,7 +255,7 @@ do
                 if dist < TRACKING_MAX_DIST and dist > TRACKING_MIN_DIST then -- Only closely track units that are close to the range threshold
                     table.insert(distanceTrackedUnits, unit)
                 end
-                if dist < SIGHT_MAX_DIST and sightTrackingEnabled then
+                if dist > 0 and dist < SIGHT_MAX_DIST and sightTrackingEnabled then
                     table.insert(sightTrackedUnits, unit)
                 end
             end
