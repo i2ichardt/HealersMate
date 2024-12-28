@@ -682,7 +682,11 @@ function EventAddonLoaded()
     AssignedRoles = _G.HMRoleCache[GetRealmName()]
     PruneAssignedRoles()
 
-    HMUnit.CreateCaches(AllUnits)
+    if util.IsSuperWowPresent() then
+        HMUnit.UpdateGuidCaches()
+    else
+        HMUnit.CreateCaches()
+    end
     HealersMateSettings.UpdateTrackedDebuffTypes()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
@@ -1127,6 +1131,7 @@ function CheckGroup()
     local superwow = util.IsSuperWowPresent()
     if superwow then
         GuidRoster.ResetRoster()
+        HMUnit.UpdateGuidCaches()
     end
     for unit, ui in pairs(HealUIs) do
         local exists, guid = UnitExists(unit)
@@ -1150,7 +1155,9 @@ function CheckGroup()
             group:Hide()
         end
     end
-    HMUnit.UpdateAllUnits()
+    if not superwow then -- If SuperWoW isn't present, the units may have shifted and thus require a full scan
+        HMUnit.UpdateAllUnits()
+    end
     for _, ui in pairs(HealUIs) do
         ui:UpdateAuras()
     end
@@ -1229,8 +1236,11 @@ function EventHandler()
         if HMOptions.Hidden then
             return
         end
-        HMUnit.Get("target"):UpdateAll()
         local exists, guid = UnitExists("target")
+        if guid then
+            HMUnit.UpdateGuidCaches()
+        end
+        HMUnit.Get("target"):UpdateAll()
         if exists then
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")

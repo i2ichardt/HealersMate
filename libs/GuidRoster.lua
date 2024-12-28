@@ -64,6 +64,11 @@ function HasUnits(guid)
     return GuidUnitMap[guid] ~= nil
 end
 
+-- Returns an array of units this unit is
+function GetAllUnits(unit)
+    return GetUnits(GetUnitGuid(unit))
+end
+
 -- Returns an array of all guids that have units
 function GetTrackedGuids()
     return util.ToArray(GuidUnitMap)

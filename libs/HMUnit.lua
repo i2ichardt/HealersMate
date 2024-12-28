@@ -1,8 +1,14 @@
--- Caches important information about units and makes the data easily readable at any time
+-- Caches important information about units and makes the data easily readable at any time.
+-- If using SuperWoW, the cache map will have GUIDs as the key instead of unit IDs.
+
+local USE_GUIDS = HMUtil.IsSuperWowPresent()
+local AllUnits = HMUtil.AllUnits
+local AllUnitsSet = HMUtil.ToSet(AllUnits)
 
 HMUnit = {}
 
 -- Non-instance variable
+-- Key: Unit ID(Unmodded) or GUID(SuperWoW) | Value: HMUnit Instance
 HMUnit.Cached = {}
 
 HMUnit.Unit = nil
@@ -18,19 +24,46 @@ HMUnit.AfflictedDebuffTypes = {} -- Set of the afflicted debuff types
 
 HMUnit.HasHealingModifier = false
 
-function HMUnit.CreateCaches(units)
-    for _, unit in ipairs(units) do
+-- Non-GUID function
+function HMUnit.CreateCaches()
+    if USE_GUIDS then
+        HealersMate.hmprint("Tried to create non-SuperWoW caches while using SuperWoW!")
+        return
+    end
+    for _, unit in ipairs(AllUnits) do
         HMUnit:New(unit)
     end
 end
 
+function HMUnit.UpdateGuidCaches()
+    local cached = HMUnit.Cached
+    local currentGuids = HMUtil.CloneTable(cached)
+    for _, unit in ipairs(AllUnits) do
+        local exists, guid = UnitExists(unit)
+        if exists then
+            if not cached[guid] then
+                HMUnit:New(guid)
+            end
+            currentGuids[guid] = nil
+        end
+    end
+    for garbageGuid, _ in pairs(currentGuids) do
+        cached[garbageGuid] = nil
+    end
+end
+
+-- Likely never needed to be called when using GUIDs
 function HMUnit.UpdateAllUnits()
     for _, cache in pairs(HMUnit.Cached) do
         cache:UpdateAuras()
     end
 end
 
+-- Get the HMUnit by unit ID. If using SuperWoW, GUID or unit ID is accepted.
 function HMUnit.Get(unit)
+    if USE_GUIDS and AllUnitsSet[unit] then
+        return HMUnit.Cached[HMGuidRoster.GetUnitGuid(unit)] or HMUnit
+    end
     return HMUnit.Cached[unit]
 end
 
