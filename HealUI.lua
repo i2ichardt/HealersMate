@@ -918,12 +918,12 @@ function HealUI:Initialize()
     -- Incoming Text
     local incomingHealText = overlayContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     self.incomingHealText = incomingHealText
-    incomingHealText:SetTextColor(0.5, 1, 0.5)
 
     local origSetValue = healthBar.SetValue
     local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
     healthBar.SetValue = function(healthBarSelf, value)
         origSetValue(healthBarSelf, value)
+        local profile = self:GetProfile()
         local healthIncMaxRatio = 0
         local healthIncDirectMaxRatio = 0
         if self.incomingHealing > 0 then
@@ -934,11 +934,25 @@ function HealUI:Initialize()
             if profile.IncomingHealDisplay == "Overheal" then
                 if healthIncMaxRatio > 1 then
                     incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + self.incomingHealing - self:GetMaxHealth()))
+                    local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                        profile.IncomingHealText.IndirectColor
+                    if self.incomingDirectHealing > 0 then
+                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                    else
+                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                    end
                 else
                     incomingHealText:SetText("")
                 end
             elseif profile.IncomingHealDisplay == "Heal" then
                 incomingHealText:SetText("+"..self.incomingHealing)
+                local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                        profile.IncomingHealText.IndirectColor
+                if self.incomingDirectHealing > 0 then
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                else
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                end
             else
                 incomingHealText:SetText("")
             end
@@ -950,8 +964,6 @@ function HealUI:Initialize()
         incomingHealthBar:SetAlpha(0.35)
         incomingDirectHealthBar:SetAlpha(0.4)
         local rgb
-
-        local profile = self:GetProfile()
 
         local enemy = self:IsEnemy()
         if not enemy then -- Do not display debuff colors for enemies

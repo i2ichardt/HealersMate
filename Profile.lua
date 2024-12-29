@@ -145,6 +145,7 @@ function HMUIProfile.SetDefaults()
         ["AlignmentH"] = "RIGHT",
         ["Anchor"] = "Health Bar",
         ["Color"] = {0.5, 1, 0.5},
+        ["IndirectColor"] = {0.3, 0.8, 0.3},
         ["Outline"] = true
     })
 
