@@ -2,7 +2,7 @@ SLASH_HEALERSMATE1 = "/healersmate"
 SLASH_HEALERSMATE2 = "/hm"
 SlashCmdList["HEALERSMATE"] = function(args)
     if args == "reset" then
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
             gc:ClearAllPoints()
             gc:SetPoint(HMUtil.GetCenterScreenPoint(gc:GetWidth(), gc:GetHeight()))
@@ -17,7 +17,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
             ui:SizeElements()
             ui:UpdateAll()
         end
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             group:ApplyProfile()
             group:UpdateUIPositions()
         end
@@ -187,7 +187,7 @@ AllUnitFrames = {}
 HMUnitFrames = {}
 
 -- Contains all the healing UI groups
-HealUIGroups = {}
+UnitFrameGroups = {}
 
 CurrentlyInRaid = false
 
@@ -320,8 +320,8 @@ function GetHostileSpells()
     return HMSpells["Hostile"]
 end
 
-function UpdateHealUIGroups()
-    for _, group in pairs(HealUIGroups) do
+function UpdateUnitFrameGroups()
+    for _, group in pairs(UnitFrameGroups) do
         group:UpdateUIPositions()
     end
 end
@@ -659,9 +659,9 @@ function UpdateAllOutlines()
 end
 
 local function createUIGroup(groupName, environment, units, petGroup, profile)
-    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
+    local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
-        local ui = HealUI:New(unit)
+        local ui = HMUnitFrame:New(unit)
         local uis = {ui}
         HMUnitFrames[unit] = uis
         table.insert(AllUnitFrames, ui)
@@ -675,16 +675,16 @@ end
 
 local function initUIs()
     local getSelectedProfile = HealersMateSettings.GetSelectedProfile
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
-    HealUIGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    UnitFrameGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
+    UnitFrameGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
+    UnitFrameGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
+    UnitFrameGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    UnitFrameGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
 
-    HealUIGroups["Target"].ShowCondition = function(self)
+    UnitFrameGroups["Target"].ShowCondition = function(self)
         return UnitExists("target") and not HMOptions.Hidden
     end
-    HealUIGroups["Target"]:Hide()
+    UnitFrameGroups["Target"]:Hide()
 end
 
 function EventAddonLoaded()
@@ -887,13 +887,13 @@ local function setUnassignedRoles(role)
             SetAssignedRole(UnitName(ui:GetUnit()), role)
         end
     end
-    UpdateHealUIGroups()
+    UpdateUnitFrameGroups()
     ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
 end
 
 local function applyTargetRole(role)
     SetAssignedRole(roleTarget, role)
-    UpdateHealUIGroups()
+    UpdateUnitFrameGroups()
 end
 
 do
@@ -964,7 +964,7 @@ do
                         SetAssignedRole(UnitName(ui:GetUnit()), nil)
                     end
                 end
-                UpdateHealUIGroups()
+                UpdateUnitFrameGroups()
                 ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
             end
         }
@@ -997,7 +997,7 @@ end
 
 local function setUnitRoleAndUpdate(unit, role)
     if not SetUnitAssignedRole(unit, role) then
-        UpdateHealUIGroups()
+        UpdateUnitFrameGroups()
     end
 end
 
@@ -1185,7 +1185,7 @@ function CheckGroup()
             GuidRoster.AddUnit(guid, unit)
         end
     end
-    for _, group in pairs(HealUIGroups) do
+    for _, group in pairs(UnitFrameGroups) do
         if group:CanShowInEnvironment(environment) and group:ShowCondition() then
             group:Show()
             group:UpdateUIPositions()
@@ -1286,7 +1286,7 @@ function EventHandler()
         end
         HMUnit.Get("target"):UpdateAll()
         if exists then
-            HealUIGroups["Target"]:Hide()
+            UnitFrameGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 if guid then -- If the guid isn't nil, then SuperWoW is present
@@ -1300,10 +1300,10 @@ function EventHandler()
                     ui:UpdateRole()
                     ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
                 end
-                HealUIGroups["Target"]:Show()
+                UnitFrameGroups["Target"]:Show()
             end
         else
-            HealUIGroups["Target"]:Hide()
+            UnitFrameGroups["Target"]:Hide()
         end
     elseif event == "SPELLS_CHANGED" then
         HealersMateSettings.UpdateTrackedDebuffTypes()

@@ -1,59 +1,59 @@
-HealUI = {}
+HMUnitFrame = {}
 
-HealUI.owningGroup = nil
+HMUnitFrame.owningGroup = nil
 
-HealUI.unit = nil
+HMUnitFrame.unit = nil
 
-HealUI.rootContainer = nil -- Contains the main container and the overlay
-HealUI.overlayContainer = nil -- Contains elements that should not be affected by opacity
-HealUI.container = nil -- Most elements are contained in this
-HealUI.nameText = nil
-HealUI.healthBar = nil
-HealUI.incomingHealthBar = nil
-HealUI.incomingDirectHealthBar = nil
-HealUI.healthText = nil
-HealUI.missingHealthText = nil
-HealUI.incomingHealText = nil
-HealUI.powerBar = nil
-HealUI.powerText = nil
-HealUI.roleIcon = nil
-HealUI.button = nil
-HealUI.auraPanel = nil
-HealUI.scrollingDamageFrame = nil -- Unimplemented
-HealUI.scrollingHealFrame = nil -- Unimplemented
-HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
-HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
+HMUnitFrame.rootContainer = nil -- Contains the main container and the overlay
+HMUnitFrame.overlayContainer = nil -- Contains elements that should not be affected by opacity
+HMUnitFrame.container = nil -- Most elements are contained in this
+HMUnitFrame.nameText = nil
+HMUnitFrame.healthBar = nil
+HMUnitFrame.incomingHealthBar = nil
+HMUnitFrame.incomingDirectHealthBar = nil
+HMUnitFrame.healthText = nil
+HMUnitFrame.missingHealthText = nil
+HMUnitFrame.incomingHealText = nil
+HMUnitFrame.powerBar = nil
+HMUnitFrame.powerText = nil
+HMUnitFrame.roleIcon = nil
+HMUnitFrame.button = nil
+HMUnitFrame.auraPanel = nil
+HMUnitFrame.scrollingDamageFrame = nil -- Unimplemented
+HMUnitFrame.scrollingHealFrame = nil -- Unimplemented
+HMUnitFrame.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
+HMUnitFrame.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 
-HealUI.targetOutline = nil
+HMUnitFrame.targetOutline = nil
 
-HealUI.targeted = false
+HMUnitFrame.targeted = false
 
-HealUI.flashTexture = nil -- {"frame", "texture"}
-HealUI.flashTime = 0
-HealUI.lastHealthPercent = 0
+HMUnitFrame.flashTexture = nil -- {"frame", "texture"}
+HMUnitFrame.flashTime = 0
+HMUnitFrame.lastHealthPercent = 0
 
-HealUI.incomingHealing = 0
-HealUI.incomingDirectHealing = 0
+HMUnitFrame.incomingHealing = 0
+HMUnitFrame.incomingDirectHealing = 0
 
-HealUI.hovered = false
-HealUI.pressed = false
+HMUnitFrame.hovered = false
+HMUnitFrame.pressed = false
 
-HealUI.distanceText = nil
-HealUI.lineOfSightIcon = nil -- map: {"frame", "icon"}
+HMUnitFrame.distanceText = nil
+HMUnitFrame.lineOfSightIcon = nil -- map: {"frame", "icon"}
 
-HealUI.inRange = true
-HealUI.distance = 0
-HealUI.inSight = true
+HMUnitFrame.inRange = true
+HMUnitFrame.distance = 0
+HMUnitFrame.inSight = true
 
-HealUI.fakeStats = {} -- Used for displaying a fake party/raid
+HMUnitFrame.fakeStats = {} -- Used for displaying a fake party/raid
 
 -- Singleton references, assigned in constructor
 local HM
 local util = HMUtil
 
-function HealUI:New(unit)
+function HMUnitFrame:New(unit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HealUI.GenerateFakeStats()}
+    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HMUnitFrame.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
     return obj
@@ -69,7 +69,7 @@ local fakeNames = {"Leeroyjenkins", "Realsigred", "Appledog", "Exdraclespy", "Di
     "Erazergus", "Scarlatina", "Holdrim", "Soulbane", "Debilitated", "Doorooid", "Palefire", "Tellarna", 
     "Breathofwing", "Chillaf", "Hulena", "Hyperiann", "Bluebeam", "Daevana", "Adriena", "Aeywynn", "Bluaa", 
     "Chadd", "Leutry", "Mouzer", "Qiner"}
-function HealUI.GenerateFakeStats()
+function HMUnitFrame.GenerateFakeStats()
 
     local name = fakeNames[math.random(table.getn(fakeNames))]
 
@@ -113,42 +113,42 @@ function HealUI.GenerateFakeStats()
     return fakeStats
 end
 
-function HealUI:GetUnit()
+function HMUnitFrame:GetUnit()
     return self.unit
 end
 
-function HealUI:GetRootContainer()
+function HMUnitFrame:GetRootContainer()
     return self.rootContainer
 end
 
-function HealUI:GetContainer()
+function HMUnitFrame:GetContainer()
     return self.container
 end
 
-function HealUI:Show()
+function HMUnitFrame:Show()
     self.container:Show()
     self.rootContainer:Show()
     self:UpdateAll()
 end
 
-function HealUI:Hide()
+function HMUnitFrame:Hide()
     if not self:IsFake() then
         self.container:Hide()
         self.rootContainer:Hide()
     end
 end
 
-function HealUI:IsShown()
+function HMUnitFrame:IsShown()
     return self.rootContainer:IsShown()
 end
 
-function HealUI:SetOwningGroup(group)
+function HMUnitFrame:SetOwningGroup(group)
     self.owningGroup = group
     self:Initialize()
     self:GetRootContainer():SetParent(group:GetContainer())
 end
 
-function HealUI:RegisterClicks()
+function HMUnitFrame:RegisterClicks()
     local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     self.button:RegisterForClicks(unpack(buttons))
     for _, aura in ipairs(self.auraIcons) do
@@ -159,13 +159,13 @@ function HealUI:RegisterClicks()
     end
 end
 
-function HealUI:UpdateAll()
+function HMUnitFrame:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
     self:UpdatePower()
 end
 
-function HealUI:CheckRange(dist)
+function HMUnitFrame:CheckRange(dist)
     local unit = self.unit
     if not dist then
         dist = util.GetDistanceTo(unit)
@@ -180,7 +180,7 @@ function HealUI:CheckRange(dist)
     self:UpdateRangeText()
 end
 
-function HealUI:CheckSight()
+function HMUnitFrame:CheckSight()
     self.inSight = util.IsInSight(self.unit)
     local frame = self.lineOfSightIcon.frame
     if frame:IsShown() ~= self.inSight then
@@ -193,7 +193,7 @@ function HealUI:CheckSight()
     end
 end
 
-function HealUI:UpdateRangeText()
+function HMUnitFrame:UpdateRangeText()
     local dist = math.ceil(self.distance)
     local distanceText = self.distanceText
     local text = ""
@@ -212,7 +212,7 @@ function HealUI:UpdateRangeText()
     distanceText:SetText(text)
 end
 
-function HealUI:UpdateOpacity()
+function HMUnitFrame:UpdateOpacity()
     local profile = self:GetProfile()
     
     local alpha = 1
@@ -227,7 +227,7 @@ function HealUI:UpdateOpacity()
 end
 
 -- Evaluate if the unit of this frame is the target and update the target outline if the state has changed
-function HealUI:EvaluateTarget()
+function HMUnitFrame:EvaluateTarget()
     if self.unit == "target" then -- "target" frames should not show a border since it's obvious they're the target
         return
     end
@@ -238,7 +238,7 @@ function HealUI:EvaluateTarget()
     end
 end
 
-function HealUI:UpdateOutline()
+function HMUnitFrame:UpdateOutline()
     local aggro = self:HasAggro()
     local targeted = self.targeted
 
@@ -254,7 +254,7 @@ function HealUI:UpdateOutline()
     self:SetOutlineColor(rgb)
 end
 
-function HealUI:SetOutlineColor(rgb)
+function HMUnitFrame:SetOutlineColor(rgb)
     if rgb then
         self.targetOutline:Show()
         self.targetOutline:SetBackdropBorderColor(rgb[1], rgb[2], rgb[3], 0.75)
@@ -263,7 +263,7 @@ function HealUI:SetOutlineColor(rgb)
     end
 end
 
-function HealUI:Flash()
+function HMUnitFrame:Flash()
     local FLASH_TIME = 0.15
     local START_OPACITY = self:GetProfile().FlashOpacity / 100
 
@@ -286,13 +286,13 @@ function HealUI:Flash()
 end
 
 -- If direct healing is nil, it will be assumed that all the incoming healing is direct healing
-function HealUI:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+function HMUnitFrame:SetIncomingHealing(incomingHealing, incomingDirectHealing)
     self.incomingHealing = incomingHealing
     self.incomingDirectHealing = incomingDirectHealing or incomingHealing
     self:UpdateHealth()
 end
 
-function HealUI:GetCurrentHealth()
+function HMUnitFrame:GetCurrentHealth()
     if self:IsFake() then
         if not self.fakeStats.online then
             return 0
@@ -302,28 +302,28 @@ function HealUI:GetCurrentHealth()
     return UnitHealth(self.unit)
 end
 
-function HealUI:GetMaxHealth()
+function HMUnitFrame:GetMaxHealth()
     if self:IsFake() then
         return self.fakeStats.maxHealth
     end
     return UnitHealthMax(self.unit)
 end
 
-function HealUI:GetCurrentPower()
+function HMUnitFrame:GetCurrentPower()
     if self:IsFake() then
         return self.fakeStats.currentPower
     end
     return UnitMana(self.unit)
 end
 
-function HealUI:GetMaxPower()
+function HMUnitFrame:GetMaxPower()
     if self:IsFake() then
         return self.fakeStats.maxPower
     end
     return UnitManaMax(self.unit)
 end
 
-function HealUI:ShouldShowMissingHealth()
+function HMUnitFrame:ShouldShowMissingHealth()
     local profile = self:GetProfile()
     local currentHealth = self:GetCurrentHealth()
     if currentHealth == 0 then
@@ -335,7 +335,7 @@ function HealUI:ShouldShowMissingHealth()
                 and not UnitIsGhost(self.unit) and (UnitIsConnected(self.unit) or self:IsFake())
 end
 
-function HealUI.GetColorizedText(color, class, theText)
+function HMUnitFrame.GetColorizedText(color, class, theText)
     local text = ""
     if color == "Class" then
         local r, g, b = util.GetClassColor(class)
@@ -352,7 +352,7 @@ function HealUI.GetColorizedText(color, class, theText)
     return text
 end
 
-function HealUI:UpdateHealth()
+function HMUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
         return
@@ -477,7 +477,7 @@ function HealUI:UpdateHealth()
     self:AdjustHealthPosition()
 end
 
-function HealUI:UpdatePower()
+function HMUnitFrame:UpdatePower()
     local profile = self:GetProfile()
     local unit = self.unit
     local powerBar = self.powerBar
@@ -526,7 +526,7 @@ if util.IsSuperWowPresent() then
         durationTextFlashColorsRange[seconds] = {flashColorReset, color}
     end
 end
-function HealUI:AllocateAura()
+function HMUnitFrame:AllocateAura()
     local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
     frame:SetNormalTexture(nil)
     frame:SetHighlightTexture(nil)
@@ -598,7 +598,7 @@ function HealUI:AllocateAura()
 end
 
 -- Get an icon from the available pool. Automatically inserts into the used pool.
-function HealUI:GetUnusedAura()
+function HMUnitFrame:GetUnusedAura()
     local aura
     if table.getn(self.auraIconPool) > 0 then
         aura = table.remove(self.auraIconPool, table.getn(self.auraIconPool))
@@ -610,7 +610,7 @@ function HealUI:GetUnusedAura()
     return aura
 end
 
-function HealUI:ReleaseAuras()
+function HMUnitFrame:ReleaseAuras()
     if table.getn(self.auraIcons) == 0 then
         return
     end
@@ -642,7 +642,7 @@ function HealUI:ReleaseAuras()
     self.auraIcons = {} -- Allocating new table instead of clearing, might be a mistake?
 end
 
-function HealUI:UpdateAuras()
+function HMUnitFrame:UpdateAuras()
     local profile = self:GetProfile()
     local unit = self.unit
     local enemy = self:IsEnemy()
@@ -731,7 +731,7 @@ function HealUI:UpdateAuras()
     end
 end
 
-function HealUI:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
+function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
     local unit = self.unit
 
     local frame = aura.frame
@@ -837,11 +837,11 @@ function HealUI:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOff
     end
 end
 
-function HealUI:SetHealth(health)
+function HMUnitFrame:SetHealth(health)
     self.healthBar:SetValue(health)
 end
 
-function HealUI:Initialize()
+function HMUnitFrame:Initialize()
     local unit = self.unit
 
     local profile = self:GetProfile()
@@ -1134,7 +1134,7 @@ function HealUI:Initialize()
     self:SizeElements()
 end
 
-function HealUI:SizeElements()
+function HMUnitFrame:SizeElements()
     local profile = self:GetProfile()
     local width = profile.Width
     local healthBarHeight = profile.HealthBarHeight
@@ -1213,7 +1213,7 @@ function HealUI:SizeElements()
     container:SetHeight(self:GetHeight())
 end
 
-function HealUI:AdjustHealthPosition()
+function HMUnitFrame:AdjustHealthPosition()
     local profile = self:GetProfile()
 
     local healthTexts = profile.HealthTexts
@@ -1246,7 +1246,7 @@ local alignmentAnchorMap = {
         ["BOTTOM"] = "BOTTOMRIGHT",
     }
 }
-function HealUI:UpdateComponent(component, props, xOffset, yOffset)
+function HMUnitFrame:UpdateComponent(component, props, xOffset, yOffset)
     xOffset = xOffset or 0
     yOffset = yOffset or 0
 
@@ -1270,39 +1270,39 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
     component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
 end
 
-function HealUI:GetCache()
+function HMUnitFrame:GetCache()
     return HMUnit.Get(self.unit)
 end
 
-function HealUI:GetAfflictedDebuffTypes()
+function HMUnitFrame:GetAfflictedDebuffTypes()
     return self:GetCache().AfflictedDebuffTypes
 end
 
-function HealUI:GetWidth()
+function HMUnitFrame:GetWidth()
     return self:GetProfile().Width
 end
 
-function HealUI:GetHeight()
+function HMUnitFrame:GetHeight()
     return self:GetProfile():GetHeight()
 end
 
-function HealUI:IsPlayer()
+function HMUnitFrame:IsPlayer()
     return UnitIsPlayer(self.unit)
 end
 
-function HealUI:IsEnemy()
+function HMUnitFrame:IsEnemy()
     return UnitCanAttack("player", self.unit)
 end
 
-function HealUI:IsFake()
+function HMUnitFrame:IsFake()
     return HealersMate.TestUI and not UnitExists(self.unit)
 end
 
-function HealUI:GetRole()
+function HMUnitFrame:GetRole()
     return HealersMate.GetUnitAssignedRole(self:GetUnit())
 end
 
-function HealUI:HasAggro()
+function HMUnitFrame:HasAggro()
     return HealersMate.Banzai:GetUnitAggroByUnitId(self.unit)
 end
 
@@ -1312,7 +1312,7 @@ local roleTextures = {
     ["Healer"] = roleTexturesPath.."Healer",
     ["Damage"] = roleTexturesPath.."Damage"
 }
-function HealUI:UpdateRole()
+function HMUnitFrame:UpdateRole()
     local role = self:GetRole()
     self.roleIcon.icon:SetTexture(roleTextures[role])
     if role then
@@ -1322,6 +1322,6 @@ function HealUI:UpdateRole()
     end
 end
 
-function HealUI:GetProfile()
+function HMUnitFrame:GetProfile()
     return self.owningGroup:GetProfile()
 end

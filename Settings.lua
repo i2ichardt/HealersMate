@@ -659,7 +659,7 @@ function InitSettings()
                     HMOptions.ChosenProfiles[selectedFrame] = targetArg
 
                     -- Here's some probably buggy profile hotswapping
-                    local group = HealersMate.HealUIGroups[selectedFrame]
+                    local group = HealersMate.UnitFrameGroups[selectedFrame]
                     group.profile = GetSelectedProfile(selectedFrame)
                     local oldUIs = group.uis
                     group.uis = {}
@@ -668,7 +668,7 @@ function InitSettings()
                         ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
                         ui:GetRootContainer():Hide()
-                        local newUI = HealUI:New(unit)
+                        local newUI = HMUnitFrame:New(unit)
                         util.RemoveElement(HealersMate.AllUnitFrames, ui)
                         local unitUIs = HealersMate.GetUnitFrames(unit)
                         util.RemoveElement(unitUIs, ui)
