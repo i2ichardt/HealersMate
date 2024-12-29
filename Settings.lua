@@ -83,6 +83,11 @@ function HealersMateSettings.SetDefaults()
                 ["ShowManaCost"] = false,
                 ["ShowManaPercentCost"] = true
             },
+            ["ShowAuraTimesAt"] = {
+                ["Short"] = 5, -- <1 min
+                ["Medium"] = 10, -- <=2 min
+                ["Long"] = 60 * 2 -- >2 min
+            },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
             ["ShowSpellsTooltip"] = isHealer,
             ["UseHealPredictions"] = true,
@@ -129,7 +134,7 @@ do
     -- Tracked buffs for all classes
     local defaultTrackedBuffs = {
         "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
-            "Bulwark of the Righteous",
+            "Bulwark of the Righteous", "Blessing of Sacrifice", "Hand of Sacrifice",
         "Power Infusion", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", -- Priest
         "Shield Wall", "Recklessness", -- Warrior
         "Evasion", "Vanish", -- Rogue

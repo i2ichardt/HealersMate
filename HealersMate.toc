@@ -28,6 +28,7 @@ ProfileManager.lua
 Settings.lua
 
 libs\GuidRoster.lua
+libs\AuraTracker.lua
 libs\HMUnit.lua
 libs\ShaguUtil.lua
 libs\HealPredict.lua

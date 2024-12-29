@@ -49,11 +49,10 @@ HealUI.fakeStats = {} -- Used for displaying a fake party/raid
 
 -- Singleton references, assigned in constructor
 local HM
-local util
+local util = HMUtil
 
 function HealUI:New(unit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    util = HMUtil
     local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HealUI.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
@@ -509,6 +508,24 @@ function HealUI:UpdatePower()
     self.powerText:SetText(text)
 end
 
+local AURA_DURATION_TEXT_FLASH_THRESHOLD = 5
+local AURA_DURATION_TEXT_LOW_THRESHOLD = 10
+-- A map of all seconds below the flash threshold to an array of colors to interpolate
+local durationTextFlashColorsRange
+if util.IsSuperWowPresent() then
+    local flashColorReset = {1, 0.9, 0.9} -- the color the interpolation will move towards as the second progresses
+    local flashColorIntense = {1, 0.3, 0.3} -- 0 seconds will be this color
+    local flashColorLight = {1, 0.7, 0.7} -- start of threshold will be this color
+    local textFlashColors = {}
+    for i = 0, AURA_DURATION_TEXT_FLASH_THRESHOLD + 1 do
+        textFlashColors[i] = util.InterpolateColors({flashColorLight, flashColorIntense}, 
+            (AURA_DURATION_TEXT_FLASH_THRESHOLD - i) / AURA_DURATION_TEXT_FLASH_THRESHOLD)
+    end
+    durationTextFlashColorsRange = {}
+    for seconds, color in pairs(textFlashColors) do
+        durationTextFlashColorsRange[seconds] = {flashColorReset, color}
+    end
+end
 function HealUI:AllocateAura()
     local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
     frame:SetNormalTexture(nil)
@@ -521,6 +538,62 @@ function HealUI:AllocateAura()
     local icon = frame:CreateTexture(nil, "OVERLAY")
     local stackText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     stackText:SetTextColor(1, 1, 1)
+
+    -- Duration display, only used when SuperWoW is present
+    if util.IsSuperWowPresent() then
+        local duration = CreateFrame("Model", nil, frame, "CooldownFrameTemplate")
+        duration:SetAlpha(0.8)
+        local durationOverlayFrame = CreateFrame("Frame", nil, frame)
+        durationOverlayFrame:SetFrameLevel(durationOverlayFrame:GetFrameLevel() + 1)
+        local durationText = durationOverlayFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        durationText:SetPoint("BOTTOMLEFT", durationOverlayFrame, "BOTTOMLEFT", 0, 0)
+        durationText.SetSeconds = function(self, seconds)
+            self.seconds = seconds
+            if seconds == nil then
+                self:SetText("")
+                return
+            end
+            self:SetText(seconds <= 60 and seconds or math.ceil(seconds / 60).."m")
+            self:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(frame:GetHeight() * 
+                (seconds < 540 and (seconds < 10 and 0.6 or 0.45) or 0.35)), "OUTLINE")
+        end
+        duration:SetScript("OnUpdateModel", function()
+            if this.stopping == 0 then
+                local time = GetTime()
+                local progress = (time - this.start) / this.duration
+                if progress < 1.0 then
+                    this:SetSequenceTime(0, 1000 - (progress * 1000))
+                    local secondsPrecise = this.start - time + this.duration
+                    local seconds = math.floor(secondsPrecise)
+                    if seconds <= (this.displayAt and this.displayAt or AURA_DURATION_TEXT_FLASH_THRESHOLD) then
+                        if durationText.seconds ~= seconds or seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
+                            -- You don't want to know why it's gotta be done like this..
+                            -- (If you're insane and you do, it's because otherwise the text will disappear for one frame otherwise)
+                            duration:SetScript("OnUpdate", function()
+                                durationText:SetSeconds(seconds)
+                                if seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
+                                    local rgb = util.InterpolateColors(durationTextFlashColorsRange[seconds], secondsPrecise - seconds)
+                                    durationText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                                elseif seconds <= AURA_DURATION_TEXT_LOW_THRESHOLD then
+                                    durationText:SetTextColor(1, 1, 0.25)
+                                else
+                                    durationText:SetTextColor(1, 1, 1)
+                                end
+                                duration:SetScript("OnUpdate", nil)
+                            end)
+                        end
+                    elseif durationText.seconds ~= nil then
+                        durationText:SetSeconds(nil)
+                    end
+                    return
+                end
+                durationText:SetSeconds(nil)
+                this:SetSequenceTime(0, 0)
+            end
+        end)
+        return {["frame"] = frame, ["icon"] = icon, ["stackText"] = stackText, ["overlay"] = durationOverlayFrame, 
+            ["durationText"] = durationText, ["duration"] = duration, ["durationEnabled"] = true}
+    end
     return {["frame"] = frame, ["icon"] = icon, ["stackText"] = stackText}
 end
 
@@ -558,6 +631,11 @@ function HealUI:ReleaseAuras()
         local stackText = aura.stackText
         stackText:ClearAllPoints()
         stackText:SetText("")
+
+        if aura.durationEnabled then
+            aura.durationText:SetSeconds(nil)
+            CooldownFrame_SetTimer(aura.duration, 0, 0, 0)
+        end
 
         table.insert(self.auraIconPool, aura)
     end
@@ -636,13 +714,13 @@ function HealUI:UpdateAuras()
     local yOffset = profile.TrackedAurasAlignment == "TOP" and 0 or origSize - auraSize
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.index, buff.texture, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
+        self:CreateAura(aura, buff.name, buff.index, buff.texture, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
         xOffset = xOffset + auraSize + spacing
     end
     xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
+        self:CreateAura(aura, debuff.name, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
     end
 
@@ -653,7 +731,7 @@ function HealUI:UpdateAuras()
     end
 end
 
-function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, type, size)
+function HealUI:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
     local unit = self.unit
 
     local frame = aura.frame
@@ -666,6 +744,15 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
     icon:SetAllPoints(frame)
     icon:SetTexture(texturePath)
     --icon:SetVertexColor(1, 0, 0)
+
+    if aura.durationEnabled then
+        local overlay = aura.overlay
+        overlay:SetAllPoints()
+
+        local duration = aura.duration
+        duration:SetAllPoints()
+        duration:SetScale(size * 0.0275)
+    end
 
     -- Creates a function that checks if the mouse is over the UI's button and calls the script if so
     local wrapScript = function(scriptName)
@@ -688,6 +775,15 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
         else
             tooltip.IconTexture = cache.Debuffs[index].texture
             tooltip:SetUnitDebuff(unit, index)
+        end
+        local auraTime = cache.AuraTimes[(type == "Buff" and cache.Buffs[index] or cache.Debuffs[index]).name]
+        if auraTime then
+            local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
+            if seconds < 60 then
+                tooltip:AddLine(seconds.." second"..(seconds ~= 1 and "s" or "").." remaining")
+            else
+                tooltip:AddLine(math.ceil(seconds / 60).." minutes remaining")
+            end
         end
         tooltip:Show()
 
@@ -714,6 +810,30 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
         stackText:SetPoint("CENTER", frame, "CENTER", 0, 0)
         stackText:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(size * (stacks < 10 and 0.75 or 0.6)))
         stackText:SetText(stacks)
+    end
+
+    if aura.durationEnabled then
+        local cache = self:GetCache()
+        if cache.AuraTimes[name] then
+            local debuffTime = cache.AuraTimes[name]
+            local start = debuffTime["startTime"]
+            local duration = debuffTime["duration"]
+            local durationUI = aura.duration
+
+            CooldownFrame_SetTimer(durationUI, start, duration, 1)
+
+            if duration < 60 then
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Short
+            elseif duration <= 60 * 2 then
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Medium
+            else
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Long
+            end
+
+            -- To prevent having a frame where the duration is not updated
+            aura.durationText:SetSeconds(nil)
+            util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
+        end
     end
 end
 

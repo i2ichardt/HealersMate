@@ -12,6 +12,8 @@ HealerClasses = {"PRIEST", "DRUID", "SHAMAN", "PALADIN"}
 UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to check for UnitXP SP3
 SuperWoW = SpellInfo ~= nil
 
+TurtleWow = true
+
 PowerColors = {
     ["mana"] = {0.1, 0.25, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
     ["rage"] = {1, 0, 0},
@@ -344,7 +346,7 @@ function FindUnitRaidGroup(unit)
 end
 
 -- Requires SuperWoW
-function GetSurroundingPartyMembers(player)
+function GetSurroundingPartyMembers(player, range)
     local units
     if UnitInRaid("player") then
         units = GetRaidPartyMembers(player)
@@ -353,14 +355,44 @@ function GetSurroundingPartyMembers(player)
         AppendArrayElements(units, PetUnits)
     end
 
+    return GetUnitsInRange(player, units, range or 30)
+end
+
+function GetSurroundingRaidMembers(player, range, checkPets)
+    local units
+    if UnitInRaid("player") then
+        units = CloneTable(RaidUnits)
+        if checkPets then
+            AppendArrayElements(units, RaidPetUnits)
+        end
+    else
+        units = CloneTable(PartyUnits)
+        if checkPets then
+            AppendArrayElements(units, PetUnits)
+        end
+    end
+
+    return GetUnitsInRange(player, units, range or 30)
+end
+
+function GetUnitsInRange(center, units, range)
     local inRange = {}
     for _, unit in ipairs(units) do
         local exists, guid = UnitExists(unit)
-        if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(player, unit) <= 30 then
+        if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(center, unit) <= (range or 30) then
             table.insert(inRange, guid)
         end
     end
     return inRange
+end
+
+-- Blizzard's UI functions seem to get called referring to a global called "this" referring to the UI object.
+-- This function calls a function on the object, emulating the "this" variable.
+function CallWithThis(object, func)
+    local prevThis = _G.this
+    _G.this = object
+    func()
+    _G.this = prevThis
 end
 
 -- Returns the class without the first return variable fluff
@@ -533,4 +565,8 @@ end
 
 function IsUnitXPSP3Present()
     return UnitXPSP3
+end
+
+function IsTurtleWow()
+    return TurtleWow
 end

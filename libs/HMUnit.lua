@@ -24,6 +24,9 @@ HMUnit.AfflictedDebuffTypes = {} -- Set of the afflicted debuff types
 
 HMUnit.HasHealingModifier = false
 
+-- Only used with SuperWoW, managed in AuraTracker.lua
+HMUnit.AuraTimes = {} -- Key: Aura Name | Value: {"startTime", "duration"}
+
 -- Non-GUID function
 function HMUnit.CreateCaches()
     if USE_GUIDS then
@@ -73,6 +76,9 @@ function HMUnit:New(unit)
     self.__index = self
     HMUnit.Cached[unit] = obj
     obj.AurasPopulated = true -- To force aura fields to generate
+    if USE_GUIDS then
+        obj.AuraTimes = {}
+    end
     obj:UpdateAll()
     return obj
 end
