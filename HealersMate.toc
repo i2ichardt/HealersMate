@@ -21,8 +21,8 @@ libs\ace\Deformat-2.0\Deformat-2.0.lua
 libs\ace\Banzai-1.0\Banzai-1.0.lua
 
 HMUtil.lua
-HealUI.lua
-HealUIGroup.lua
+HMUnitFrame.lua
+HMUnitFrameGroup.lua
 Profile.lua
 ProfileManager.lua
 Settings.lua
