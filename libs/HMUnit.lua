@@ -3,7 +3,7 @@
 
 local USE_GUIDS = HMUtil.IsSuperWowPresent()
 local AllUnits = HMUtil.AllUnits
-local AllUnitsSet = HMUtil.ToSet(AllUnits)
+local AllUnitsSet = HMUtil.AllUnitsSet
 
 HMUnit = {}
 

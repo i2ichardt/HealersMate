@@ -451,7 +451,7 @@ function InitSettings()
                 func = function(targetArg)
                     UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
                     HMOptions.CastWhen = targetArg
-                    for _, ui in pairs(HealersMate.HealUIs) do
+                    for _, ui in ipairs(HealersMate.AllUnitFrames) do
                         ui:RegisterClicks()
                     end
                 end
@@ -661,14 +661,18 @@ function InitSettings()
                     -- Here's some probably buggy profile hotswapping
                     local group = HealersMate.HealUIGroups[selectedFrame]
                     group.profile = GetSelectedProfile(selectedFrame)
+                    local oldUIs = group.uis
                     group.uis = {}
                     group:ResetFrameLevel() -- Need to lower frame or the added UIs are somehow under it
-                    for _, unit in ipairs(group.units) do
-                        HealersMate.HealUIs[unit]:GetRootContainer():SetParent(nil)
+                    for unit, ui in pairs(oldUIs) do
+                        ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
-                        HealersMate.HealUIs[unit]:GetRootContainer():Hide()
+                        ui:GetRootContainer():Hide()
                         local newUI = HealUI:New(unit)
-                        HealersMate.HealUIs[unit] = newUI
+                        util.RemoveElement(HealersMate.AllUnitFrames, ui)
+                        local unitUIs = HealersMate.GetUnitFrames(unit)
+                        util.RemoveElement(unitUIs, ui)
+                        table.insert(unitUIs, newUI)
                         group:AddUI(newUI, true)
                     end
                     HealersMate.CheckGroup()

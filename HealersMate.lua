@@ -13,7 +13,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
     elseif args == "check" then
         HealersMate.CheckGroup()
     elseif args == "update" then
-        for _, ui in pairs(HealersMate.HealUIs) do
+        for _, ui in pairs(HealersMate.AllUnitFrames) do
             ui:SizeElements()
             ui:UpdateAll()
         end
@@ -25,7 +25,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
         HMOptions.TestUI = not HMOptions.TestUI
         HealersMate.TestUI = HMOptions.TestUI
         if HMOptions.TestUI then
-            for _, ui in pairs(HealersMate.HealUIs) do
+            for _, ui in pairs(HealersMate.AllUnitFrames) do
                 ui.fakeStats = ui.GenerateFakeStats()
                 ui:Show()
             end
@@ -105,6 +105,7 @@ TargetUnits = util.TargetUnits
 RaidUnits = util.RaidUnits
 RaidPetUnits = util.RaidPetUnits
 AllUnits = util.AllUnits
+AllUnitsSet = util.AllUnitsSet
 
 -- TODO: Actually use this
 UIGroupInfo = {}
@@ -180,14 +181,35 @@ BarStyles = {
     ["HealersMate Shineless Borderless"] = hmBarsPath.."HealersMate-Shineless-Borderless"
 }
 
--- Contains all individual player healing UIs
-HealUIs = {}
+-- An unmapped array of all unit frames
+AllUnitFrames = {}
+-- A map of units to an array of unit frames associated with the unit
+HMUnitFrames = {}
+
 -- Contains all the healing UI groups
 HealUIGroups = {}
 
 CurrentlyInRaid = false
 
 AssignedRoles = nil
+
+-- Returns the array of unit frames of the unit
+function GetUnitFrames(unit)
+    return HMUnitFrames[unit]
+end
+
+-- Returns an iterator for the unit frames of the unit
+function UnitFrames(unit)
+    local i = 0
+    local uis = HMUnitFrames[unit]
+    local len = table.getn(uis)
+    return function()
+        i = i + 1
+        if i <= len then
+            return uis[i]
+        end
+    end
+end
 
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
@@ -251,7 +273,9 @@ do
             sightTrackedUnits = {}
             for _, unit in ipairs(almostAllUnits) do
                 local dist = util.GetDistanceTo(unit)
-                HealUIs[unit]:CheckRange(dist)
+                for ui in UnitFrames(unit) do
+                    ui:CheckRange(dist)
+                end
                 if dist < TRACKING_MAX_DIST and dist > TRACKING_MIN_DIST then -- Only closely track units that are close to the range threshold
                     table.insert(distanceTrackedUnits, unit)
                 end
@@ -262,17 +286,23 @@ do
 
             -- Check sight on previously tracked units in case they got removed
             for _, unit in ipairs(prevSightTrackedUnits) do
-                HealUIs[unit]:CheckSight()
+                for ui in UnitFrames(unit) do
+                    ui:CheckSight()
+                end
             end
         end
     
         if time > nextUpdate then
             nextUpdate = time + 0.1
             for _, unit in ipairs(distanceTrackedUnits) do
-                HealUIs[unit]:CheckRange()
+                for ui in UnitFrames(unit) do
+                    ui:CheckRange()
+                end
             end
             for _, unit in ipairs(sightTrackedUnits) do
-                HealUIs[unit]:CheckSight()
+                for ui in UnitFrames(unit) do
+                    ui:CheckSight()
+                end
             end
         end
     end)
@@ -612,7 +642,7 @@ function UpdateAllIncomingHealing()
     if not HMHealPredict then
         return
     end
-    for _, ui in pairs(HealUIs) do
+    for _, ui in ipairs(AllUnitFrames) do
         if HMOptions.UseHealPredictions then
             local _, guid = UnitExists(ui:GetUnit())
             ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
@@ -623,7 +653,7 @@ function UpdateAllIncomingHealing()
 end
 
 function UpdateAllOutlines()
-    for _, ui in pairs(HealUIs) do
+    for _, ui in ipairs(AllUnitFrames) do
         ui:UpdateOutline()
     end
 end
@@ -632,7 +662,9 @@ local function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
         local ui = HealUI:New(unit)
-        HealUIs[unit] = ui
+        local uis = {ui}
+        HMUnitFrames[unit] = uis
+        table.insert(AllUnitFrames, ui)
         uiGroup:AddUI(ui)
         if unit ~= "target" then
             ui:Hide()
@@ -703,7 +735,9 @@ function EventAddonLoaded()
                 return
             end
             for _, unit in ipairs(units) do
-                HealUIs[unit]:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+                for ui in UnitFrames(unit) do
+                    ui:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+                end
             end
         end)
     end
@@ -717,13 +751,13 @@ function EventAddonLoaded()
     initUIs()
 
     HealersMateLib:RegisterEvent("Banzai_UnitGainedAggro", function(unit)
-        if HealUIs[unit] then
-            HealUIs[unit]:UpdateOutline()
+        for ui in UnitFrames(unit) do
+            ui:UpdateOutline()
         end
     end)
 	HealersMateLib:RegisterEvent("Banzai_UnitLostAggro", function(unit)
-        if HealUIs[unit] then
-            HealUIs[unit]:UpdateOutline()
+        for ui in UnitFrames(unit) do
+            ui:UpdateOutline()
         end
     end)
 
@@ -1133,14 +1167,18 @@ function CheckGroup()
         GuidRoster.ResetRoster()
         HMUnit.UpdateGuidCaches()
     end
-    for unit, ui in pairs(HealUIs) do
+    for _, unit in ipairs(AllUnits) do
         local exists, guid = UnitExists(unit)
         if unit ~= "target" then
             if exists then
-                ui:Show()
-                ui:UpdateAuras()
+                for ui in UnitFrames(unit) do
+                    ui:Show()
+                    ui:UpdateAuras()
+                end
             else
-                ui:Hide()
+                for ui in UnitFrames(unit) do
+                    ui:Hide()
+                end
             end
         end
         if guid then -- If the guid isn't nil, then SuperWoW is present
@@ -1158,7 +1196,7 @@ function CheckGroup()
     if not superwow then -- If SuperWoW isn't present, the units may have shifted and thus require a full scan
         HMUnit.UpdateAllUnits()
     end
-    for _, ui in pairs(HealUIs) do
+    for _, ui in pairs(AllUnitFrames) do
         ui:UpdateAuras()
     end
     if superwow then
@@ -1170,7 +1208,7 @@ end
 
 function IsRelevantUnit(unit)
     --return not string.find(unit, "0x")
-    return HealUIs[unit] ~= nil
+    return AllUnitsSet[unit] ~= nil
 end
 
 function EventHandler()
@@ -1199,15 +1237,19 @@ function EventHandler()
         if not IsRelevantUnit(unit) then
             return
         end
-        HealUIs[unit]:UpdateHealth()
+        for ui in UnitFrames(unit) do
+            ui:UpdateHealth()
+        end
     elseif event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY" or 
             event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" then
         local unit = arg1
         if not IsRelevantUnit(unit) then
             return
         end
-        
-        HealUIs[unit]:UpdatePower()
+
+        for ui in UnitFrames(unit) do
+            ui:UpdatePower()
+        end
         
         if unit == "player" then
             ReapplySpellsTooltip()
@@ -1219,8 +1261,10 @@ function EventHandler()
             return
         end
         HMUnit.Get(unit):UpdateAuras()
-        HealUIs[unit]:UpdateAuras()
-        HealUIs[unit]:UpdateHealth() -- Update health because there may be an aura that changes health bar color
+        for ui in UnitFrames(unit) do
+            ui:UpdateAuras()
+            ui:UpdateHealth() -- Update health because there may be an aura that changes health bar color
+        end
 
     elseif event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" then
         CheckGroup()
@@ -1230,7 +1274,7 @@ function EventHandler()
             CheckGroup()
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
-        for _, ui in pairs(HealUIs) do
+        for _, ui in ipairs(AllUnitFrames) do
             ui:EvaluateTarget()
         end
         if HMOptions.Hidden then
@@ -1245,18 +1289,18 @@ function EventHandler()
             HealUIGroups["Target"]:Hide()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
-                local ui = HealUIs["target"]
-                ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
-                ui:CheckRange()
-                ui:CheckSight()
-                ui:UpdateRole()
-                HealUIGroups["Target"]:Show()
-
                 if guid then -- If the guid isn't nil, then SuperWoW is present
                     GuidRoster.SetTargetGuid(guid)
                     HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+                end
+                for ui in UnitFrames("target") do
+                    ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+                    ui:CheckRange()
+                    ui:CheckSight()
+                    ui:UpdateRole()
                     ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
                 end
+                HealUIGroups["Target"]:Show()
             end
         else
             HealUIGroups["Target"]:Hide()

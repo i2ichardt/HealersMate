@@ -570,3 +570,5 @@ end
 function IsTurtleWow()
     return TurtleWow
 end
+
+AllUnitsSet = ToSet(AllUnits)

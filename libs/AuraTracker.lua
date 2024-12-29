@@ -113,7 +113,9 @@ local aoeClassAuras = HMUtil.ToSet({
 local function applyTimedAura(spellName, units)
     for _, unit in ipairs(units) do
         HMUnit.Get(unit).AuraTimes[spellName] = {["startTime"] = GetTime(), ["duration"] = trackedCastedAuras[spellName]}
-        HealersMate.HealUIs[unit]:UpdateAuras()
+        for ui in HealersMate.UnitFrames(unit) do
+            ui:UpdateAuras()
+        end
     end
 end
 
