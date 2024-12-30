@@ -18,6 +18,12 @@ HMUnitFrameGroup.moveContainer = CreateFrame("Frame", "HMUnitFrameGroupBulkMoveC
 HMUnitFrameGroup.moveContainer:EnableMouse(true)
 HMUnitFrameGroup.moveContainer:SetMovable(true)
 
+local _G = getfenv(0)
+if HMUtil.IsSuperWowPresent() then
+    setmetatable(HMUnitProxy, {__index = getfenv(1)})
+    setfenv(1, HMUnitProxy)
+end
+
 -- Singleton references, assigned in constructor
 local HM
 local util

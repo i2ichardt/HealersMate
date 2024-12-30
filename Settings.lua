@@ -99,7 +99,8 @@ function HealersMateSettings.SetDefaults()
                 ["Pets"] = "Compact",
                 ["Raid"] = "Compact (Small)",
                 ["Raid Pets"] = "Compact (Small)",
-                ["Target"] = "Long"
+                ["Target"] = "Long",
+                ["Focus"] = "Long"
             },
             ["OptionsVersion"] = 1
         }
@@ -603,7 +604,7 @@ function InitSettings()
         label:SetPoint("RIGHT", frameDropdown, "RIGHT", -40, 5)
         label:SetText("Select Frame")
 
-        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target", "Focus"}
         local targetOptions = {}
 
         for _, target in ipairs(targets) do
@@ -658,6 +659,10 @@ function InitSettings()
                     local selectedFrame = UIDropDownMenu_GetSelectedName(frameDropdown)
                     HMOptions.ChosenProfiles[selectedFrame] = targetArg
 
+                    if selectedFrame == "Focus" and not util.IsSuperWowPresent() then
+                        return
+                    end
+
                     -- Here's some probably buggy profile hotswapping
                     local group = HealersMate.UnitFrameGroups[selectedFrame]
                     group.profile = GetSelectedProfile(selectedFrame)
@@ -668,12 +673,17 @@ function InitSettings()
                         ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
                         ui:GetRootContainer():Hide()
-                        local newUI = HMUnitFrame:New(unit)
+                        local newUI = HMUnitFrame:New(unit, ui.isFocus)
                         util.RemoveElement(HealersMate.AllUnitFrames, ui)
                         local unitUIs = HealersMate.GetUnitFrames(unit)
                         util.RemoveElement(unitUIs, ui)
                         table.insert(unitUIs, newUI)
                         group:AddUI(newUI, true)
+                        if ui.focusUnit then
+                            newUI.focusUnit = ui.focusUnit
+                        else
+                            newUI:Hide()
+                        end
                     end
                     HealersMate.CheckGroup()
                     group:UpdateUIPositions()

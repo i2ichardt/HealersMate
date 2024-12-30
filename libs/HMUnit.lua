@@ -27,6 +27,12 @@ HMUnit.HasHealingModifier = false
 -- Only used with SuperWoW, managed in AuraTracker.lua
 HMUnit.AuraTimes = {} -- Key: Aura Name | Value: {"startTime", "duration"}
 
+local _G = getfenv(0)
+if HMUtil.IsSuperWowPresent() then
+    setmetatable(HMUnitProxy, {__index = getfenv(1)})
+    setfenv(1, HMUnitProxy)
+end
+
 -- Non-GUID function
 function HMUnit.CreateCaches()
     if USE_GUIDS then
@@ -49,6 +55,12 @@ function HMUnit.UpdateGuidCaches()
             end
             currentGuids[guid] = nil
         end
+    end
+    for guid, _ in pairs(HealersMate.GUIDFocusMap) do
+        if not cached[guid] then
+            HMUnit:New(guid)
+        end
+        currentGuids[guid] = nil
     end
     for garbageGuid, _ in pairs(currentGuids) do
         cached[garbageGuid] = nil

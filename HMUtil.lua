@@ -1,4 +1,4 @@
--- Contains standalone utility functions that cause no side effects and don't require data from other files
+-- Contains standalone utility functions that cause no side effects and don't require data from other files, other than the unit proxy
 
 HMUtil = {}
 
@@ -44,6 +44,8 @@ PowerTypeMap = {
 -- The default color Blizzard uses for text
 DefaultTextColor = {1, 0.82, 0}
 
+MAX_FOCUS_UNITS = HMUnitProxy and HMUnitProxy.MAX_FOCUS_UNITS or 0
+
 PartyUnits = {"player", "party1", "party2", "party3", "party4"}
 PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
 TargetUnits = {"target"}
@@ -55,11 +57,23 @@ RaidPetUnits = {}
 for i = 1, MAX_RAID_MEMBERS do
     RaidPetUnits[i] = "raidpet"..i
 end
+FocusUnits = {}
+if MAX_FOCUS_UNITS > 0 then
+    for i = 1, MAX_FOCUS_UNITS do
+        FocusUnits[i] = "focus"..i
+    end
+    HMUnitProxy.ImportFunctions(HMUtil)
+end
 
 local unitArrays = {PartyUnits, PetUnits, RaidUnits, RaidPetUnits, TargetUnits}
 AllUnits = {}
 for _, unitArray in ipairs(unitArrays) do
     for _, unit in ipairs(unitArray) do
+        table.insert(AllUnits, unit)
+    end
+end
+if SuperWoW then
+    for _, unit in ipairs(FocusUnits) do
         table.insert(AllUnits, unit)
     end
 end
@@ -572,3 +586,4 @@ function IsTurtleWow()
 end
 
 AllUnitsSet = ToSet(AllUnits)
+FocusUnitsSet = ToSet(FocusUnits)

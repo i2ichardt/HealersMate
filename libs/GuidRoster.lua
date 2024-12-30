@@ -10,6 +10,8 @@ local _G = getfenv(0)
 setmetatable(HMGuidRoster, {__index = getfenv(1)})
 setfenv(1, HMGuidRoster)
 
+HMUnitProxy.ImportFunctions(HMGuidRoster)
+
 local util = HMUtil
 
 GuidUnitMap = {}
@@ -33,10 +35,10 @@ function AddUnit(guid, unit)
     table.insert(GuidUnitMap[guid], unit)
 end
 
-function SetTargetGuid(guid)
+function SetUnitGuid(unit, guid)
     for guidInMap, units in pairs(GuidUnitMap) do
-        if util.ArrayContains(units, "target") then
-            util.RemoveElement(units, "target")
+        if util.ArrayContains(units, unit) then
+            util.RemoveElement(units, unit)
             if table.getn(units) == 0 then
                 GuidUnitMap[guidInMap] = nil
             end
@@ -47,7 +49,7 @@ function SetTargetGuid(guid)
     if not GuidUnitMap[guid] then
         GuidUnitMap[guid] = {}
     end
-    table.insert(GuidUnitMap[guid], "target")
+    table.insert(GuidUnitMap[guid], unit)
 end
 
 function GetUnitGuid(unit)

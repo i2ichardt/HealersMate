@@ -3,6 +3,8 @@ HMUnitFrame = {}
 HMUnitFrame.owningGroup = nil
 
 HMUnitFrame.unit = nil
+HMUnitFrame.focusUnit = nil
+HMUnitFrame.isFocus = false
 
 HMUnitFrame.rootContainer = nil -- Contains the main container and the overlay
 HMUnitFrame.overlayContainer = nil -- Contains elements that should not be affected by opacity
@@ -47,13 +49,20 @@ HMUnitFrame.inSight = true
 
 HMUnitFrame.fakeStats = {} -- Used for displaying a fake party/raid
 
+local _G = getfenv(0)
+if HMUtil.IsSuperWowPresent() then
+    setmetatable(HMUnitProxy, {__index = getfenv(1)})
+    setfenv(1, HMUnitProxy)
+end
+
 -- Singleton references, assigned in constructor
 local HM
 local util = HMUtil
 
-function HMUnitFrame:New(unit)
+function HMUnitFrame:New(unit, isFocus)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HMUnitFrame.GenerateFakeStats()}
+    local obj = {unit = unit, focusUnit = nil, isFocus = isFocus, auraIconPool = {}, 
+        auraIcons = {}, fakeStats = HMUnitFrame.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
     return obj
@@ -115,6 +124,10 @@ end
 
 function HMUnitFrame:GetUnit()
     return self.unit
+end
+
+function HMUnitFrame:GetResolvedUnit()
+    return not self.isFocus and self.unit or self.focusUnit
 end
 
 function HMUnitFrame:GetRootContainer()
@@ -355,6 +368,14 @@ end
 function HMUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
+        if self.isFocus or self.unit == "target" then
+            self.healthText:SetText(util.Colorize(self.unit == "target" and "" or "Too Far", 0.7, 0.7, 0.7))
+            self.missingHealthText:SetText("")
+            self.healthBar:SetValue(0)
+            self.powerBar:SetValue(0)
+            self:UpdateOpacity()
+            self:AdjustHealthPosition()
+        end
         return
     end
     local profile = self:GetProfile()
@@ -649,10 +670,6 @@ function HMUnitFrame:UpdateAuras()
 
     self:ReleaseAuras()
 
-    if not UnitExists(unit) then
-        return
-    end
-
     local cache = self:GetCache()
     
     local trackedBuffs = HealersMateSettings.TrackedBuffs
@@ -732,8 +749,6 @@ function HMUnitFrame:UpdateAuras()
 end
 
 function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
-    local unit = self.unit
-
     local frame = aura.frame
     frame:SetWidth(size)
     frame:SetHeight(size)
@@ -769,6 +784,7 @@ function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset,
         tooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
         tooltip.OwningFrame = frame
         tooltip.OwningIcon = icon
+        local unit = self:GetResolvedUnit()
         if type == "Buff" then
             tooltip.IconTexture = cache.Buffs[index].texture
             tooltip:SetUnitBuff(unit, index)
@@ -922,6 +938,7 @@ function HMUnitFrame:Initialize()
     local origSetValue = healthBar.SetValue
     local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
     healthBar.SetValue = function(healthBarSelf, value)
+        local unit = self.unit
         origSetValue(healthBarSelf, value)
         local profile = self:GetProfile()
         local healthIncMaxRatio = 0
@@ -1073,7 +1090,7 @@ function HMUnitFrame:Initialize()
         self.hovered = true
         self:UpdateHealth()
         if HMOptions.SetMouseover and util.IsSuperWowPresent() then
-            SetMouseoverUnit(unit)
+            SetMouseoverUnit(self:GetResolvedUnit())
         end
     end)
     button:SetScript("OnLeave", function()
@@ -1271,7 +1288,7 @@ function HMUnitFrame:UpdateComponent(component, props, xOffset, yOffset)
 end
 
 function HMUnitFrame:GetCache()
-    return HMUnit.Get(self.unit)
+    return HMUnit.Get(self.unit) or HMUnit
 end
 
 function HMUnitFrame:GetAfflictedDebuffTypes()
@@ -1303,7 +1320,23 @@ function HMUnitFrame:GetRole()
 end
 
 function HMUnitFrame:HasAggro()
-    return HealersMate.Banzai:GetUnitAggroByUnitId(self.unit)
+    local unit = self:GetUnit()
+    if self.isFocus then
+        -- Find a real unit for Banzai
+        local guid = HMGuidRoster.GetUnitGuid(unit)
+        local units = HMGuidRoster.GetUnits(guid)
+        if units and table.getn(units) > 1 then
+            for _, rosterUnit in ipairs(units) do
+                if rosterUnit ~= unit then
+                    unit = rosterUnit
+                    break
+                end
+            end
+        else
+            return false
+        end
+    end
+    return HealersMate.Banzai:GetUnitAggroByUnitId(unit)
 end
 
 local roleTexturesPath = HMUtil.GetAssetsPath().."textures\\roles\\"

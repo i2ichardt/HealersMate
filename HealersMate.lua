@@ -98,6 +98,7 @@ local GetPowerType = util.GetPowerType
 local GetColoredRoleText = util.GetColoredRoleText
 local UseItem = util.UseItem
 local GetItemCount = util.GetItemCount
+local MAX_FOCUS_UNITS = util.MAX_FOCUS_UNITS
 
 PartyUnits = util.PartyUnits
 PetUnits = util.PetUnits
@@ -106,6 +107,12 @@ RaidUnits = util.RaidUnits
 RaidPetUnits = util.RaidPetUnits
 AllUnits = util.AllUnits
 AllUnitsSet = util.AllUnitsSet
+FocusUnits = util.FocusUnits
+FocusUnitsSet = util.FocusUnitsSet
+
+if MAX_FOCUS_UNITS > 0 then
+    HMUnitProxy.ImportFunctions(HealersMate)
+end
 
 -- TODO: Actually use this
 UIGroupInfo = {}
@@ -189,6 +196,9 @@ HMUnitFrames = {}
 -- Contains all the healing UI groups
 UnitFrameGroups = {}
 
+GUIDFocusMap = {}
+FocusGUIDMap = {}
+
 CurrentlyInRaid = false
 
 AssignedRoles = nil
@@ -201,7 +211,7 @@ end
 -- Returns an iterator for the unit frames of the unit
 function UnitFrames(unit)
     local i = 0
-    local uis = HMUnitFrames[unit]
+    local uis = HMUnitFrames[GUIDFocusMap[unit] or unit]
     local len = table.getn(uis)
     return function()
         i = i + 1
@@ -661,7 +671,7 @@ end
 local function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
-        local ui = HMUnitFrame:New(unit)
+        local ui = HMUnitFrame:New(unit, FocusUnitsSet[unit] ~= nil)
         local uis = {ui}
         HMUnitFrames[unit] = uis
         table.insert(AllUnitFrames, ui)
@@ -680,6 +690,9 @@ local function initUIs()
     UnitFrameGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
     UnitFrameGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
     UnitFrameGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    if util.IsSuperWowPresent() then
+        UnitFrameGroups["Focus"] = createUIGroup("Focus", "all", util.FocusUnits, false, getSelectedProfile("Focus"))
+    end
 
     UnitFrameGroups["Target"].ShowCondition = function(self)
         return UnitExists("target") and not HMOptions.Hidden
@@ -716,6 +729,24 @@ function EventAddonLoaded()
 
     if util.IsSuperWowPresent() then
         HMUnit.UpdateGuidCaches()
+        HMUnitProxy.SetFocusTable(FocusGUIDMap)
+
+        -- SuperWoW currently does not currently allow us to receive events for units that aren't part of normal units, so
+        -- we're manually updating
+        local focusUpdater = CreateFrame("Frame")
+        local nextUpdate = GetTime() + 0.25
+        focusUpdater:SetScript("OnUpdate", function()
+            if GetTime() > nextUpdate then
+                nextUpdate = GetTime() + 0.25
+
+                for _, unit in ipairs(util.FocusUnits) do
+                    HMUnit.Get(unit):UpdateAll()
+                    for ui in UnitFrames(unit) do
+                        ui:UpdateAll()
+                    end
+                end
+            end
+        end)
     else
         HMUnit.CreateCaches()
     end
@@ -1050,6 +1081,57 @@ SpecialBinds = {
         end
         ToggleDropDownMenu(1, nil, dropdown, frame:GetName(), frame:GetWidth(), frame:GetHeight())
         PlaySound("igMainMenuOpen")
+    end,
+    ["Focus"] = function(unit)
+        if not util.IsSuperWowPresent() then
+            DEFAULT_CHAT_FRAME:AddMessage(colorize("You need SuperWoW to focus targets.", 1, 0.5, 0.5))
+            return
+        end
+
+        local guid = HMGuidRoster.GetUnitGuid(unit) or FocusGUIDMap[unit]
+        if FocusGUIDMap[unit] then -- Unfocus
+            for ui in UnitFrames(unit) do
+                ui.focusUnit = nil
+                ui:Hide()
+            end
+            GUIDFocusMap[guid] = nil
+            FocusGUIDMap[unit] = nil
+            local hasFocus
+            for _, _ in pairs(GUIDFocusMap) do
+                hasFocus = true
+                break
+            end
+            UnitFrameGroups["Focus"]:UpdateUIPositions()
+            if not hasFocus then
+                UnitFrameGroups["Focus"]:Hide()
+            end
+        else -- Set Focus
+            if GUIDFocusMap[guid] then -- Already focused
+                return
+            end
+            local focusUnit
+            for _, funit in ipairs(FocusUnits) do
+                if not FocusGUIDMap[funit] then
+                    focusUnit = funit
+                end
+            end
+
+            if not focusUnit then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("Cannot focus any more targets!", 1, 0.5, 0.5))
+                return
+            end
+
+            GUIDFocusMap[guid] = focusUnit
+            FocusGUIDMap[focusUnit] = guid
+            HMGuidRoster.SetUnitGuid(focusUnit, guid)
+            for ui in UnitFrames(focusUnit) do
+                ui.focusUnit = guid
+                ui:Show()
+                ui:UpdateAll()
+            end
+            UnitFrameGroups["Focus"]:Show()
+            UnitFrameGroups["Focus"]:UpdateUIPositions()
+        end
     end
 }
 
@@ -1169,7 +1251,7 @@ function CheckGroup()
     end
     for _, unit in ipairs(AllUnits) do
         local exists, guid = UnitExists(unit)
-        if unit ~= "target" then
+        if unit ~= "target" and not FocusUnitsSet[unit] then
             if exists then
                 for ui in UnitFrames(unit) do
                     ui:Show()
@@ -1208,7 +1290,7 @@ end
 
 function IsRelevantUnit(unit)
     --return not string.find(unit, "0x")
-    return AllUnitsSet[unit] ~= nil
+    return AllUnitsSet[unit] ~= nil or GUIDFocusMap[unit]
 end
 
 function EventHandler()
@@ -1290,7 +1372,7 @@ function EventHandler()
             local friendly = not UnitCanAttack("player", "target")
             if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
                 if guid then -- If the guid isn't nil, then SuperWoW is present
-                    GuidRoster.SetTargetGuid(guid)
+                    GuidRoster.SetUnitGuid("target", guid)
                     HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
                 end
                 for ui in UnitFrames("target") do
@@ -1298,7 +1380,9 @@ function EventHandler()
                     ui:CheckRange()
                     ui:CheckSight()
                     ui:UpdateRole()
-                    ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+                    if util.IsSuperWowPresent() then
+                        ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+                    end
                 end
                 UnitFrameGroups["Target"]:Show()
             end

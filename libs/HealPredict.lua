@@ -314,6 +314,14 @@ local function getGuidFromLogName(name)
     else
         unit = roster:GetUnitIDFromName(name)
     end
+    if not unit then
+        -- Check focus targets
+        for _, guid in pairs(HealersMate.FocusGUIDMap) do
+            if UnitName(guid) == name then
+                return guid
+            end
+        end
+    end
     if unit then
         local _, guid = UnitExists(unit)
         return guid
