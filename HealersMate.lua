@@ -1182,6 +1182,7 @@ SpecialBinds = {
             if not hasFocus then
                 UnitFrameGroups["Focus"]:Hide()
             end
+            PlaySound("INTERFACESOUND_LOSTTARGETUNIT")
         else -- Set Focus
             if GUIDFocusMap[guid] then -- Already focused
                 return
@@ -1208,6 +1209,7 @@ SpecialBinds = {
             end
             UnitFrameGroups["Focus"]:Show()
             UnitFrameGroups["Focus"]:UpdateUIPositions()
+            PlaySound("GAMETARGETHOSTILEUNIT")
         end
     end
 }
