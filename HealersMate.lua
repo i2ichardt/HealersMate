@@ -482,10 +482,13 @@ function ApplySpellsTooltip(attachTo, unit)
         HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
 
     for _, btn in ipairs(settings.CustomButtonOrder) do
-        if canResurrect then -- Show all spells as the resurrection spell
+        if canResurrect then -- Show all spells (except special binds) as the resurrection spell
             local kv = {}
             local readableButton = settings.CustomButtonNames[btn] or ReadableButtonMap[btn]
             kv[readableButton] = canReviveChampion and "Revive Champion" or ResurrectionSpells[selfClass]
+            if SpecialBinds[string.upper(spells[modifier][btn] or "")] then
+                kv[readableButton] = spells[modifier][btn]
+            end
             table.insert(spellList, kv)
         else
             if spells[modifier][btn] or (settings.ShowEmptySpells and not settings.IgnoredEmptySpells[btn]) then
@@ -1185,6 +1188,10 @@ function ClickHandler(buttonType, unit, ui)
         return
     end
     if util.IsDeadFriend(unit) then
+        if spell and SpecialBinds[string.upper(spell)] then
+            SpecialBinds[string.upper(spell)](unit, ui)
+            return
+        end
         if HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and GetSpellID("Revive Champion") 
             and UnitAffectingCombat("player") then
                 spell = "Revive Champion"
