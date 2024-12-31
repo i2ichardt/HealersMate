@@ -15,6 +15,10 @@ local trackedCastedAuras = {
     ["Thorns"] = 10 * 60,
     ["Abolish Poison"] = 8,
     ["Innervate"] = 20,
+    -- Druid: Offensive
+    ["Moonfire"] = 18,
+    ["Insect Swarm"] = 18,
+    ["Faerie Fire"] = 40,
     -- Priest
     ["Power Word: Fortitude"] = 30 * 60,
     ["Divine Spirit"] = 30 * 60,
@@ -32,6 +36,8 @@ local trackedCastedAuras = {
     ["Spirit of Redemption"] = 10,
     ["Abolish Disease"] = 20,
     ["Inner Fire"] = 10 * 60,
+    -- Priest: Offensive
+    ["Shadow Word: Pain"] = 18,
     -- Paladin
     ["Blessing of Protection"] = 10,
     ["Hand of Protection"] = 10,
@@ -67,17 +73,30 @@ local trackedCastedAuras = {
     ["Unending Breath"] = 10 * 60,
     ["Demon Skin"] = 30 * 60,
     ["Demon Armor"] = 30 * 60,
+    -- Warlock: Offsensive
+    ["Corruption"] = 18,
+    ["Immolate"] = 15,
+    ["Curse of Agony"] = 24,
+    ["Curse of Tongues"] = 30,
+    ["Curse of Recklessness"] = 2 * 60,
     -- Rogue
     ["Evasion"] = 15,
     -- Hunter
     ["Deterrence"] = 10,
     ["Rapid Fire"] = 15,
+    -- Hunter: Offensive
+    ["Hunter's Mark"] = 2 * 60,
+    ["Serpent Sting"] = 15,
+    ["Scorpid Sting"] = 20,
+    ["Viper Sting"] = 8,
     -- Warrior
     ["Battle Shout"] = 2 * 60,
     ["Shield Wall"] = 10, -- 12 with talent
+    -- Warrior: Offensive
+    ["Rend"] = 21,
     -- Racial
     ["Quel'dorei Meditation"] = 5,
-    ["Grace of the Sunwell"] = 10,
+    ["Grace of the Sunwell"] = 15,
     -- Generic
     ["First Aid"] = 8,
     ["Recently Bandaged"] = 60,
