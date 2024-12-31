@@ -833,29 +833,44 @@ function EventAddonLoaded()
     if freshInstall then
         local class = GetClass("player")
         local spells = GetSpells()
+        local hostileSpells = GetHostileSpells()
         if class == "PRIEST" then
             spells["None"]["LeftButton"] = "Power Word: Shield"
             spells["None"]["MiddleButton"] = "Renew"
             spells["None"]["RightButton"] = "Lesser Heal"
             spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Dispel Magic"
+
+            hostileSpells["None"]["RightButton"] = "Dispel Magic"
         elseif class == "DRUID" then
             spells["None"]["LeftButton"] = "Rejuvenation"
             spells["None"]["RightButton"] = "Healing Touch"
             spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Remove Curse"
         elseif class == "PALADIN" then
             spells["None"]["LeftButton"] = "Flash of Light"
             spells["None"]["RightButton"] = "Holy Light"
             spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Cleanse"
         elseif class == "SHAMAN" then
             spells["None"]["LeftButton"] = "Healing Wave"
             spells["None"]["RightButton"] = "Lesser Healing Wave"
             spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Cure Disease"
         else
             -- Non-healer classes can use this addon like traditional raid frames
             spells["None"]["LeftButton"] = "Target"
             spells["None"]["MiddleButton"] = "Role"
             spells["None"]["RightButton"] = "Context"
         end
+        hostileSpells["None"]["LeftButton"] = "Target"
     end
 end
 
