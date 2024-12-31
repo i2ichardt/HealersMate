@@ -785,10 +785,20 @@ function EventAddonLoaded()
         for ui in UnitFrames(unit) do
             ui:UpdateOutline()
         end
+        if GUIDFocusMap[HMGuidRoster.GetUnitGuid(unit)] then
+            for ui in UnitFrames(GUIDFocusMap[HMGuidRoster.GetUnitGuid(unit)]) do
+                ui:UpdateOutline()
+            end
+        end
     end)
 	HealersMateLib:RegisterEvent("Banzai_UnitLostAggro", function(unit)
         for ui in UnitFrames(unit) do
             ui:UpdateOutline()
+        end
+        if GUIDFocusMap[HMGuidRoster.GetUnitGuid(unit)] then
+            for ui in UnitFrames(GUIDFocusMap[HMGuidRoster.GetUnitGuid(unit)]) do
+                ui:UpdateOutline()
+            end
         end
     end)
 

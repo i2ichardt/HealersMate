@@ -176,6 +176,8 @@ function HMUnitFrame:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
     self:UpdatePower()
+    self:EvaluateTarget()
+    self:UpdateOutline()
 end
 
 function HMUnitFrame:CheckRange(dist)
@@ -1322,17 +1324,23 @@ end
 function HMUnitFrame:HasAggro()
     local unit = self:GetUnit()
     if self.isFocus then
+        if not self.focusUnit then
+            return false
+        end
         -- Find a real unit for Banzai
-        local guid = HMGuidRoster.GetUnitGuid(unit)
+        local guid = self.focusUnit
         local units = HMGuidRoster.GetUnits(guid)
+        local foundAlternative = false
         if units and table.getn(units) > 1 then
             for _, rosterUnit in ipairs(units) do
                 if rosterUnit ~= unit then
                     unit = rosterUnit
+                    foundAlternative = true
                     break
                 end
             end
-        else
+        end
+        if not foundAlternative then
             return false
         end
     end
