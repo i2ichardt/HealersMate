@@ -1327,20 +1327,8 @@ function HMUnitFrame:HasAggro()
         if not self.focusUnit then
             return false
         end
-        -- Find a real unit for Banzai
-        local guid = self.focusUnit
-        local units = HMGuidRoster.GetUnits(guid)
-        local foundAlternative = false
-        if units and table.getn(units) > 1 then
-            for _, rosterUnit in ipairs(units) do
-                if rosterUnit ~= unit then
-                    unit = rosterUnit
-                    foundAlternative = true
-                    break
-                end
-            end
-        end
-        if not foundAlternative then
+        unit = HealersMate.ResolveFocus(self.focusUnit)
+        if not unit then
             return false
         end
     end

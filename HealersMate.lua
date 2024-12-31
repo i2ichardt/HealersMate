@@ -221,6 +221,19 @@ function UnitFrames(unit)
     end
 end
 
+-- Returns a normal unit associated with the focus unit or GUID, or nil if there is none
+function ResolveFocus(focusUnit)
+    local guid = FocusGUIDMap[focusUnit] or focusUnit
+    local units = HMGuidRoster.GetUnits(guid)
+    if units and table.getn(units) > 1 then
+        for _, rosterUnit in ipairs(units) do
+            if not FocusUnitsSet[rosterUnit] then
+                return rosterUnit
+            end
+        end
+    end
+end
+
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
 local EventHandlerFrame = CreateFrame("Frame", "HMEventHandlerFrame", UIParent)
@@ -1086,16 +1099,37 @@ SpecialBinds = {
         FollowUnit(unit)
     end,
     ["context"] = function(unit, ui)
-        -- Trying to figure out how to get raid context menus still
-        local map = {
-            ["party1"] = 1,
-            ["party2"] = 2,
-            ["party3"] = 3,
-            ["party4"] = 4
+        -- Resolve focus to a proper unit if possible
+        if FocusUnitsSet[unit] then
+            unit = ResolveFocus(unit)
+            if not unit then
+                return
+            end
+        end
+
+        local dropdown
+
+        local specialContexts = {
+            ["player"] = _G["PlayerFrameDropDown"],
+            ["target"] = _G["TargetFrameDropDown"],
+            ["pet"] = _G["PetFrameDropDown"]
         }
-        if map[unit] then
+        if specialContexts[unit] then
+            dropdown = specialContexts[unit]
+        elseif util.StartsWith(unit, "raid") and not util.StartsWith(unit, "raidpet") then
+            FriendsDropDown.displayMode = "MENU"
+            FriendsDropDown.initialize = function()
+                UnitPopup_ShowMenu(_G[UIDROPDOWNMENU_OPEN_MENU], "PARTY", unit, nil, string.sub(unit, 5))
+            end
+            dropdown = FriendsDropDown
+        elseif util.StartsWith(unit, "party") and not util.StartsWith(unit, "partypet") then
+            dropdown = _G["PartyMemberFrame"..string.sub(unit, 6).."DropDown"]
+        end
+
+
+        if dropdown then
             local frame = ui:GetRootContainer()
-            ToggleDropDownMenu(1, nil, _G["PartyMemberFrame"..map[unit].."DropDown"], frame:GetName(), frame:GetWidth(), 0)
+            ToggleDropDownMenu(1, nil, dropdown, frame:GetName(), frame:GetWidth(), 0)
         end
     end,
     ["Role: Tank"] = function(unit)
