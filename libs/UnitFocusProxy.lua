@@ -20,6 +20,7 @@ end
 
 local FocusTable = {} -- Temporary empty table
 
+ImportedEnvironments = {}
 AllProxies = {}
 
 function SetFocusTable(table)
@@ -29,6 +30,15 @@ end
 function ImportFunctions(env)
     for name, func in pairs(AllProxies) do
         env[name] = func
+    end
+    table.insert(ImportedEnvironments, env)
+end
+
+function UpdateImports()
+    for _, env in ipairs(ImportedEnvironments) do
+        for name, func in pairs(AllProxies) do
+            env[name] = func
+        end
     end
 end
 
@@ -89,54 +99,59 @@ function CustomProxy(name, constructor)
     AllProxies[name] = proxy
 end
 
-AuraProxy("UnitBuff", _G.UnitBuff, nil)
-AuraProxy("UnitDebuff", _G.UnitDebuff, nil)
-UnitProxy("UnitExists", _G.UnitExists, false)
-UnitProxy("UnitHealth", _G.UnitHealth, 0)
-UnitProxy("UnitHealthMax", _G.UnitHealthMax, 0)
-UnitProxy("UnitMana", _G.UnitMana, 0)
-UnitProxy("UnitManaMax", _G.UnitManaMax, 0)
-UnitProxy("UnitIsPlayer", _G.UnitIsPlayer, false)
-UnitProxy("UnitIsConnected", _G.UnitIsConnected, false)
-UnitProxy("UnitIsDead", _G.UnitIsDead, false)
-UnitProxy("UnitIsGhost", _G.UnitIsGhost, false)
-UnitProxy("UnitIsDeadOrGhost", _G.UnitIsDeadOrGhost, false)
-UnitProxy("UnitIsCorpse", _G.UnitIsCorpse, false)
-UnitProxy("UnitClass", _G.UnitClass, "")
-UnitProxy("UnitName", _G.UnitName, "Unknown")
-UnitProxy("UnitPowerType", _G.UnitPowerType, "mana")
-UnitProxy("UnitIsVisible", _G.UnitIsVisible, false)
-UnitProxy("TargetUnit", _G.TargetUnit, nil)
-DoubleUnitProxy("UnitIsFriend", _G.UnitIsFriend, false)
-DoubleUnitProxy("UnitIsEnemy", _G.UnitIsEnemy, false)
-DoubleUnitProxy("UnitIsUnit", _G.UnitIsUnit, false)
-DoubleUnitProxy("UnitCanAttack", _G.UnitCanAttack, false)
-CustomProxy("CastSpellByName", function()
-    local CastSpellByName = _G.CastSpellByName
-    return function(spell, unit)
-        if focusUnits[unit] then
-            unit = FocusTable[unit]
-            if not unit then
-                return
-            end
-        end
-        return CastSpellByName(spell, unit)
-    end
-end)
--- UnitXP SP3 compatibility
-CustomProxy("UnitXP", function()
-    local UnitXP = _G.UnitXP
-    return function(...)
-        local args = arg
-        for i = 1, table.getn(args) do
-            local arg = args[i]
-            if focusUnits[arg] then
-                args[i] = FocusTable[arg]
-                if not args[i] then
-                    return 0
+function CreateProxies()
+    AuraProxy("UnitBuff", _G.UnitBuff, nil)
+    AuraProxy("UnitDebuff", _G.UnitDebuff, nil)
+    UnitProxy("UnitExists", _G.UnitExists, false)
+    UnitProxy("UnitHealth", _G.UnitHealth, 0)
+    UnitProxy("UnitHealthMax", _G.UnitHealthMax, 0)
+    UnitProxy("UnitMana", _G.UnitMana, 0)
+    UnitProxy("UnitManaMax", _G.UnitManaMax, 0)
+    UnitProxy("UnitIsPlayer", _G.UnitIsPlayer, false)
+    UnitProxy("UnitIsConnected", _G.UnitIsConnected, false)
+    UnitProxy("UnitIsDead", _G.UnitIsDead, false)
+    UnitProxy("UnitIsGhost", _G.UnitIsGhost, false)
+    UnitProxy("UnitIsDeadOrGhost", _G.UnitIsDeadOrGhost, false)
+    UnitProxy("UnitIsCorpse", _G.UnitIsCorpse, false)
+    UnitProxy("UnitClass", _G.UnitClass, "")
+    UnitProxy("UnitName", _G.UnitName, "Unknown")
+    UnitProxy("UnitPowerType", _G.UnitPowerType, "mana")
+    UnitProxy("UnitIsVisible", _G.UnitIsVisible, false)
+    UnitProxy("TargetUnit", _G.TargetUnit, nil)
+    DoubleUnitProxy("UnitIsFriend", _G.UnitIsFriend, false)
+    DoubleUnitProxy("UnitIsEnemy", _G.UnitIsEnemy, false)
+    DoubleUnitProxy("UnitIsUnit", _G.UnitIsUnit, false)
+    DoubleUnitProxy("UnitCanAttack", _G.UnitCanAttack, false)
+    CustomProxy("CastSpellByName", function()
+        local CastSpellByName = _G.CastSpellByName
+        return function(spell, unit)
+            if focusUnits[unit] then
+                unit = FocusTable[unit]
+                if not unit then
+                    return
                 end
             end
+            return CastSpellByName(spell, unit)
         end
-        return UnitXP(unpack(args))
-    end
-end)
+    end)
+    -- UnitXP SP3 compatibility
+    CustomProxy("UnitXP", function()
+        local UnitXP = _G.UnitXP
+        return function(...)
+            local args = arg
+            for i = 1, table.getn(args) do
+                local arg = args[i]
+                if focusUnits[arg] then
+                    args[i] = FocusTable[arg]
+                    if not args[i] then
+                        return 0
+                    end
+                end
+            end
+            return UnitXP(unpack(args))
+        end
+    end)
+    UpdateImports()
+end
+
+CreateProxies()

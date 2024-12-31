@@ -718,6 +718,21 @@ function EventAddonLoaded()
         end
     end
 
+    if util.IsSuperWowPresent() then
+        -- In case other addons override unit functions, we want to make sure we're using their functions
+        HMUnitProxy:CreateProxies()
+
+        -- Do it again after all addons have loaded
+        local frame = CreateFrame("Frame")
+        local reapply = GetTime() + 0.1
+        frame:SetScript("OnUpdate", function()
+            if GetTime() > reapply then
+                HMUnitProxy:CreateProxies()
+                frame:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+
     if not _G.HMRoleCache then
         _G.HMRoleCache = {}
     end
