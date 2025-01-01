@@ -35,3 +35,4 @@ libs\ShaguUtil.lua
 libs\HealPredict.lua
 
 HealersMate.lua
+DistanceScanner.lua
