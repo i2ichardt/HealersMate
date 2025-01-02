@@ -252,6 +252,7 @@ EventHandlerFrame:RegisterEvent("PLAYER_PET_CHANGED")
 EventHandlerFrame:RegisterEvent("SPELLS_CHANGED")
 
 EventHandlerFrame:RegisterEvent("UNIT_MANA")
+EventHandlerFrame:RegisterEvent("UNIT_DISPLAYPOWER")
 EventHandlerFrame:RegisterEvent("UNIT_RAGE")
 EventHandlerFrame:RegisterEvent("UNIT_ENERGY")
 EventHandlerFrame:RegisterEvent("UNIT_FOCUS")
@@ -1345,7 +1346,7 @@ function EventHandler()
             ui:UpdateHealth()
         end
     elseif event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY" or 
-            event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" then
+            event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" or event == "UNIT_DISPLAYPOWER" then
         local unit = arg1
         if not IsRelevantUnit(unit) then
             return
