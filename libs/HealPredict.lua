@@ -316,7 +316,7 @@ local function getGuidFromLogName(name)
     end
     if not unit then
         -- Check focus targets
-        for _, guid in pairs(HealersMate.FocusGUIDMap) do
+        for _, guid in pairs(HMUnitProxy.CustomUnitGUIDMap) do
             if UnitName(guid) == name then
                 return guid
             end
@@ -342,7 +342,7 @@ local TRACKED_HOTS = HMUtil.ToSet({
     "First Aid" -- Generic
 })
 
-local eventFrame = CreateFrame("Frame")
+local eventFrame = CreateFrame("Frame", "HMHealPredictCasts")
 eventFrame:RegisterEvent("UNIT_CASTEVENT")
 eventFrame:SetScript("OnEvent", function()
     local caster, target, event, spellID, duration = arg1, arg2, arg3, arg4, arg5
@@ -449,7 +449,7 @@ eventFrame:SetScript("OnUpdate", function()
     end
 end)
 
-local combatLogFrame = CreateFrame("Frame")
+local combatLogFrame = CreateFrame("Frame", "HMHealPredictCombatLog")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_FRIENDLYPLAYER_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_HOSTILEPLAYER_BUFF") -- Needed to see casts coming from other players to yourself

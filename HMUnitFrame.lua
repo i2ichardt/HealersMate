@@ -3,8 +3,8 @@ HMUnitFrame = {}
 HMUnitFrame.owningGroup = nil
 
 HMUnitFrame.unit = nil
-HMUnitFrame.focusUnit = nil
-HMUnitFrame.isFocus = false
+HMUnitFrame.isCustomUnit = false
+HMUnitFrame.guidUnit = nil -- Used for custom units
 
 HMUnitFrame.rootContainer = nil -- Contains the main container and the overlay
 HMUnitFrame.overlayContainer = nil -- Contains elements that should not be affected by opacity
@@ -59,9 +59,9 @@ end
 local HM
 local util = HMUtil
 
-function HMUnitFrame:New(unit, isFocus)
+function HMUnitFrame:New(unit, isCustomUnit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    local obj = {unit = unit, focusUnit = nil, isFocus = isFocus, auraIconPool = {}, 
+    local obj = {unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, 
         auraIcons = {}, fakeStats = HMUnitFrame.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
@@ -127,7 +127,7 @@ function HMUnitFrame:GetUnit()
 end
 
 function HMUnitFrame:GetResolvedUnit()
-    return not self.isFocus and self.unit or self.focusUnit
+    return not self.isCustomUnit and self.unit or self.guidUnit
 end
 
 function HMUnitFrame:GetRootContainer()
@@ -176,18 +176,16 @@ function HMUnitFrame:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
     self:UpdatePower()
+    self:UpdateRange()
+    self:UpdateSight()
     self:EvaluateTarget()
     self:UpdateOutline()
 end
 
-function HMUnitFrame:CheckRange(dist)
-    local unit = self.unit
-    if not dist then
-        dist = util.GetDistanceTo(unit)
-    end
-    self.distance = dist
+function HMUnitFrame:UpdateRange()
     local wasInRange = self.inRange
-    self.inRange = dist <= 40
+    self.distance = self:GetCache():GetDistance()
+    self.inRange = self.distance <= 40
     if wasInRange ~= self.inRange then
         self:UpdateOpacity()
     end
@@ -195,12 +193,12 @@ function HMUnitFrame:CheckRange(dist)
     self:UpdateRangeText()
 end
 
-function HMUnitFrame:CheckSight()
-    self.inSight = util.IsInSight(self.unit)
+function HMUnitFrame:UpdateSight()
+    self.inSight = self:GetCache():IsInSight()
     local frame = self.lineOfSightIcon.frame
     if frame:IsShown() ~= self.inSight then
         local dist = math.ceil(self.distance)
-        if not self.inSight and dist < 80 then
+        if not self.inSight and (dist < 80 or UnitIsUnit(self.unit, "target")) then
             frame:Show()
         else
             frame:Hide()
@@ -208,21 +206,30 @@ function HMUnitFrame:CheckSight()
     end
 end
 
+local preciseDistance = util.CanClientGetPreciseDistance()
 function HMUnitFrame:UpdateRangeText()
     local dist = math.ceil(self.distance)
     local distanceText = self.distanceText
     local text = ""
-    if dist >= 30 and dist < 9999 then
-        local color
+    if dist >= (preciseDistance and 30 or 28) and dist < 9999 then
+        local r, g, b
         if dist > 80 then
-            color = {0.75, 0.75, 0.75}
+            r, g, b = 0.75, 0.75, 0.75
         elseif dist > 40 then
-            color = {1, 0.3, 0.3}
+            r, g, b = 1, 0.3, 0.3
         else
-            color = {1, 0.6, 0}
+            r, g, b = 1, 0.6, 0
         end
 
-        text = text..util.Colorize(dist.." yd", color)
+        if preciseDistance then
+            text = text..util.Colorize(dist.." yd", r, g, b)
+        else
+            if dist < 28 then
+                text = text..util.Colorize("<"..dist.." yd", r, g, b)
+            else
+                text = text..util.Colorize("28+ yd", r, g, b)
+            end
+        end
     end
     distanceText:SetText(text)
 end
@@ -257,22 +264,22 @@ function HMUnitFrame:UpdateOutline()
     local aggro = self:HasAggro()
     local targeted = self.targeted
 
-    local rgb
+    local r, g, b
     if aggro and targeted then
-        rgb = {1, 0.6, 0.6}
+        r, g, b  = 1, 0.6, 0.5
     elseif aggro then
-        rgb = {1, 0, 0}
+        r, g, b = 1, 0, 0
     elseif targeted then
-        rgb = {1, 1, 1}
+        r, g, b = 1, 1, 0.85
     end
 
-    self:SetOutlineColor(rgb)
+    self:SetOutlineColor(r, g, b)
 end
 
-function HMUnitFrame:SetOutlineColor(rgb)
-    if rgb then
+function HMUnitFrame:SetOutlineColor(r, g, b)
+    if r then
         self.targetOutline:Show()
-        self.targetOutline:SetBackdropBorderColor(rgb[1], rgb[2], rgb[3], 0.75)
+        self.targetOutline:SetBackdropBorderColor(r, g, b, 0.75)
     else
         self.targetOutline:Hide()
     end
@@ -305,6 +312,14 @@ function HMUnitFrame:SetIncomingHealing(incomingHealing, incomingDirectHealing)
     self.incomingHealing = incomingHealing
     self.incomingDirectHealing = incomingDirectHealing or incomingHealing
     self:UpdateHealth()
+end
+
+function HMUnitFrame:UpdateIncomingHealing()
+    if not HMHealPredict then
+        return
+    end
+    local _, guid = UnitExists(self:GetUnit())
+    self:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
 end
 
 function HMUnitFrame:GetCurrentHealth()
@@ -370,13 +385,16 @@ end
 function HMUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
-        if self.isFocus or self.unit == "target" then
+        if self.isCustomUnit or self.unit == "target" then
             self.healthText:SetText(util.Colorize(self.unit == "target" and "" or "Too Far", 0.7, 0.7, 0.7))
             self.missingHealthText:SetText("")
             self.healthBar:SetValue(0)
             self.powerBar:SetValue(0)
             self:UpdateOpacity()
             self:AdjustHealthPosition()
+        end
+        if self.unit == "target" then
+            self.nameText:SetText(util.Colorize("No Target", 0.7, 0.7, 0.7))
         end
         return
     end
@@ -491,7 +509,7 @@ function HMUnitFrame:UpdateHealth()
         end
         self.lastHealthPercent = healthPercent
 
-        if self:GetCache():HasBuff("Spirit of Redemption") then
+        if self:GetCache():HasBuffIDOrName(27827, "Spirit of Redemption") then
             healthText:SetText(util.Colorize("Spirit", 1, 0.3, 0.3))
         end
     end
@@ -509,11 +527,12 @@ function HMUnitFrame:UpdatePower()
     local currentPower = self:GetCurrentPower()
     local maxPower = self:GetMaxPower()
 
-    if class == nil then
-        return
+    if not UnitExists(self.unit) and not fake then
+        powerBar:SetValue(0)
+        self.powerText:SetText("")
     end
     
-    local powerColor = fake and util.PowerColors[util.ClassPowerTypes[class]] or util.GetPowerColor(unit)
+    local powerColor = fake and util.PowerColors[util.ClassPowerTypes[class or "WARRIOR"]] or util.GetPowerColor(unit)
 
     powerBar:SetValue(currentPower / maxPower)
     powerBar:SetStatusBarColor(powerColor[1], powerColor[2], powerColor[3])
@@ -595,8 +614,9 @@ function HMUnitFrame:AllocateAura()
                             duration:SetScript("OnUpdate", function()
                                 durationText:SetSeconds(seconds)
                                 if seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
-                                    local rgb = util.InterpolateColors(durationTextFlashColorsRange[seconds], secondsPrecise - seconds)
-                                    durationText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                                    durationText:SetTextColor(
+                                        util.InterpolateColorsNoTable(durationTextFlashColorsRange[seconds], 
+                                        secondsPrecise - seconds))
                                 elseif seconds <= AURA_DURATION_TEXT_LOW_THRESHOLD then
                                     durationText:SetTextColor(1, 1, 0.25)
                                 else
@@ -1071,6 +1091,9 @@ function HMUnitFrame:Initialize()
 
     self:RegisterClicks()
     button:SetScript("OnClick", function()
+        if self:IsFake() then
+            return
+        end
         local buttonType = arg1
         HM.ClickHandler(buttonType, unit, self)
     end)
@@ -1115,7 +1138,7 @@ function HMUnitFrame:Initialize()
     self.auraPanel = buffPanel
     buffPanel:SetFrameLevel(container:GetFrameLevel() + 2)
 
-    local targetOutline = CreateFrame("Frame", "$parentTargetOutline", container)
+    local targetOutline = CreateFrame("Frame", "$parentTargetOutline", rootContainer)
     self.targetOutline = targetOutline
     targetOutline:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = profile.TargetOutline.Thickness})
     targetOutline:SetFrameLevel(container:GetFrameLevel() + 10)
@@ -1323,11 +1346,11 @@ end
 
 function HMUnitFrame:HasAggro()
     local unit = self:GetUnit()
-    if self.isFocus then
-        if not self.focusUnit then
+    if self.isCustomUnit then
+        if not self.guidUnit then
             return false
         end
-        unit = HealersMate.ResolveFocus(self.focusUnit)
+        unit = HMUnitProxy.ResolveCustomUnit(self.guidUnit)
         if not unit then
             return false
         end

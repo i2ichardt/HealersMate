@@ -70,6 +70,7 @@ function HealersMateSettings.SetDefaults()
                 ["Friendly"] = isHealer,
                 ["Hostile"] = false
             },
+            ["AlwaysShowTargetFrame"] = false,
             ["AutoTarget"] = false,
             ["FrameDrag"] = {
                 ["MoveAll"] = false,
@@ -92,6 +93,9 @@ function HealersMateSettings.SetDefaults()
             ["ShowSpellsTooltip"] = isHealer,
             ["UseHealPredictions"] = true,
             ["SetMouseover"] = true,
+            ["Focus"] = {
+                ["ClearNonPlayerOnDeath"] = true
+            },
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
@@ -129,7 +133,9 @@ TrackedDebuffTypes = {} -- Default tracked is variable based on class
 -- Buffs/debuffs that significantly modify healing
 TrackedHealingBuffs = {"Amplify Magic", "Dampen Magic"}
 TrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Gehennas' Curse", 
-    "Necrotic Poison", "Blood Fury", "Necrotic Aura"}
+    "Necrotic Poison", "Blood Fury", "Necrotic Aura", 
+    "Shadowbane Curse" -- Turtle WoW
+}
 
 do
     -- Tracked buffs for all classes
@@ -670,18 +676,20 @@ function InitSettings()
                     group.uis = {}
                     group:ResetFrameLevel() -- Need to lower frame or the added UIs are somehow under it
                     for unit, ui in pairs(oldUIs) do
+                        HealersMate.hmprint(unit)
                         ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
                         ui:GetRootContainer():Hide()
-                        local newUI = HMUnitFrame:New(unit, ui.isFocus)
+                        local newUI = HMUnitFrame:New(unit, ui.isCustomUnit)
                         util.RemoveElement(HealersMate.AllUnitFrames, ui)
+                        table.insert(HealersMate.AllUnitFrames, newUI)
                         local unitUIs = HealersMate.GetUnitFrames(unit)
                         util.RemoveElement(unitUIs, ui)
                         table.insert(unitUIs, newUI)
                         group:AddUI(newUI, true)
-                        if ui.focusUnit then
-                            newUI.focusUnit = ui.focusUnit
-                        else
+                        if ui.guidUnit then
+                            newUI.guidUnit = ui.guidUnit
+                        elseif unit ~= "target" then
                             newUI:Hide()
                         end
                     end

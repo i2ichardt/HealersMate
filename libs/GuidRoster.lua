@@ -15,15 +15,23 @@ HMUnitProxy.ImportFunctions(HMGuidRoster)
 local util = HMUtil
 
 GuidUnitMap = {}
+GuidFrameMap = {}
 
 function ResetRoster()
-    GuidUnitMap = {}
+    local roster = GuidUnitMap
+    for k, _ in pairs(roster) do
+        roster[k] = nil
+    end
 end
 
--- HealersMate does not currently use this because the roster is populated when updating UIs
 function PopulateRoster()
     for _, unit in ipairs(util.AllUnits) do
-        local _, guid = UnitExists(unit)
+        local exists, guid = UnitExists(unit)
+        if exists then
+            AddUnit(guid, unit)
+        end
+    end
+    for unit, guid in pairs(HMUnitProxy.CustomUnitGUIDMap) do
         AddUnit(guid, unit)
     end
 end
@@ -46,6 +54,10 @@ function SetUnitGuid(unit, guid)
         end
     end
 
+    if not guid then
+        return
+    end
+
     if not GuidUnitMap[guid] then
         GuidUnitMap[guid] = {}
     end
@@ -55,6 +67,15 @@ end
 function GetUnitGuid(unit)
     local _, guid = UnitExists(unit)
     return guid
+end
+
+-- Resolves the GUID of the real unit, custom unit, or returns the unit itself if it's already a GUID.
+-- If the unit is "target" and there's no target, this returns nil.
+function ResolveUnitGuid(unit)
+    local guid = GetUnitGuid(unit) or HMUnitProxy.CustomUnitGUIDMap[unit] or unit
+    if guid ~= "target" then
+        return guid
+    end
 end
 
 -- Returns an array of all the units the guid is, or nil if none

@@ -10,6 +10,10 @@ Classes = {"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", 
 HealerClasses = {"PRIEST", "DRUID", "SHAMAN", "PALADIN"}
 
 UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to check for UnitXP SP3
+UnitXPSP3_Version = -1
+if UnitXPSP3 and pcall(UnitXP, "version", "coffTimeDateStamp") then
+    UnitXPSP3_Version = UnitXP("version", "coffTimeDateStamp") or -1
+end
 SuperWoW = SpellInfo ~= nil
 
 TurtleWow = true
@@ -44,8 +48,6 @@ PowerTypeMap = {
 -- The default color Blizzard uses for text
 DefaultTextColor = {1, 0.82, 0}
 
-MAX_FOCUS_UNITS = HMUnitProxy and HMUnitProxy.MAX_FOCUS_UNITS or 0
-
 PartyUnits = {"player", "party1", "party2", "party3", "party4"}
 PetUnits = {"pet", "partypet1", "partypet2", "partypet3", "partypet4"}
 TargetUnits = {"target"}
@@ -57,11 +59,10 @@ RaidPetUnits = {}
 for i = 1, MAX_RAID_MEMBERS do
     RaidPetUnits[i] = "raidpet"..i
 end
-FocusUnits = {}
-if MAX_FOCUS_UNITS > 0 then
-    for i = 1, MAX_FOCUS_UNITS do
-        FocusUnits[i] = "focus"..i
-    end
+CustomUnits = HMUnitProxy and HMUnitProxy.AllCustomUnits or {}
+CustomUnitsSet = HMUnitProxy and HMUnitProxy.AllCustomUnitsSet or {}
+FocusUnits = HMUnitProxy and HMUnitProxy.CustomUnitsMap["focus"] or {}
+if HMUnitProxy then
     HMUnitProxy.ImportFunctions(HMUtil)
 end
 
@@ -72,11 +73,33 @@ for _, unitArray in ipairs(unitArrays) do
         table.insert(AllUnits, unit)
     end
 end
-if SuperWoW then
-    for _, unit in ipairs(FocusUnits) do
+AllRealUnits = {}
+for i, unit in ipairs(AllUnits) do
+    AllRealUnits[i] = unit
+end
+if HMUnitProxy then
+    for _, unit in ipairs(CustomUnits) do
         table.insert(AllUnits, unit)
     end
+    HMUnitProxy.RegisterUpdateListener(function()
+        local i = 1
+        for _, unit in ipairs(AllRealUnits) do
+            AllUnits[i] = unit
+            i = i + 1
+        end
+        for _, unit in ipairs(CustomUnits) do
+            AllUnits[i] = unit
+            i = i + 1
+        end
+        ClearTable(AllUnitsSet)
+        for k, v in pairs(ToSet(AllUnits)) do
+            AllUnitsSet[k] = v
+        end
+    end)
 end
+
+end
+
 
 local assetsPath = "Interface\\AddOns\\HealersMate\\assets\\"
 function GetAssetsPath()
@@ -143,6 +166,12 @@ function CloneTable(table, deep)
     return clone
 end
 
+function ClearTable(table)
+    for k, v in pairs(table) do
+        table[k] = nil
+    end
+end
+
 -- Courtesy of ChatGPT
 function SplitString(str, delimiter)
     local result = {}
@@ -164,6 +193,11 @@ end
 
 -- Courtesy of ChatGPT
 function InterpolateColors(colors, t)
+    local r, g, b = InterpolateColorsNoTable(colors, t)
+    return {r, g, b}
+end
+
+function InterpolateColorsNoTable(colors, t)
     local numColors = table.getn(colors)
     
     -- Ensure t is between 0 and 1
@@ -171,7 +205,8 @@ function InterpolateColors(colors, t)
 
     -- If there are fewer than 2 colors, just return the single color
     if numColors < 2 then
-        return colors[1]
+        local c = colors[1]
+        return c[1], c[2], c[3]
     end
 
     -- Determine the segment in which t falls
@@ -181,7 +216,8 @@ function InterpolateColors(colors, t)
 
     -- Handle edge cases where index is out of bounds
     if index >= numColors - 1 then
-        return colors[numColors]
+        local c = colors[numColors]
+        return c[1], c[2], c[3]
     end
 
     local color1 = colors[index + 1]
@@ -192,7 +228,7 @@ function InterpolateColors(colors, t)
     local g = color1[2] + (color2[2] - color1[2]) * fraction
     local b = color1[3] + (color2[3] - color1[3]) * fraction
 
-    return {r, g, b}
+    return r, g, b
 end
 
 function Colorize(text, r, g, b)
@@ -515,23 +551,18 @@ function GetPowerColor(unit)
 end
 
 -- Returns distance if UnitXP SP3 or SuperWoW is present;
--- 0 if unit is offline, not visible, or unit is enemy and SuperWoW is the distance provider;
+-- 0 if unit is offline, or unit is enemy and SuperWoW is the distance provider;
 -- 9999 if unit is not visible or UnitXP SP3 is not present.
 -- Might try to do hacky stuff for people without mods later on.
 function GetDistanceTo(unit)
-    if not UnitIsConnected(unit) then
-        return 0
-    end
-
-    if UnitXPSP3 then
-        return math.max((UnitXP("distanceBetween", "player", unit) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
-    elseif SuperWoW then -- Try to fallback to SuperWoW distance
-        return math.max((GetDistanceBetween_SuperWow("player", unit) or (9999 + 3)) - 3, 0)
-    end
-    return UnitIsVisible(unit) and 0 or 9999
+    return GetDistanceBetween("player", unit)
 end
 
 function GetDistanceBetween_SuperWow(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
+    end
+
     local x1, z1, y1 = UnitPosition(unit1)
     local x2, z2, y2 = UnitPosition(unit2)
     
@@ -544,16 +575,49 @@ function GetDistanceBetween_SuperWow(unit1, unit2)
     return math.sqrt(dx*dx + dz*dz + dy*dy)
 end
 
-function GetDistanceBetween(unit1, unit2)
+function GetDistanceBetween_UnitXPSP3_Legacy(unit1, unit2)
     if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
-        return 9999
+        return 0
     end
-    if UnitXPSP3 then
-        return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
-    elseif SuperWoW then
-        return math.max((GetDistanceBetween_SuperWow(unit1, unit2) or (9999 + 3)) - 3, 0)
+
+    return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+end
+
+function GetDistanceBetween_UnitXPSP3(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
     end
-    return (UnitIsVisible(unit1) and UnitIsVisible(unit2)) and 0 or 9999
+
+    return math.max(UnitXP("distanceBetween", unit1, unit2) or 9999, 0) -- UnitXP SP3 modded function
+end
+
+function GetDistanceBetween_Vanilla(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
+    end
+
+    if unit1 == "player" then
+        if CheckInteractDistance(unit2, 3) then
+            return 9
+        end
+        if CheckInteractDistance(unit2, 4) then
+            return 27
+        end
+    end
+
+    return (UnitIsVisible(unit1) and UnitIsVisible(unit2)) and 28 or 9999
+end
+
+if UnitXPSP3 then
+    if UnitXPSP3_Version > -1 then -- Newer versions have more accurate distances
+        GetDistanceBetween = GetDistanceBetween_UnitXPSP3
+    else -- Fall back to old distance calculation
+        GetDistanceBetween = GetDistanceBetween_UnitXPSP3_Legacy
+    end
+elseif SuperWoW then
+    GetDistanceBetween = GetDistanceBetween_SuperWow
+else -- sad
+    GetDistanceBetween = GetDistanceBetween_Vanilla
 end
 
 -- SuperWoW cannot provide precise distance for enemies
@@ -562,11 +626,21 @@ function CanClientGetPreciseDistance(alsoEnemies)
 end
 
 -- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
-function IsInSight(unit)
-    if not UnitXPSP3 then
-        return true
-    end
-    return UnitXP("inSight", "player", unit) -- UnitXP SP3 modded function
+IsInSight = function()
+    return true
+end
+
+do -- This is done to prevent crashes from checking sight too early
+    local sightEnableFrame = CreateFrame("Frame")
+    sightEnableFrame:RegisterEvent("ADDON_LOADED")
+    sightEnableFrame:SetScript("OnEvent", function()
+        if arg1 == "HealersMate" and UnitXPSP3 then
+            IsInSight = function(unit)
+                return UnitXP("inSight", "player", unit) -- UnitXP SP3 modded function
+            end
+            sightEnableFrame:SetScript("OnEvent", nil)
+        end
+    end)
 end
 
 function CanClientSightCheck()

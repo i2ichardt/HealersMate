@@ -68,6 +68,8 @@ local trackedCastedAuras = {
     ["Ice Barrier"] = 60,
     ["Mana Shield"] = 60,
     ["Ice Block"] = 10,
+    -- Mage: Offensive
+    ["Polymorph"] = 50,
     -- Warlock
     ["Soulstone Resurrection"] = 30 * 60,
     ["Unending Breath"] = 10 * 60,
@@ -138,7 +140,7 @@ local function applyTimedAura(spellName, units)
     end
 end
 
-local castEventFrame = CreateFrame("Frame")
+local castEventFrame = CreateFrame("Frame", "HMAuraTrackingCasts")
 castEventFrame:RegisterEvent("UNIT_CASTEVENT")
 castEventFrame:SetScript("OnEvent", function()
     local caster, target, event, spellID, duration = arg1, arg2, arg3, arg4, arg5

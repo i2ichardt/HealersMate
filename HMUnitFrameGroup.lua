@@ -38,6 +38,15 @@ function HMUnitFrameGroup:New(name, environment, units, petGroup, profile)
     return obj
 end
 
+function HMUnitFrameGroup:EvaluateShown()
+    if self:CanShowInEnvironment(HealersMate.CurrentlyInRaid and "raid" or "party") and self:ShowCondition() then
+        self:Show()
+        self:UpdateUIPositions()
+    else
+        self:Hide()
+    end
+end
+
 function HMUnitFrameGroup:ShowCondition()
     if HMOptions.Hidden then
         return false
@@ -250,7 +259,12 @@ function HMUnitFrameGroup:UpdateUIPositions()
 
     local largestRow = table.getn(splitSortedUIs)
 
+    
+    --largestRow = math.max(largestRow, 1)
+    --largestColumn = math.max(largestColumn, 1)
+
     local width = orientation == "Vertical" and (profileWidth * largestRow + (xSpacing * (largestRow - 1))) or (profileWidth * largestColumn + (xSpacing * (largestColumn - 1)))
+    width = math.max(width, profileWidth) -- Prevent width from being 0
     local height = orientation == "Vertical" and (profileHeight * largestColumn + (ySpacing * (largestColumn - 1))) or (profileHeight * largestRow + (ySpacing * (largestRow - 1)))
     height = height + 20
     self.container:SetWidth(width)

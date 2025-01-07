@@ -4,6 +4,7 @@
 local USE_GUIDS = HMUtil.IsSuperWowPresent()
 local AllUnits = HMUtil.AllUnits
 local AllUnitsSet = HMUtil.AllUnitsSet
+local util = HMUtil
 
 HMUnit = {}
 
@@ -26,6 +27,10 @@ HMUnit.HasHealingModifier = false
 
 -- Only used with SuperWoW, managed in AuraTracker.lua
 HMUnit.AuraTimes = {} -- Key: Aura Name | Value: {"startTime", "duration"}
+
+HMUnit.Distance = 0
+HMUnit.InSight = true
+HMUnit.IsNew = false
 
 local _G = getfenv(0)
 if HMUtil.IsSuperWowPresent() then
@@ -52,13 +57,17 @@ function HMUnit.UpdateGuidCaches()
         if exists then
             if not cached[guid] then
                 HMUnit:New(guid)
+                HealersMate.EvaluateTracking(unit, true)
             end
             currentGuids[guid] = nil
         end
     end
-    for guid, _ in pairs(HealersMate.GUIDFocusMap) do
+    for guid, units in pairs(HMUnitProxy.GUIDCustomUnitMap) do
         if not cached[guid] then
             HMUnit:New(guid)
+            for _, unit in ipairs(units) do
+                HealersMate.EvaluateTracking(unit, true)
+            end
         end
         currentGuids[guid] = nil
     end
@@ -70,7 +79,7 @@ end
 -- Likely never needed to be called when using GUIDs
 function HMUnit.UpdateAllUnits()
     for _, cache in pairs(HMUnit.Cached) do
-        cache:UpdateAuras()
+        cache:UpdateAll()
     end
 end
 
@@ -82,12 +91,17 @@ function HMUnit.Get(unit)
     return HMUnit.Cached[unit]
 end
 
+function HMUnit.GetAllUnits()
+    return HMUnit.Cached
+end
+
 function HMUnit:New(unit)
     local obj = {Unit = unit}
     setmetatable(obj, self)
     self.__index = self
     HMUnit.Cached[unit] = obj
     obj.AurasPopulated = true -- To force aura fields to generate
+    obj.IsNew = true
     if USE_GUIDS then
         obj.AuraTimes = {}
     end
@@ -97,6 +111,43 @@ end
 
 function HMUnit:UpdateAll()
     self:UpdateAuras()
+    self:UpdateDistance()
+    self:UpdateSight()
+end
+
+-- Returns true if this unit is new, clearing its new status.
+function HMUnit:CheckNew()
+    if self.IsNew then
+        self.IsNew = false
+        return true
+    end
+end
+
+-- Returns true if the distance changed
+function HMUnit:UpdateDistance()
+    local prevDist = self.Distance
+    self.Distance = util.GetDistanceTo(self.Unit)
+
+    return self.Distance ~= prevDist
+end
+
+function HMUnit:GetDistance()
+    return self.Distance
+end
+
+-- Returns true if the sight state has changed
+function HMUnit:UpdateSight()
+    if not self.Unit then
+        return
+    end
+    local wasInSight = self.InSight
+    self.InSight = util.IsInSight(self.Unit)
+
+    return self.InSight ~= wasInSight
+end
+
+function HMUnit:IsInSight()
+    return self.InSight
 end
 
 function HMUnit:ClearAuras()
