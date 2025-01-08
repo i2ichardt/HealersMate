@@ -31,7 +31,7 @@ SlashCmdList["HEALERSMATE"] = function(args)
             end
         end
         HealersMate.CheckGroup()
-        if not HMOptions.TestUI then
+        if not HMOptions.TestUI and HMUnitProxy then
             for _, type in ipairs(HMUnitProxy.CustomUnitTypes) do
                 HMUnitProxy.UpdateUnitTypeFrames(type)
             end
@@ -262,7 +262,7 @@ local function OpenUnitFramesIterator()
         local HMUnitFrames = HMUnitFrames
         local uis
         local i = 0
-        local len = table.getn(uis)
+        local len = 0
         local iterFunc = function()
             i = i + 1
             if i <= len then
@@ -1350,6 +1350,7 @@ function CheckGroup()
     end
     for _, ui in pairs(AllUnitFrames) do
         if ui:IsShown() then
+            ui:UpdateRange()
             ui:UpdateAuras()
             ui:UpdateIncomingHealing()
             ui:UpdateOutline()

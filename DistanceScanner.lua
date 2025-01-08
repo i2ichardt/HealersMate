@@ -8,10 +8,12 @@ local SIGHT_MAX_DIST = 80
 
 local almostAllUnits = util.CloneTable(util.AllUnits) -- Everything except the player
 table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
-HMUnitProxy.RegisterUpdateListener(function()
-    almostAllUnits = util.CloneTable(util.AllUnits) -- Everything except the player
-    table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
-end)
+if HMUnitProxy then
+    HMUnitProxy.RegisterUpdateListener(function()
+        almostAllUnits = util.CloneTable(util.AllUnits) -- Everything except the player
+        table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
+    end)
+end
 
 local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
 local sightTrackedUnits = util.CloneTable(almostAllUnits)
