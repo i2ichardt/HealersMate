@@ -589,6 +589,10 @@ function GetDistanceBetween_SuperWow(unit1, unit2)
         return 0
     end
 
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
     local x1, z1, y1 = UnitPosition(unit1)
     local x2, z2, y2 = UnitPosition(unit2)
     
@@ -606,6 +610,10 @@ function GetDistanceBetween_UnitXPSP3_Legacy(unit1, unit2)
         return 0
     end
 
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
     return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
 end
 
@@ -614,12 +622,20 @@ function GetDistanceBetween_UnitXPSP3(unit1, unit2)
         return 0
     end
 
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
     return math.max(UnitXP("distanceBetween", unit1, unit2) or 9999, 0) -- UnitXP SP3 modded function
 end
 
 function GetDistanceBetween_Vanilla(unit1, unit2)
     if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
         return 0
+    end
+
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
     end
 
     if unit1 == "player" then
@@ -631,7 +647,7 @@ function GetDistanceBetween_Vanilla(unit1, unit2)
         end
     end
 
-    return (UnitIsVisible(unit1) and UnitIsVisible(unit2)) and 28 or 9999
+    return 28
 end
 
 if UnitXPSP3 then
