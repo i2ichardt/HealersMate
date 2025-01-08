@@ -283,6 +283,10 @@ function InitSettings()
     container:EnableMouse(true)
     container:SetMovable(true)
 
+    if Aero then
+        Aero:RegisterAddon("HealersMate", "HM_SettingsContainer")
+    end
+
     container:SetScript("OnMouseDown", function()
         local button = arg1
 
