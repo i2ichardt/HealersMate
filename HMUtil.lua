@@ -166,6 +166,19 @@ function CloneTable(table, deep)
     return clone
 end
 
+local compost = AceLibrary("Compost-2.0")
+function CloneTableCompost(table, deep)
+    local clone = compost:GetTable()
+    for k, v in pairs(table) do
+        if deep and type(v) == "table" then
+            clone[k] = CloneTable(v, true)
+        else
+            clone[k] = v
+        end
+    end
+    return clone
+end
+
 function ClearTable(table)
     for k, v in pairs(table) do
         table[k] = nil

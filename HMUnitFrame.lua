@@ -732,7 +732,7 @@ function HMUnitFrame:UpdateAuras()
     
     local trackedBuffs = HealersMateSettings.TrackedBuffs
 
-    local buffs = {} -- Buffs that are tracked because of matching name
+    local buffs = compost:GetTable() -- Buffs that are tracked because of matching name
     for name, array in pairs(cache.BuffsMap) do
         if trackedBuffs[name] or enemy then
             util.AppendArrayElements(buffs, array)
@@ -747,8 +747,8 @@ function HMUnitFrame:UpdateAuras()
     local trackedDebuffs = HealersMateSettings.TrackedDebuffs
     local trackedDebuffTypes = HealersMateSettings.TrackedDebuffTypesSet
 
-    local debuffs = {} -- Debuffs that are tracked because of matching name, later combined with typed debuffs
-    local typedDebuffs = {} -- Debuffs that are tracked because it's a tracked type (like "Magic" or "Disease")
+    local debuffs = compost:GetTable() -- Debuffs that are tracked because of matching name, later combined with typed debuffs
+    local typedDebuffs = compost:GetTable() -- Debuffs that are tracked because it's a tracked type (like "Magic" or "Disease")
     for name, array in pairs(cache.DebuffsMap) do
         if trackedDebuffs[name] or enemy then
             util.AppendArrayElements(debuffs, array)
@@ -794,6 +794,9 @@ function HMUnitFrame:UpdateAuras()
         self:CreateAura(aura, debuff.name, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
     end
+    compost:Reclaim(buffs)
+    compost:Reclaim(debuffs)
+    compost:Reclaim(typedDebuffs)
 
     -- Prevent lingering tooltips when the icon is removed or is changed to a different aura
     if not HM.GameTooltip.OwningFrame or not HM.GameTooltip.OwningFrame:IsShown() or 

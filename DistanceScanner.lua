@@ -1,6 +1,7 @@
 HealersMate.DistanceScannerFrame = CreateFrame("Frame", "HMDistanceScannerFrame", UIParent)
 
 local util = HMUtil
+local compost = AceLibrary("Compost-2.0")
 local TRACKING_MIN_DIST = 20
 local TRACKING_MAX_DIST = 60
 local SIGHT_MAX_DIST = 80
@@ -36,9 +37,10 @@ function HealersMate.RunTrackingScan()
     if time > nextTrackingUpdate then
         nextTrackingUpdate = time + TRACKING_UPDATE_INTERVAL
 
-        distanceTrackedUnits = {}
+
+        compost:Erase(distanceTrackedUnits)
         local prevSightTrackedUnits = sightTrackedUnits
-        sightTrackedUnits = {}
+        sightTrackedUnits = compost:GetTable()
         if HMGuidRoster then
             for guid, cache in pairs(HMUnit.GetAllUnits()) do
                 HealersMate.EvaluateTracking(guid)
@@ -54,6 +56,7 @@ function HealersMate.RunTrackingScan()
                 ui:UpdateSight()
             end
         end
+        compost:Reclaim(prevSightTrackedUnits)
         --HealersMate.hmprint("Tracking dist "..table.getn(distanceTrackedUnits))
         --HealersMate.hmprint("Tracking sight "..table.getn(sightTrackedUnits))
     end

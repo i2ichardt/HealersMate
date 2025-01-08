@@ -53,7 +53,7 @@ end
 
 function HMUnit.UpdateGuidCaches()
     local cached = HMUnit.Cached
-    local currentGuids = HMUtil.CloneTable(cached)
+    local prevCached = HMUtil.CloneTableCompost(cached)
     for _, unit in ipairs(AllUnits) do
         local exists, guid = UnitExists(unit)
         if exists then
@@ -61,7 +61,7 @@ function HMUnit.UpdateGuidCaches()
                 HMUnit:New(guid)
                 HealersMate.EvaluateTracking(unit, true)
             end
-            currentGuids[guid] = nil
+            prevCached[guid] = nil
         end
     end
     for guid, units in pairs(HMUnitProxy.GUIDCustomUnitMap) do
@@ -71,11 +71,14 @@ function HMUnit.UpdateGuidCaches()
                 HealersMate.EvaluateTracking(unit, true)
             end
         end
-        currentGuids[guid] = nil
+        prevCached[guid] = nil
     end
-    for garbageGuid, _ in pairs(currentGuids) do
+    for garbageGuid, cache in pairs(prevCached) do
+        cache:Dispose()
+        compost:Reclaim(cache)
         cached[garbageGuid] = nil
     end
+    compost:Reclaim(prevCached)
 end
 
 -- Likely never needed to be called when using GUIDs
@@ -98,7 +101,7 @@ function HMUnit.GetAllUnits()
 end
 
 function HMUnit:New(unit)
-    local obj = {Unit = unit}
+    local obj = compost:AcquireHash("Unit", unit)
     setmetatable(obj, self)
     self.__index = self
     HMUnit.Cached[unit] = obj
@@ -106,10 +109,20 @@ function HMUnit:New(unit)
     obj.AurasPopulated = true -- To force aura fields to generate
     obj.IsNew = true
     if USE_GUIDS then
-        obj.AuraTimes = {}
+        obj.AuraTimes = compost:GetTable()
     end
     obj:UpdateAll()
     return obj
+end
+
+function HMUnit:Dispose()
+    compost:Reclaim(self.Buffs, 1)
+    compost:Reclaim(self.BuffsMap, 1)
+    compost:Reclaim(self.Debuffs, 1)
+    compost:Reclaim(self.DebuffsMap, 1)
+    compost:Reclaim(self.TypedDebuffs)
+    compost:Reclaim(self.AfflictedDebuffTypes)
+    compost:Reclaim(self.AuraTimes)
 end
 
 function HMUnit:UpdateAll()
@@ -229,7 +242,6 @@ function HMUnit:UpdateAuras()
             self.HasHealingModifier = true
         end
         local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
-        --local debuff = {name = name, index = index, texture = texture, stacks = stacks, type = type, id = id}
         if not debuffsMap[name] then
             debuffsMap[name] = compost:GetTable()
         end
