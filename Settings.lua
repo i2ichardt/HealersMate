@@ -282,6 +282,7 @@ function InitSettings()
     --container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
     container:EnableMouse(true)
     container:SetMovable(true)
+    container:Hide()
 
     if Aero then
         Aero:RegisterAddon("HealersMate", "HM_SettingsContainer")
@@ -950,6 +951,4 @@ function InitSettings()
         ShowFrame("Spells")
         oldContainerShow(self)
     end
-
-    container:Hide()
 end
