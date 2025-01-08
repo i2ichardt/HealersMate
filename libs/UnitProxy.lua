@@ -11,6 +11,8 @@ local _G = getfenv(0)
 setmetatable(HMUnitProxy, {__index = getfenv(1)})
 setfenv(1, HMUnitProxy)
 
+local compost = AceLibrary("Compost-2.0")
+
 -- Unit data
 
 CustomUnitTypes = {} -- Array of custom unit types(ex: "focus")
@@ -74,7 +76,7 @@ UnitFunctions = {}
 
 
 function UpdateUnitTypeFrames(unitType)
-    local groups = {}
+    local groups = compost:GetTable()
     for _, unit in ipairs(CustomUnitsMap[unitType]) do
         local guid = CustomUnitGUIDMap[unit]
         for ui in HealersMate.UnitFrames(unit) do
@@ -94,10 +96,11 @@ function UpdateUnitTypeFrames(unitType)
     for group, _ in pairs(groups) do
         group:EvaluateShown()
     end
+    compost:Reclaim(groups)
 end
 
 function UpdateUnitFrames(unit)
-    local groups = {}
+    local groups = compost:GetTable()
     local guid = CustomUnitGUIDMap[unit]
     for ui in HealersMate.UnitFrames(unit) do
         if guid then
@@ -114,6 +117,7 @@ function UpdateUnitFrames(unit)
     for group, _ in pairs(groups) do
         group:EvaluateShown()
     end
+    compost:Reclaim(groups)
 end
 
 function GetCurrentUnitOfType(guid, unitType)
@@ -140,7 +144,7 @@ function SetCustomUnitGuid(unit, guid, skipUpdate)
         CustomUnitGUIDMap[unit] = guid
         local unitArray = GUIDCustomUnitMap[guid]
         if not unitArray then
-            unitArray = {}
+            unitArray = compost:GetTable()
             GUIDCustomUnitMap[guid] = unitArray
         end
         table.insert(unitArray, unit)
@@ -156,6 +160,7 @@ function SetCustomUnitGuid(unit, guid, skipUpdate)
             CustomUnitGUIDMap[unit] = nil
             local unitArray = GUIDCustomUnitMap[guid]
             if table.getn(unitArray) == 1 then
+                compost:Reclaim(unitArray)
                 GUIDCustomUnitMap[guid] = nil
             else
                 HMUtil.RemoveElement(unitArray, unit)
@@ -213,21 +218,22 @@ function PromoteGuidUnitType(guid, unitType)
 
     SetCustomUnitGuid(unit, nil)
     -- Remove all units before this unit
-    local reaquire = {}
+    local reacquire = compost:GetTable()
     for i = 1, index do
         local moveUnit = units[i]
         if CustomUnitGUIDMap[moveUnit] then
             local moveGuid = CustomUnitGUIDMap[moveUnit]
             SetCustomUnitGuid(moveUnit, nil, true)
-            table.insert(reaquire, moveGuid)
+            table.insert(reacquire, moveGuid)
         end
     end
     -- Set the promotion first so they get the first spot
     SetGuidUnitType(guid, unitType, true)
-    -- Reaquire the removed units
-    for _, reaquireGuid in ipairs(reaquire) do
-        SetGuidUnitType(reaquireGuid, unitType, true)
+    -- Reacquire the removed units
+    for _, reacquireGuid in ipairs(reacquire) do
+        SetGuidUnitType(reacquireGuid, unitType, true)
     end
+    compost:Reclaim(reacquire)
     UpdateUnitTypeFrames(unitType)
 end
 
@@ -420,21 +426,37 @@ function CreateUnitProxies()
     -- UnitXP SP3 compatibility
     CustomProxy("UnitXP", function()
         local UnitXP = _G.UnitXP
-        return function(...)
-            local args = arg
-            for i = 1, table.getn(args) do
-                local arg = args[i]
-                if AllCustomUnitsSet[arg] then
-                    args[i] = CustomUnitGUIDMap[arg]
-                    if not args[i] then
-                        return 0
-                    end
-                end
+        local function ScanArg(arg)
+            if AllCustomUnitsSet[arg] then
+                return CustomUnitGUIDMap[arg]
             end
-            return UnitXP(unpack(args))
+            return arg
+        end
+        return function(a1, a2, a3, a4, a5)
+            if a1 then
+                a1 = ScanArg(a1)
+                if not a1 then return 0 end
+            end
+            if a2 then
+                a2 = ScanArg(a2)
+                if not a2 then return 0 end
+            end
+            if a3 then
+                a3 = ScanArg(a3)
+                if not a3 then return 0 end
+            end
+            if a4 then
+                a4 = ScanArg(a4)
+                if not a4 then return 0 end
+            end
+            if a5 then
+                a5 = ScanArg(a5)
+                if not a5 then return 0 end
+            end
+            return UnitXP(a1, a2, a3, a4, a5)
         end
     end)
-    
+
     UpdateImports()
 end
 

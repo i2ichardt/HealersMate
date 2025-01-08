@@ -6,6 +6,8 @@ local AllUnits = HMUtil.AllUnits
 local AllUnitsSet = HMUtil.AllUnitsSet
 local util = HMUtil
 
+local compost = AceLibrary("Compost-2.0")
+
 HMUnit = {}
 
 -- Non-instance variable
@@ -100,6 +102,7 @@ function HMUnit:New(unit)
     setmetatable(obj, self)
     self.__index = self
     HMUnit.Cached[unit] = obj
+    obj:AllocateAuras()
     obj.AurasPopulated = true -- To force aura fields to generate
     obj.IsNew = true
     if USE_GUIDS then
@@ -150,16 +153,31 @@ function HMUnit:IsInSight()
     return self.InSight
 end
 
+function HMUnit:AllocateAuras()
+    self.Buffs = compost:GetTable()
+    self.BuffsMap = compost:GetTable()
+    self.Debuffs = compost:GetTable()
+    self.DebuffsMap = compost:GetTable()
+    self.TypedDebuffs = compost:GetTable()
+    self.AfflictedDebuffTypes = compost:GetTable()
+end
+
 function HMUnit:ClearAuras()
-    if not self.AurasPopulated then
+    if not self.AurasPopulated or self.Buffs == HMUnit.Buffs then
         return
     end
-    self.Buffs = {}
-    self.BuffsMap = {}
-    self.Debuffs = {}
-    self.DebuffsMap = {}
-    self.TypedDebuffs = {}
-    self.AfflictedDebuffTypes = {}
+    compost:Reclaim(self.Buffs, 1)
+    compost:Reclaim(self.BuffsMap, 1)
+    compost:Reclaim(self.Debuffs, 1)
+    compost:Reclaim(self.DebuffsMap, 1)
+    compost:Reclaim(self.TypedDebuffs)
+    compost:Reclaim(self.AfflictedDebuffTypes)
+    self.Buffs = compost:GetTable()
+    self.BuffsMap = compost:GetTable()
+    self.Debuffs = compost:GetTable()
+    self.DebuffsMap = compost:GetTable()
+    self.TypedDebuffs = compost:GetTable()
+    self.AfflictedDebuffTypes = compost:GetTable()
     self.HasHealingModifier = false
     self.AurasPopulated = false
 end
@@ -187,9 +205,9 @@ function HMUnit:UpdateAuras()
         if HealersMateSettings.TrackedHealingBuffs[name] then
             self.HasHealingModifier = true
         end
-        local buff = {name = name, index = index, texture = texture, stacks = stacks, type = type, id = id}
+        local buff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
         if not buffsMap[name] then
-            buffsMap[name] = {}
+            buffsMap[name] = compost:GetTable()
         end
         table.insert(buffsMap[name], buff)
         table.insert(buffs, buff)
@@ -210,15 +228,16 @@ function HMUnit:UpdateAuras()
         if HealersMateSettings.TrackedHealingDebuffs[name] then
             self.HasHealingModifier = true
         end
-        local debuff = {name = name, index = index, texture = texture, stacks = stacks, type = type, id = id}
+        local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
+        --local debuff = {name = name, index = index, texture = texture, stacks = stacks, type = type, id = id}
         if not debuffsMap[name] then
-            debuffsMap[name] = {}
+            debuffsMap[name] = compost:GetTable()
         end
         table.insert(debuffsMap[name], debuff)
         if type ~= "" then
             afflictedDebuffTypes[type] = 1
             if not typedDebuffs[type] then
-                typedDebuffs[type] = {}
+                typedDebuffs[type] = compost:GetTable()
             end
             table.insert(typedDebuffs[type], debuff)
         end

@@ -11,6 +11,8 @@ local _G = getfenv(0)
 setmetatable(HMHealPredict, {__index = getfenv(1)})
 setfenv(1, HMHealPredict)
 
+local compost = AceLibrary("Compost-2.0")
+
 RelevantGUIDs = {} -- A set of GUIDs to listen to
 
 IncomingHeals = {} -- Key: Receiver | Value: List of incoming casts
@@ -125,10 +127,10 @@ end
 
 -- Used for Prayer of Healing to add incoming healing to multiple players
 function AddIncomingMultiCast(targets, caster, spellID, healAmount, castTime)
-    Casts[caster] = {
-        ["targets"] = targets,
-        ["spellID"] = spellID
-    }
+    Casts[caster] = compost:AcquireHash(
+        "targets", targets,
+        "spellID", spellID
+    )
     for _, target in ipairs(targets) do
         AddIncomingCast(target, caster, spellID, healAmount, castTime, true)
     end
@@ -136,22 +138,22 @@ end
 
 function AddIncomingCast(target, caster, spellID, healAmount, castTime, multi)
     if not multi then
-        Casts[caster] = {
-            ["targets"] = {target},
-            ["spellID"] = spellID
-        }
+        Casts[caster] = compost:AcquireHash(
+            "targets", compost:Acquire(target),
+            "spellID", spellID
+        )
     end
     local targetTable = IncomingHeals[target]
     if not targetTable then
         targetTable = {}
         IncomingHeals[target] = targetTable
     end
-    targetTable[caster] = {
-        ["spellID"] = spellID,
-        ["heal"] = healAmount,
-        ["castTime"] = castTime,
-        ["startTime"] = GetTime()
-    }
+    targetTable[caster] = compost:AcquireHash(
+        "spellID", spellID,
+        "heal", healAmount,
+        "castTime", castTime,
+        "startTime", GetTime()
+    )
 
     UpdateTarget(target)
 end
@@ -161,9 +163,11 @@ function RemoveIncomingCast(caster)
     if cast then
         for _, target in ipairs(cast["targets"]) do
             local incomingHeals = IncomingHeals[target]
+            compost:Reclaim(incomingHeals[caster])
             incomingHeals[caster] = nil
             UpdateTarget(target)
         end
+        compost:Reclaim(cast)
         Casts[caster] = nil
     end
 end
@@ -176,12 +180,12 @@ function GetCurrentCast(caster)
 end
 
 function AddHot(target, caster, spellID, spellName, healAmount)
-    local hot = {
-        ["caster"] = caster,
-        ["id"] = spellID,
-        ["heal"] = healAmount,
-        ["startTime"] = GetTime()
-    }
+    local hot = compost:AcquireHash(
+        "caster", caster,
+        "id", spellID,
+        "heal", healAmount,
+        "startTime", GetTime()
+    )
     local targetTable = IncomingHots[target]
     if not targetTable then
         targetTable = {}
@@ -297,6 +301,7 @@ function RemoveHoT(spellName, targetGuid)
     if hot["startTime"] + 0.5 > GetTime() and not hot["swiftmend"] then
         return
     end
+    compost:Reclaim(hot)
     IncomingHots[targetGuid][spellName] = nil
     UpdateTarget(targetGuid)
 end
@@ -373,7 +378,7 @@ eventFrame:SetScript("OnEvent", function()
         end
 
         if TRACKED_HOTS[spellName] then
-            if spellName == "Mend Pet" then -- Mend pet doesn't "target" the pet, so we have to aquire the pet
+            if spellName == "Mend Pet" then -- Mend pet doesn't "target" the pet, so we have to acquire the pet
                 local units = HMGuidRoster.GetUnits(caster)
                 if not units then
                     return
@@ -430,6 +435,7 @@ eventFrame:SetScript("OnUpdate", function()
             for caster, cast in pairs(casts) do
                 if cast["startTime"] + 15 < time then
                     hmprint(colorize("Removed "..caster.."'s heal on "..receiver.." for taking too long", 1, 0, 0))
+                    compost:Reclaim(cast)
                     casts[caster] = nil
                     UpdateTarget(receiver)
                 end
@@ -441,6 +447,7 @@ eventFrame:SetScript("OnUpdate", function()
                 if hot["startTime"] + 25 < time then
                     hmprint(colorize("Removed "..hot["caster"].."'s "..name.." (HoT) on "..
                         receiver.." for taking too long", 1, 0, 0))
+                    compost:Reclaim(hot)
                     hots[name] = nil
                     UpdateTarget(receiver)
                 end

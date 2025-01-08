@@ -59,6 +59,8 @@ end
 local HM
 local util = HMUtil
 
+local compost = AceLibrary("Compost-2.0")
+
 function HMUnitFrame:New(unit, isCustomUnit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     local obj = {unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, 
@@ -294,16 +296,27 @@ function HMUnitFrame:Flash()
     frame:Show()
     frame:SetAlpha(START_OPACITY)
 
-    if not frame:GetScript("OnUpdate") then
-        frame:SetScript("OnUpdate", function()
-            self.flashTime = self.flashTime - arg1
-            frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
+    frame.flashTime = FLASH_TIME
+    frame.startOpacity = START_OPACITY
 
-            if self.flashTime <= 0 then
-                frame:Hide()
-                frame:SetScript("OnUpdate", nil)
-            end
-        end)
+    if not frame:GetScript("OnUpdate") then
+        frame:SetScript("OnUpdate", HMUnitFrame.Flash_OnUpdate)
+    end
+end
+
+do
+    function HMUnitFrame.Flash_OnUpdate()
+        local frame = this
+        local self = frame.unitFrame
+        local FLASH_TIME = frame.flashTime
+        local START_OPACITY = frame.startOpacity
+        self.flashTime = self.flashTime - arg1
+        frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
+
+        if self.flashTime <= 0 then
+            frame:Hide()
+            frame:SetScript("OnUpdate", nil)
+        end
     end
 end
 
@@ -530,6 +543,7 @@ function HMUnitFrame:UpdatePower()
     if not UnitExists(self.unit) and not fake then
         powerBar:SetValue(0)
         self.powerText:SetText("")
+        return
     end
     
     local powerColor = fake and util.PowerColors[util.ClassPowerTypes[class or "WARRIOR"]] or util.GetPowerColor(unit)
@@ -551,7 +565,7 @@ function HMUnitFrame:UpdatePower()
 end
 
 local AURA_DURATION_TEXT_FLASH_THRESHOLD = 5
-local AURA_DURATION_TEXT_LOW_THRESHOLD = 10
+local AURA_DURATION_TEXT_LOW_THRESHOLD = 30
 -- A map of all seconds below the flash threshold to an array of colors to interpolate
 local durationTextFlashColorsRange
 if util.IsSuperWowPresent() then
@@ -570,12 +584,19 @@ if util.IsSuperWowPresent() then
 end
 function HMUnitFrame:AllocateAura()
     local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
+    frame.unitFrame = self
     frame:SetNormalTexture(nil)
     frame:SetHighlightTexture(nil)
     frame:SetPushedTexture(nil)
     local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     frame:RegisterForClicks(unpack(buttons))
     frame:EnableMouse(true)
+
+    frame:SetScript("OnEnter", HMUnitFrame.Aura_OnEnter)
+    frame:SetScript("OnLeave", HMUnitFrame.Aura_OnLeave)
+    frame:SetScript("OnClick", HMUnitFrame.Aura_OnClick)
+    frame:SetScript("OnMouseUp", HMUnitFrame.Aura_OnMouseUp)
+    frame:SetScript("OnMouseDown", HMUnitFrame.Aura_OnMouseDown)
     
     local icon = frame:CreateTexture(nil, "OVERLAY")
     local stackText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -599,8 +620,24 @@ function HMUnitFrame:AllocateAura()
             self:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(frame:GetHeight() * 
                 (seconds < 540 and (seconds < 10 and 0.6 or 0.45) or 0.35)), "OUTLINE")
         end
+        duration.UpdateText = function()
+            local seconds = duration.seconds
+            local secondsPrecise = duration.secondsPrecise
+            durationText:SetSeconds(seconds)
+            if seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
+                durationText:SetTextColor(
+                    util.InterpolateColorsNoTable(durationTextFlashColorsRange[seconds], 
+                    secondsPrecise - seconds))
+            elseif seconds <= AURA_DURATION_TEXT_LOW_THRESHOLD then
+                durationText:SetTextColor(1, 1, 0.25)
+            else
+                durationText:SetTextColor(1, 1, 1)
+            end
+            duration:SetScript("OnUpdate", nil)
+        end
         duration:SetScript("OnUpdateModel", function()
             if this.stopping == 0 then
+                this:SetAlpha(0.8)
                 local time = GetTime()
                 local progress = (time - this.start) / this.duration
                 if progress < 1.0 then
@@ -611,19 +648,9 @@ function HMUnitFrame:AllocateAura()
                         if durationText.seconds ~= seconds or seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
                             -- You don't want to know why it's gotta be done like this..
                             -- (If you're insane and you do, it's because otherwise the text will disappear for one frame otherwise)
-                            duration:SetScript("OnUpdate", function()
-                                durationText:SetSeconds(seconds)
-                                if seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
-                                    durationText:SetTextColor(
-                                        util.InterpolateColorsNoTable(durationTextFlashColorsRange[seconds], 
-                                        secondsPrecise - seconds))
-                                elseif seconds <= AURA_DURATION_TEXT_LOW_THRESHOLD then
-                                    durationText:SetTextColor(1, 1, 0.25)
-                                else
-                                    durationText:SetTextColor(1, 1, 1)
-                                end
-                                duration:SetScript("OnUpdate", nil)
-                            end)
+                            duration.seconds = seconds
+                            duration.secondsPrecise = secondsPrecise
+                            duration:SetScript("OnUpdate", duration.UpdateText)
                         end
                     elseif durationText.seconds ~= nil then
                         durationText:SetSeconds(nil)
@@ -660,11 +687,6 @@ function HMUnitFrame:ReleaseAuras()
     -- Release all icons back to the icon pool
     for _, aura in ipairs(self.auraIcons) do
         local frame = aura.frame
-        frame:SetScript("OnEnter", nil)
-        frame:SetScript("OnLeave", nil)
-        frame:SetScript("OnClick", nil)
-        frame:SetScript("OnMouseUp", nil)
-        frame:SetScript("OnMouseDown", nil)
         frame:Hide()
         frame:ClearAllPoints()
 
@@ -682,7 +704,21 @@ function HMUnitFrame:ReleaseAuras()
 
         table.insert(self.auraIconPool, aura)
     end
-    self.auraIcons = {} -- Allocating new table instead of clearing, might be a mistake?
+    self.auraIcons = compost:Erase(self.auraIcons)
+end
+
+do
+    local trackedBuffs = HealersMateSettings.TrackedBuffs
+    function HMUnitFrame.BuffSorter(a, b)
+        return trackedBuffs[a.name] < trackedBuffs[b.name]
+    end
+end
+
+do
+    local trackedDebuffs = HealersMateSettings.TrackedDebuffs
+    function HMUnitFrame.DebuffSorter(a, b)
+        return trackedDebuffs[a.name] < trackedDebuffs[b.name]
+    end
 end
 
 function HMUnitFrame:UpdateAuras()
@@ -704,9 +740,7 @@ function HMUnitFrame:UpdateAuras()
     end
 
     if not enemy then
-        table.sort(buffs, function(a, b)
-            return trackedBuffs[a.name] < trackedBuffs[b.name]
-        end)
+        table.sort(buffs, self.BuffSorter)
     end
     
 
@@ -729,9 +763,7 @@ function HMUnitFrame:UpdateAuras()
     end
 
     if not enemy then
-        table.sort(debuffs, function(a, b)
-            return trackedDebuffs[a.name] < trackedDebuffs[b.name]
-        end)
+        table.sort(debuffs, self.DebuffSorter)
         util.AppendArrayElements(debuffs, typedDebuffs)
     end
 
@@ -770,12 +802,78 @@ function HMUnitFrame:UpdateAuras()
     end
 end
 
+
+function HMUnitFrame.Aura_OnEnter()
+    local self = this.unitFrame
+    local aura = this.aura
+    local index = this.auraIndex
+    local type = this.auraType
+
+    local tooltip = HM.GameTooltip
+    local cache = self:GetCache()
+    tooltip:SetOwner(this, "ANCHOR_BOTTOMLEFT")
+    tooltip.OwningFrame = this
+    tooltip.OwningIcon = aura.icon
+    local unit = self:GetResolvedUnit()
+    if type == "Buff" then
+        tooltip.IconTexture = cache.Buffs[index].texture
+        tooltip:SetUnitBuff(unit, index)
+    else
+        tooltip.IconTexture = cache.Debuffs[index].texture
+        tooltip:SetUnitDebuff(unit, index)
+    end
+    local auraTime = cache.AuraTimes[(type == "Buff" and cache.Buffs[index] or cache.Debuffs[index]).name]
+    if auraTime then
+        local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
+        if seconds < 60 then
+            tooltip:AddLine(seconds.." second"..(seconds ~= 1 and "s" or "").." remaining")
+        else
+            tooltip:AddLine(math.ceil(seconds / 60).." minutes remaining")
+        end
+    end
+    tooltip:Show()
+
+    if MouseIsOver(self.button) then
+        self.button:GetScript("OnEnter")()
+    end
+end
+
+function HMUnitFrame.Aura_OnLeave()
+    HM.GameTooltip:Hide()
+    HM.GameTooltip.OwningFrame = nil
+    HM.GameTooltip.OwningIcon = nil
+    HM.GameTooltip.IconTexture = nil
+    -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
+    this.unitFrame.button:GetScript("OnLeave")()
+end
+
+do
+    local wrapButtonScript = function(scriptName)
+        return function()
+            local self = this.unitFrame
+            if MouseIsOver(self.button) then
+                self.button:GetScript(scriptName)()
+            end
+        end
+    end
+
+    HMUnitFrame.Aura_OnClick = wrapButtonScript("OnClick")
+
+    HMUnitFrame.Aura_OnMouseUp = wrapButtonScript("OnMouseUp")
+
+    HMUnitFrame.Aura_OnMouseDown = wrapButtonScript("OnMouseDown")
+end
+
 function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
     local frame = aura.frame
     frame:SetWidth(size)
     frame:SetHeight(size)
     frame:SetPoint(type == "Buff" and "TOPLEFT" or "TOPRIGHT", xOffset, yOffset)
     frame:Show()
+    frame.unitFrame = self
+    frame.aura = aura
+    frame.auraIndex = index
+    frame.auraType = type
 
     local icon = aura.icon
     icon:SetAllPoints(frame)
@@ -790,58 +888,6 @@ function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset,
         duration:SetAllPoints()
         duration:SetScale(size * 0.0275)
     end
-
-    -- Creates a function that checks if the mouse is over the UI's button and calls the script if so
-    local wrapScript = function(scriptName)
-        return function()
-            if MouseIsOver(self.button) then
-                self.button:GetScript(scriptName)()
-            end
-        end
-    end
-    
-    frame:SetScript("OnEnter", function()
-        local tooltip = HM.GameTooltip
-        local cache = self:GetCache()
-        tooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
-        tooltip.OwningFrame = frame
-        tooltip.OwningIcon = icon
-        local unit = self:GetResolvedUnit()
-        if type == "Buff" then
-            tooltip.IconTexture = cache.Buffs[index].texture
-            tooltip:SetUnitBuff(unit, index)
-        else
-            tooltip.IconTexture = cache.Debuffs[index].texture
-            tooltip:SetUnitDebuff(unit, index)
-        end
-        local auraTime = cache.AuraTimes[(type == "Buff" and cache.Buffs[index] or cache.Debuffs[index]).name]
-        if auraTime then
-            local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
-            if seconds < 60 then
-                tooltip:AddLine(seconds.." second"..(seconds ~= 1 and "s" or "").." remaining")
-            else
-                tooltip:AddLine(math.ceil(seconds / 60).." minutes remaining")
-            end
-        end
-        tooltip:Show()
-
-        wrapScript("OnEnter")()
-    end)
-    
-    frame:SetScript("OnLeave", function()
-        HM.GameTooltip:Hide()
-        HM.GameTooltip.OwningFrame = nil
-        HM.GameTooltip.OwningIcon = nil
-        HM.GameTooltip.IconTexture = nil
-        -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
-        self.button:GetScript("OnLeave")()
-    end)
-
-    frame:SetScript("OnClick", wrapScript("OnClick"))
-
-    frame:SetScript("OnMouseUp", wrapScript("OnMouseUp"))
-
-    frame:SetScript("OnMouseDown", wrapScript("OnMouseDown"))
     
     if stacks > 1 then
         local stackText = aura.stackText
@@ -1002,13 +1048,14 @@ function HMUnitFrame:Initialize()
         end
         incomingHealthBar:SetAlpha(0.35)
         incomingDirectHealthBar:SetAlpha(0.4)
-        local rgb
+        local r, g, b
 
         local enemy = self:IsEnemy()
         if not enemy then -- Do not display debuff colors for enemies
             for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
                 if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
-                    rgb = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                    local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                    r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
                     break
                 end
             end
@@ -1016,34 +1063,32 @@ function HMUnitFrame:Initialize()
 
         local fake = self:IsFake()
         if fake and self.fakeStats.debuffType then
-            rgb = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+            local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+            r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
         end
         
-        if rgb == nil then -- If there's no debuff color, proceed to normal colors
+        if r == nil then -- If there's no debuff color, proceed to normal colors
             local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
             if hbc == "Class" then
                 local class = util.GetClass(unit)
                 if class == nil then
                     class = self.fakeStats.class
                 end
-                local r, g, b = util.GetClassColor(class)
-                rgb = {r, g, b}
+                r, g, b = util.GetClassColor(class)
             elseif hbc == "Green" then
-                rgb = {0, 0.8, 0}
+                r, g, b = 0, 0.8, 0
             elseif hbc == "Green To Red" then
-                rgb = util.InterpolateColors(greenToRedColors, value)
+                r, g, b = util.InterpolateColorsNoTable(greenToRedColors, value)
             end
 
             if healthIncMaxRatio > 1 then
-                local prevRgb = rgb
-                rgb = {}
                 local brightenFactor = math.min(((healthIncMaxRatio - 1) / 4) + 1, 1.25)
-                for i = 1, 3 do
-                    rgb[i] = math.min(prevRgb[i] * brightenFactor, 1)
-                end
+                r = math.min(r * brightenFactor, 1)
+                g = math.min(g * brightenFactor, 1)
+                b = math.min(b * brightenFactor, 1)
             end
         end
-        healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
+        healthBar:SetStatusBarColor(r, g, b)
         incomingHealthBar:SetStatusBarColor(0, 0.8, 0)
         incomingDirectHealthBar:SetStatusBarColor(0, 0.8, 0)
 
@@ -1146,6 +1191,7 @@ function HMUnitFrame:Initialize()
 
     local flashFrame = CreateFrame("Frame", "$parentFlash", container)
     flashFrame:SetFrameLevel(container:GetFrameLevel() + 9)
+    flashFrame.unitFrame = self
     local flashTexture = flashFrame:CreateTexture(nil, "OVERLAY")
     self.flashTexture = {frame = flashFrame, texture = flashTexture}
     flashTexture:SetTexture(1, 1, 1)

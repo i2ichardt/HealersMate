@@ -10,6 +10,8 @@ local _G = getfenv(0)
 setmetatable(HMGuidRoster, {__index = getfenv(1)})
 setfenv(1, HMGuidRoster)
 
+local compost = AceLibrary("Compost-2.0")
+
 HMUnitProxy.ImportFunctions(HMGuidRoster)
 
 local util = HMUtil
@@ -19,7 +21,8 @@ GuidFrameMap = {}
 
 function ResetRoster()
     local roster = GuidUnitMap
-    for k, _ in pairs(roster) do
+    for k, v in pairs(roster) do
+        compost:Reclaim(v)
         roster[k] = nil
     end
 end
@@ -38,7 +41,7 @@ end
 
 function AddUnit(guid, unit)
     if not GuidUnitMap[guid] then
-        GuidUnitMap[guid] = {}
+        GuidUnitMap[guid] = compost:GetTable()
     end
     table.insert(GuidUnitMap[guid], unit)
 end
@@ -48,6 +51,7 @@ function SetUnitGuid(unit, guid)
         if util.ArrayContains(units, unit) then
             util.RemoveElement(units, unit)
             if table.getn(units) == 0 then
+                compost:Reclaim(units)
                 GuidUnitMap[guidInMap] = nil
             end
             break
@@ -59,7 +63,7 @@ function SetUnitGuid(unit, guid)
     end
 
     if not GuidUnitMap[guid] then
-        GuidUnitMap[guid] = {}
+        GuidUnitMap[guid] = compost:GetTable()
     end
     table.insert(GuidUnitMap[guid], unit)
 end

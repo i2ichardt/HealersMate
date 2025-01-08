@@ -361,18 +361,23 @@ function GetRaidPartyMembers(partyNumberOrUnit)
         partyNumberOrUnit = FindUnitRaidGroup(partyNumberOrUnit)
     end
     local members = {}
-    for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
-        table.insert(members, "raid"..raidNumber)
+    if RAID_SUBGROUP_LISTS[partyNumberOrUnit] then
+        for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
+            table.insert(members, RaidUnits[raidNumber])
+        end
     end
     return members
 end
 
 -- Returns the raid unit that this unit is, or nil if the unit is not in the raid
 function FindRaidUnit(unit)
+    if not RAID_SUBGROUP_LISTS then
+        return {}
+    end
     for party = 1, 8 do
         if RAID_SUBGROUP_LISTS[party] then
             for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
-                local raidUnit = "raid"..raidNumber
+                local raidUnit = RaidUnits[raidNumber]
                 if UnitIsUnit(unit, raidUnit) then
                     return raidUnit
                 end
@@ -386,7 +391,7 @@ function FindUnitRaidGroup(unit)
     for party = 1, 8 do
         if RAID_SUBGROUP_LISTS[party] then
             for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
-                local raidUnit = "raid"..raidNumber
+                local raidUnit = RaidUnits[raidNumber]
                 if UnitIsUnit(unit, raidUnit) then
                     return party
                 end
@@ -496,25 +501,33 @@ function GetKeyModifiers()
     return keyModifiers
 end
 
+-- L1: Shift
+-- L2: Control
+-- L3: Alt
+local keyModifierMap = {
+    [true] = {
+        [true] = {
+            [true] = "Shift+Control+Alt",
+            [false] = "Shift+Control"
+        },
+        [false] = {
+            [true] = "Shift+Alt",
+            [false] = "Shift"
+        }
+    },
+    [false] = {
+        [true] = {
+            [true] = "Control+Alt",
+            [false] = "Control"
+        },
+        [false] = {
+            [true] = "Alt",
+            [false] = "None"
+        }
+    }
+}
 function GetKeyModifier()
-    local modifier = IsShiftKeyDown() and "Shift" or ""
-    if IsControlKeyDown() then
-        if modifier ~= "" then
-            modifier = modifier.."+"
-        end
-        modifier = modifier.."Control"
-    end
-    if IsAltKeyDown() then
-        if modifier ~= "" then
-            modifier = modifier.."+"
-        end
-        modifier = modifier.."Alt"
-    end
-
-    if modifier == "" then
-        return "None"
-    end
-    return modifier
+    return keyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1]
 end
 
 local buttons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}

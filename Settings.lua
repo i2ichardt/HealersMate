@@ -104,7 +104,7 @@ function HealersMateSettings.SetDefaults()
                 ["Raid"] = "Compact (Small)",
                 ["Raid Pets"] = "Compact (Small)",
                 ["Target"] = "Long",
-                ["Focus"] = "Long"
+                ["Focus"] = "Compact"
             },
             ["OptionsVersion"] = 1
         }

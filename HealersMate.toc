@@ -22,11 +22,11 @@ libs\ace\Banzai-1.0\Banzai-1.0.lua
 
 libs\UnitProxy.lua
 HMUtil.lua
+Settings.lua
 HMUnitFrame.lua
 HMUnitFrameGroup.lua
 Profile.lua
 ProfileManager.lua
-Settings.lua
 
 libs\GuidRoster.lua
 libs\AuraTracker.lua
