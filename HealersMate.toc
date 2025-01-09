@@ -18,7 +18,10 @@ libs\ace\Compost-2.0\Compost-2.0.lua
 libs\ace\Gratuity-2.0\Gratuity-2.0.lua
 libs\ace\RosterLib-2.0\RosterLib-2.0.lua
 libs\ace\Deformat-2.0\Deformat-2.0.lua
+libs\ace\ItemBonusLib-1.0\Locales\enUS.lua
+libs\ace\ItemBonusLib-1.0\ItemBonusLib-1.0.lua
 libs\ace\Banzai-1.0\Banzai-1.0.lua
+libs\ace\HealComm-1.0\HealComm-1.0.lua
 
 libs\UnitProxy.lua
 HMUtil.lua

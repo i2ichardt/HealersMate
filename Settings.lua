@@ -531,22 +531,9 @@ function InitSettings()
         end)
     end
 
-    local superwow = util.IsSuperWowPresent()
-    do
-        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
-        SuperWoWLabel:SetPoint("CENTER", 0, -10)
-        SuperWoWLabel:SetText("SuperWoW Required Settings")
-
-        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
-        SuperWoWDetectedLabel:SetPoint("CENTER", 0, -25)
-        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
-        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
-            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
-    end
-
     do
         local CheckboxHealPredictLabel = optionsFrame:CreateFontString("$parentHealPredictionsLabel", "OVERLAY", "GameFontNormal")
-        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -245)
+        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -170)
         CheckboxHealPredictLabel:SetText("Use Heal Predictions")
 
         local CheckboxHealPredict = CreateFrame("CheckButton", "$parentHealPredictions", optionsFrame, "UICheckButtonTemplate")
@@ -554,20 +541,30 @@ function InitSettings()
         CheckboxHealPredict:SetWidth(20)
         CheckboxHealPredict:SetHeight(20)
         CheckboxHealPredict:SetChecked(HMOptions.UseHealPredictions)
-        if not superwow then
-            CheckboxHealPredict:Disable()
-        end
         CheckboxHealPredict:SetScript("OnClick", function()
             HMOptions.UseHealPredictions = CheckboxHealPredict:GetChecked() == 1
             HealersMate.UpdateAllIncomingHealing()
         end)
-        ApplyTooltip(CheckboxHealPredict, "Requires SuperWoW Mod To Work", 
-            "If enabled, you will see predictions on incoming healing")
+        ApplyTooltip(CheckboxHealPredict, "See predictions on incoming healing", 
+            "Improved predictions if using SuperWoW")
+    end
+
+    local superwow = util.IsSuperWowPresent()
+    do
+        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWLabel:SetPoint("CENTER", 0, -30)
+        SuperWoWLabel:SetText("SuperWoW Required Settings")
+
+        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWDetectedLabel:SetPoint("CENTER", 0, -45)
+        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
+        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
+            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
     end
 
     do
         local CheckboxMouseoverLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
-        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -275)
+        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -265)
         CheckboxMouseoverLabel:SetText("Set Mouseover")
 
         local CheckboxMouseover = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")

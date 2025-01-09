@@ -328,11 +328,13 @@ function HMUnitFrame:SetIncomingHealing(incomingHealing, incomingDirectHealing)
 end
 
 function HMUnitFrame:UpdateIncomingHealing()
-    if not HMHealPredict then
-        return
+    if HMHealPredict then
+        local _, guid = UnitExists(self:GetUnit())
+        self:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+    else
+        local name = UnitName(self:GetUnit())
+        self:SetIncomingHealing(HealersMate.HealComm:getHeal(name))
     end
-    local _, guid = UnitExists(self:GetUnit())
-    self:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
 end
 
 function HMUnitFrame:GetCurrentHealth()

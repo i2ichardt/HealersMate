@@ -93,6 +93,7 @@ VERSION = "2.0.0-alpha4.2"
 TestUI = false
 
 Banzai = AceLibrary("Banzai-1.0")
+HealComm = AceLibrary("HealComm-1.0")
 GuidRoster = HMGuidRoster -- Will be nil if SuperWoW isn't present
 
 local util = HMUtil
@@ -647,15 +648,22 @@ function ReapplySpellsTooltip()
 end
 
 function UpdateAllIncomingHealing()
-    if not HMHealPredict then
-        return
-    end
-    for _, ui in ipairs(AllUnitFrames) do
-        if HMOptions.UseHealPredictions then
-            local _, guid = UnitExists(ui:GetUnit())
-            ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
-        else
-            ui:SetIncomingHealing(0)
+    if HMHealPredict then
+        for _, ui in ipairs(AllUnitFrames) do
+            if HMOptions.UseHealPredictions then
+                local _, guid = UnitExists(ui:GetUnit())
+                ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+            else
+                ui:SetIncomingHealing(0)
+            end
+        end
+    else
+        for _, ui in ipairs(AllUnitFrames) do
+            if HMOptions.UseHealPredictions then
+                ui:UpdateIncomingHealing()
+            else
+                ui:SetIncomingHealing(0)
+            end
         end
     end
 end
@@ -786,6 +794,24 @@ function EventAddonLoaded()
                 end
             end
         end)
+    else
+        local roster = AceLibrary("RosterLib-2.0")
+        HealersMateLib:RegisterEvent("HealComm_Healupdate", function(name)
+            if not HMOptions.UseHealPredictions then
+                return
+            end
+            local unit = roster:GetUnitIDFromName(name)
+            if unit then
+                for ui in UnitFrames(unit) do
+                    ui:UpdateIncomingHealing()
+                end
+            end
+            if UnitName("target") == name then
+                for ui in UnitFrames("target") do
+                    ui:UpdateIncomingHealing()
+                end
+            end
+        end)
     end
 
     TestUI = HMOptions.TestUI
@@ -818,9 +844,33 @@ function EventAddonLoaded()
         HMOnLoadInfoDisabled = false
     end
 
-    if not HMOnLoadInfoDisabled then
-        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
-            ..colorize(" to see commands.", 0.5, 1, 0.5))
+    do
+        local INFO_SEND_TIME = GetTime() + 0.5
+        local infoFrame = CreateFrame("Frame")
+        infoFrame:SetScript("OnUpdate", function()
+            if GetTime() < INFO_SEND_TIME then
+                return
+            end
+            infoFrame:SetScript("OnUpdate", nil)
+            if not HMOnLoadInfoDisabled then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
+                    ..colorize(" to see commands.", 0.5, 1, 0.5))
+            end
+    
+            if not util.IsSuperWowPresent() and util.IsNampowerPresent() then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("WARNING: ", 1, 0.2, 0.2)
+                    ..colorize("You are using Nampower without SuperWoW, which will cause heal predictions to be wildly inaccurate "..
+                    "for you and your raid members! It is highly recommended to install SuperWoW.", 1, 0.4, 0.4))
+            end
+
+            if util.IsSuperWowPresent() and not HealComm:IsEventRegistered("UNIT_CASTEVENT") then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("WARNING: ", 1, 0.2, 0.2)
+                    ..colorize("You have another addon that uses a HealComm version that is incompatible with SuperWoW! "..
+                    "This will cause wildly inaccurate heal predictions to be shown to your raid members. It is "..
+                    "recommended to either unload the offending addon or copy HealersMate's HealComm "..
+                    "into the other addon.", 1, 0.4, 0.4))
+            end
+        end)
     end
 
     -- Create default bindings for new characters

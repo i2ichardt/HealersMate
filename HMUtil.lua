@@ -15,6 +15,7 @@ if UnitXPSP3 and pcall(UnitXP, "version", "coffTimeDateStamp") then
     UnitXPSP3_Version = UnitXP("version", "coffTimeDateStamp") or -1
 end
 SuperWoW = SpellInfo ~= nil
+Nampower = QueueSpellByName ~= nil
 
 TurtleWow = true
 
@@ -695,6 +696,11 @@ end
 
 function IsUnitXPSP3Present()
     return UnitXPSP3
+end
+
+-- Only detects Pepopo's Nampower
+function IsNampowerPresent()
+    return Nampower
 end
 
 function IsTurtleWow()
