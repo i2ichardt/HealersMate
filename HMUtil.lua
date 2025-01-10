@@ -99,7 +99,6 @@ if HMUnitProxy then
     end)
 end
 
-end
 
 
 local assetsPath = "Interface\\AddOns\\HealersMate\\assets\\"
