@@ -1299,6 +1299,8 @@ function CycleFocus(onlyAttackable)
     HMUnitProxy.CycleUnitType("focus", onlyAttackable)
 end
 
+local Sound_Disabled = function() end
+
 function ClickHandler(buttonType, unit, ui)
     local currentTargetEnemy = UnitCanAttack("player", "target")
     local spells = UnitCanAttack("player", unit) and GetHostileSpells() or GetSpells()
@@ -1353,7 +1355,10 @@ function ClickHandler(buttonType, unit, ui)
         -- Check if target is not already targeted
         if not UnitIsUnit("target", unit) then
             -- Set target as target
+            local Sound_Enabled = PlaySound
+            _G.PlaySound = Sound_Disabled
             TargetUnit(unit)
+            _G.PlaySound = Sound_Enabled
             targetChanged = true
         end
 
@@ -1369,7 +1374,10 @@ function ClickHandler(buttonType, unit, ui)
         if targetChanged then
             if currentTarget == nil then
                 --Player wasn't targeting anything before casting spell
+                local Sound_Enabled = PlaySound
+                _G.PlaySound = Sound_Disabled
                 ClearTarget()
+                _G.PlaySound = Sound_Enabled
             else
                 --Set Target back to whatever it was before casting the spell
                 if currentTargetEnemy then
