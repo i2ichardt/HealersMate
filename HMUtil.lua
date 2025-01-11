@@ -167,15 +167,18 @@ function CloneTable(table, deep)
 end
 
 local compost = AceLibrary("Compost-2.0")
-function CloneTableCompost(table, deep)
+function CloneTableCompost(t, deep)
     local clone = compost:GetTable()
-    for k, v in pairs(table) do
+    local n = 0
+    for k, v in pairs(t) do
         if deep and type(v) == "table" then
-            clone[k] = CloneTable(v, true)
+            clone[k] = CloneTableCompost(v, true)
         else
             clone[k] = v
         end
+        n = n + 1
     end
+    table.setn(clone, n)
     return clone
 end
 
@@ -368,7 +371,7 @@ end
 -- Returns an array of the units in the party number or the unit's raid group
 function GetRaidPartyMembers(partyNumberOrUnit)
     if not RAID_SUBGROUP_LISTS then
-        return {}
+        return compost:GetTable()
     end
     if type(partyNumberOrUnit) == "string" then
         partyNumberOrUnit = FindUnitRaidGroup(partyNumberOrUnit)
@@ -385,7 +388,7 @@ end
 -- Returns the raid unit that this unit is, or nil if the unit is not in the raid
 function FindRaidUnit(unit)
     if not RAID_SUBGROUP_LISTS then
-        return {}
+        return nil
     end
     for party = 1, 8 do
         if RAID_SUBGROUP_LISTS[party] then
