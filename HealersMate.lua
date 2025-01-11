@@ -431,13 +431,13 @@ function GetResourceCost(spellName)
     ScanningTooltip:SetOwner(UIParent, "ANCHOR_NONE");
 
     local spellID, bookType
-    if GetSpellSlotAndTypeForName then
-        spellID, bookType = GetSpellSlotAndTypeForName(spellName)
+    if GetSpellSlotTypeIdForName then -- Nampower 2.6.0 function
+        spellID, bookType = GetSpellSlotTypeIdForName(spellName)
+        if bookType == "unknown" then
+            return "unknown"
+        end
         if bookType ~= "spell" then
             return 0
-        end
-        if spellID == 0 then
-            return "unknown"
         end
     else
         spellID = GetSpellID(spellName)
