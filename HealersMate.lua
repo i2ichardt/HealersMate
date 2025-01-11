@@ -823,6 +823,19 @@ function EventAddonLoaded()
                 end
             end
         end)
+        HealersMateLib:RegisterEvent("HealComm_Ressupdate", function(name)
+            local unit = roster:GetUnitIDFromName(name)
+            if unit then
+                for ui in UnitFrames(unit) do
+                    ui:UpdateHealth()
+                end
+            end
+            if UnitName("target") == name then
+                for ui in UnitFrames("target") do
+                    ui:UpdateHealth()
+                end
+            end
+        end)
     end
 
     TestUI = HMOptions.TestUI

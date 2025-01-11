@@ -455,8 +455,17 @@ function HMUnitFrame:UpdateHealth()
 
     -- Set Health Status
     if currentHealth <= 0 then -- Unit Dead
-
-        local text = util.Colorize("DEAD", 1, 0.3, 0.3)
+        local cache = self:GetCache()
+        local text
+        if cache:IsBeingResurrected() then
+            if cache:GetResurrectionCasts() > 1 then
+                text = util.Colorize("DEAD", 0.8, 1, 0.8)
+            else
+                text = util.Colorize("DEAD", 0.3, 1, 0.3)
+            end
+        else
+            text = util.Colorize("DEAD", 1, 0.3, 0.3)
+        end
 
         -- Check for Feign Death so the healer doesn't get alarmed
         local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")

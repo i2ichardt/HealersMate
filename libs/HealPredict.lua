@@ -17,7 +17,7 @@ RelevantGUIDs = {} -- A set of GUIDs to listen to
 
 IncomingHeals = {} -- Key: Receiver | Value: List of incoming casts
 IncomingHots = {} -- Key: Receiver | Value: {HoT Name: {"caster", "id", "heal"}}
-Casts = {} -- Key: Caster | Value: {"targets", "spellID"}
+Casts = {} -- Key: Caster | Value: {"targets", "spellID", "startTime"}
 LastCastedSpells = {}
 
 -- A cache of expected heal values for spells. These values are saved.
@@ -28,6 +28,8 @@ HealCache = {}
 -- everyone's heal values are cached
 -- Key: Name | Value: Array: {Spell ID: Heal value}
 PlayerHealCache = {}
+
+ResurrectionTargets = {} -- Key: Receiver | Value: {Caster: {"startTime", "castTime"}}
 
 -- An array of functions that listen to changes to incoming healing
 Listeners = {}
@@ -125,11 +127,28 @@ function getHeal(guid)
     return GetIncomingHealing(guid)
 end
 
+function IsBeingResurrected(guid)
+    return ResurrectionTargets[guid] ~= nil
+end
+
+function GetResurrectionCount(guid)
+    local resses = ResurrectionTargets[guid]
+    if not resses then
+        return 0
+    end
+    local count = 0
+    for _ in pairs(resses) do
+        count = count + 1
+    end
+    return count
+end
+
 -- Used for Prayer of Healing to add incoming healing to multiple players
 function AddIncomingMultiCast(targets, caster, spellID, healAmount, castTime)
     Casts[caster] = compost:AcquireHash(
         "targets", targets,
-        "spellID", spellID
+        "spellID", spellID,
+        "startTime", GetTime()
     )
     for _, target in ipairs(targets) do
         AddIncomingCast(target, caster, spellID, healAmount, castTime, true)
@@ -140,7 +159,8 @@ function AddIncomingCast(target, caster, spellID, healAmount, castTime, multi)
     if not multi then
         Casts[caster] = compost:AcquireHash(
             "targets", compost:Acquire(target),
-            "spellID", spellID
+            "spellID", spellID,
+            "startTime", GetTime()
         )
     end
     local targetTable = IncomingHeals[target]
@@ -167,6 +187,7 @@ function RemoveIncomingCast(caster)
             incomingHeals[caster] = nil
             UpdateTarget(target)
         end
+        compost:Reclaim(cast["targets"])
         compost:Reclaim(cast)
         Casts[caster] = nil
     end
@@ -256,6 +277,7 @@ function UpdateCache(heal, name)
     playerCache[spellID] = adjustedHeal
     playerCache["lastSeen"] = time()
 
+    compost:Reclaim(lastCastedSpell)
     hmprint(colorize(name.."'s "..spellID..": "..prevHeal.." -> "..adjustedHeal, 0, 0.8, 0.2))
 end
 
@@ -320,7 +342,7 @@ local function getGuidFromLogName(name)
         unit = roster:GetUnitIDFromName(name)
     end
     if not unit then
-        -- Check focus targets
+        -- Check custom units
         for _, guid in pairs(HMUnitProxy.CustomUnitGUIDMap) do
             if UnitName(guid) == name then
                 return guid
@@ -339,6 +361,9 @@ local function getSelfGuid()
 end
 
 local PRAYER_OF_HEALING_IDS = HMUtil.ToSet({596, 996, 10960, 10961, 25316})
+local ResurrectionSpells = HMUtil.ToSet({
+    "Resurrection", "Revive Champion", "Redemption", "Ancestral Spirit", "Rebirth"
+})
 
 local TRACKED_HOTS = HMUtil.ToSet({
     "Rejuvenation", "Regrowth", -- Druid
@@ -360,9 +385,37 @@ eventFrame:SetScript("OnEvent", function()
         return
     end
 
-    if event == "CAST" or event == "CHANNEL" then
-        local spellName = SpellInfo(spellID)
+    local spellName = SpellInfo(spellID)
 
+    if ResurrectionSpells[spellName] then
+        if event == "START" then
+            if target then
+                if not ResurrectionTargets[target] then
+                    ResurrectionTargets[target] = compost:GetTable()
+                end
+                local resses = ResurrectionTargets[target]
+                resses[caster] = compost:AcquireHash("startTime", GetTime(), "castTime", duration)
+            end
+        elseif event == "CAST" or event == "FAIL" then
+            local cast = Casts[caster]
+            if cast then
+                local target = cast["targets"][1]
+                local resses = ResurrectionTargets[target]
+                if resses[caster] then
+                    compost:Reclaim(resses[caster])
+                    resses[caster] = nil
+                    
+                    if not next(resses) then
+                        compost:Reclaim(resses)
+                        ResurrectionTargets[target] = nil
+                    end
+                end
+            end
+        end
+        UpdateTarget(target)
+    end
+
+    if event == "CAST" or event == "CHANNEL" then
         -- Swiftmend could cause Rejuvenation or Regrowth to end very quickly, 
         -- so there needs to be a flag to allow the removal of the HoT
         if spellName == "Swiftmend" then
@@ -402,7 +455,7 @@ eventFrame:SetScript("OnEvent", function()
     local currentCast = GetCurrentCast(caster)
     if event == "CAST" and currentCast and currentCast["spellID"] == spellID then
         RemoveIncomingCast(caster)
-        LastCastedSpells[UnitName(caster)] = {unit = caster, spellID = spellID}
+        LastCastedSpells[UnitName(caster)] = compost:AcquireHash("unit", caster, "spellID", spellID)
         return
     end
 
@@ -451,6 +504,22 @@ eventFrame:SetScript("OnUpdate", function()
                     hots[name] = nil
                     UpdateTarget(receiver)
                 end
+            end
+        end
+
+        for target, resses in pairs(ResurrectionTargets) do
+            for caster, res in pairs(resses) do
+                if res["startTime"] + 20 < time then
+                    hmprint(colorize("Removed "..caster.."'s resurrection on "..
+                        target.." for taking too long", 1, 0, 0))
+                    compost:Reclaim(res)
+                    resses[caster] = nil
+                    ResurrectionTargets[target] = nil
+                    UpdateTarget(target)
+                end
+            end
+            if not ResurrectionTargets[target] then -- Must've been removed
+                compost:Reclaim(resses)
             end
         end
     end

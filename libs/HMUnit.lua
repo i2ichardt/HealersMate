@@ -166,6 +166,20 @@ function HMUnit:IsInSight()
     return self.InSight
 end
 
+function HMUnit:IsBeingResurrected()
+    if HMHealPredict then
+        return HMHealPredict.IsBeingResurrected(self.Unit)
+    end
+    return HealersMate.HealComm:UnitisResurrecting(UnitName(self.Unit))
+end
+
+function HMUnit:GetResurrectionCasts()
+    if HMHealPredict then
+        return HMHealPredict.GetResurrectionCount(self.Unit)
+    end
+    return HealersMate.HealComm:UnitisResurrecting(UnitName(self.Unit)) and 1 or 0
+end
+
 function HMUnit:AllocateAuras()
     self.Buffs = compost:GetTable()
     self.BuffsMap = compost:GetTable()

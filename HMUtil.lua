@@ -419,7 +419,7 @@ function GetSurroundingPartyMembers(player, range)
     if UnitInRaid("player") then
         units = GetRaidPartyMembers(player)
     else
-        units = CloneTable(PartyUnits)
+        units = CloneTableCompost(PartyUnits)
         AppendArrayElements(units, PetUnits)
     end
 
@@ -429,12 +429,12 @@ end
 function GetSurroundingRaidMembers(player, range, checkPets)
     local units
     if UnitInRaid("player") then
-        units = CloneTable(RaidUnits)
+        units = CloneTableCompost(RaidUnits)
         if checkPets then
             AppendArrayElements(units, RaidPetUnits)
         end
     else
-        units = CloneTable(PartyUnits)
+        units = CloneTableCompost(PartyUnits)
         if checkPets then
             AppendArrayElements(units, PetUnits)
         end
@@ -444,7 +444,7 @@ function GetSurroundingRaidMembers(player, range, checkPets)
 end
 
 function GetUnitsInRange(center, units, range)
-    local inRange = {}
+    local inRange = compost:GetTable()
     for _, unit in ipairs(units) do
         local exists, guid = UnitExists(unit)
         if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(center, unit) <= (range or 30) then
