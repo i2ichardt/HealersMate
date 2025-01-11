@@ -525,18 +525,13 @@ eventFrame:SetScript("OnUpdate", function()
     end
 end)
 
+local cmatch = HMUtil.cmatch
+
 local combatLogFrame = CreateFrame("Frame", "HMHealPredictCombatLog")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_FRIENDLYPLAYER_BUFF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_HOSTILEPLAYER_BUFF") -- Needed to see casts coming from other players to yourself
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PARTY_BUFF")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_SELF_BUFFS")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_BUFFS")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_PARTY_BUFFS")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_HOSTILEPLAYER_BUFFS")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_OTHER")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_PARTY")
-combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_SELF")
 combatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PET_BUFF")
 combatLogFrame:SetScript("OnEvent", function()
     if string.find(arg1, "critically") then
@@ -546,8 +541,6 @@ combatLogFrame:SetScript("OnEvent", function()
     if string.find(arg1, "Bonus Healing") then
         return
     end
-
-    local cmatch = HMUtil.cmatch
 
     local spell, targetName, heal = cmatch(arg1, HEALEDSELFOTHER) -- "Your %s heals %s for %d."
     if spell and targetName and heal then
@@ -572,7 +565,14 @@ combatLogFrame:SetScript("OnEvent", function()
         UpdateCache(tonumber(heal), name)
         return
     end
+end)
 
+local periodicCombatLogFrame = CreateFrame("Frame", "HMHealPredictPerCombatLog")
+periodicCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_SELF_BUFFS")
+periodicCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_BUFFS")
+periodicCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_PARTY_BUFFS")
+periodicCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_HOSTILEPLAYER_BUFFS")
+periodicCombatLogFrame:SetScript("OnEvent", function()
     local heal, spell = cmatch(arg1, PERIODICAURAHEALSELFSELF) -- "You gain %d health from %s."
     if heal and spell then
         local selfName = UnitName("player")
@@ -604,7 +604,13 @@ combatLogFrame:SetScript("OnEvent", function()
         UpdateCacheHot(spell, heal, targetGuid, targetName, casterGuid, name)
         return
     end
+end)
 
+local auraCombatLogFrame = CreateFrame("Frame", "HMHealPredictAuraCombatLog")
+auraCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_OTHER")
+auraCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_PARTY")
+auraCombatLogFrame:RegisterEvent("CHAT_MSG_SPELL_AURA_GONE_SELF")
+auraCombatLogFrame:SetScript("OnEvent", function()
     local spell, name = cmatch(arg1, AURAREMOVEDOTHER) -- "%s fades from %s."
     if spell and name and name ~= "you" then
         local guid = getGuidFromLogName(name)
@@ -614,6 +620,7 @@ combatLogFrame:SetScript("OnEvent", function()
         RemoveHoT(spell, guid)
         return
     end
+
     local spell = cmatch(arg1, AURAREMOVEDSELF) -- "%s fades from you."
     if spell then
         RemoveHoT(spell, getSelfGuid())
