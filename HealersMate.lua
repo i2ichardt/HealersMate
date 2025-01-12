@@ -295,6 +295,7 @@ EventHandlerFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 EventHandlerFrame:RegisterEvent("UNIT_PET")
 EventHandlerFrame:RegisterEvent("PLAYER_PET_CHANGED")
 EventHandlerFrame:RegisterEvent("SPELLS_CHANGED")
+EventHandlerFrame:RegisterEvent("RAID_TARGET_UPDATE")
 
 EventHandlerFrame:RegisterEvent("UNIT_MANA")
 EventHandlerFrame:RegisterEvent("UNIT_DISPLAYPOWER")
@@ -1554,6 +1555,10 @@ function EventHandler()
         UnitFrameGroups["Target"]:EvaluateShown()
     elseif event == "SPELLS_CHANGED" then
         HealersMateSettings.UpdateTrackedDebuffTypes()
+    elseif event == "RAID_TARGET_UPDATE" then
+        for _, ui in ipairs(AllUnitFrames) do
+            ui:UpdateRaidMark()
+        end
     end
 end
 

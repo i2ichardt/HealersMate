@@ -29,9 +29,16 @@ function InitializeDefaultProfiles()
     
     do
         local profile = GetProfile("Long")
-        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.PaddingV = 0
+        profile.RaidMarkIcon.OffsetY = 5
+        profile.RaidMarkIcon.Width = 14
+        profile.RaidMarkIcon.Height = 14
+
+        profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
-        profile.RoleIcon.OffsetY = 3
+        profile.RoleIcon.OffsetY = 5
+        profile.RoleIcon.OffsetX = 5
     end
 
     do
@@ -50,12 +57,19 @@ function InitializeDefaultProfiles()
         healthTexts.WithMissing.FontSize = 8
         healthTexts.Missing.FontSize = 9
         profile.PowerText.FontSize = 8
-        
+
+        profile.RaidMarkIcon.Width = 12
+        profile.RaidMarkIcon.Height = 12
+        profile.RaidMarkIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.PaddingV = 0
+        profile.RaidMarkIcon.OffsetY = 5
+
         profile.RoleIcon.Width = 12
         profile.RoleIcon.Height = 12
-        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
-        profile.RoleIcon.OffsetY = 2
+        profile.RoleIcon.OffsetY = 5
+        profile.RoleIcon.OffsetX = 4
     end
 
     do
@@ -75,9 +89,16 @@ function InitializeDefaultProfiles()
         healthTexts.WithMissing = util.CloneTable(healthTexts.Normal, true)
         healthTexts.Missing.PaddingV = 4
 
-        profile.RoleIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.PaddingV = 0
+        profile.RaidMarkIcon.OffsetY = 5
+        profile.RaidMarkIcon.Width = 14
+        profile.RaidMarkIcon.Height = 14
+
+        profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
-        profile.RoleIcon.OffsetY = 3
+        profile.RoleIcon.OffsetY = 6
+        profile.RoleIcon.OffsetX = 5
     end
 
     do
@@ -129,6 +150,9 @@ function InitializeDefaultProfiles()
         profile.LineOfSightIcon.Opacity = 70
         profile.RoleIcon.Width = 12
         profile.RoleIcon.Height = 12
+        profile.RaidMarkIcon.Width = 12
+        profile.RaidMarkIcon.Height = 12
+        profile.RaidMarkIcon.PaddingV = 0
         profile.HealthDisplay = "Health"
         profile.MissingHealthDisplay = "-Health"
         profile.PowerDisplay = "Hidden"
@@ -278,6 +302,11 @@ function InitializeDefaultProfiles()
         profile.RoleIcon.AlignmentH = "RIGHT"
         profile.RoleIcon.Width = 16
         profile.RoleIcon.Height = 16
+
+        profile.RaidMarkIcon.AlignmentH = "RIGHT"
+        profile.RaidMarkIcon.OffsetX = -18
+        profile.RaidMarkIcon.Width = 16
+        profile.RaidMarkIcon.Height = 16
 
         profile.BorderStyle = "Hidden"
     end

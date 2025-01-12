@@ -193,7 +193,18 @@ function HMUIProfile.SetDefaults()
         ["PaddingH"] = 1,
         ["PaddingV"] = 1,
         ["Anchor"] = "Container",
-        ["Opacity"] = 85
+        ["Opacity"] = 100
+    })
+
+    profile.RaidMarkIcon = createSizedObject({
+        ["Width"] = 12,
+        ["Height"] = 12,
+        ["AlignmentH"] = "RIGHT",
+        ["AlignmentV"] = "TOP",
+        ["PaddingH"] = 1,
+        ["PaddingV"] = 1,
+        ["Anchor"] = "Container",
+        ["Opacity"] = 100
     })
 
     profile.TrackAuras = true

@@ -110,6 +110,11 @@ function HMUnitFrame.GenerateFakeStats()
         end
     end
 
+    local raidMark
+    if math.random(10) == 1 then
+        raidMark = math.random(8)
+    end
+
     local online = not (math.random(12) == 1)
 
     local fakeStats = {
@@ -120,6 +125,7 @@ function HMUnitFrame.GenerateFakeStats()
         currentPower = currentPower,
         maxPower = maxPower,
         debuffType = debuffType,
+        raidMark = raidMark,
         online = online}
     return fakeStats
 end
@@ -182,6 +188,7 @@ function HMUnitFrame:UpdateAll()
     self:UpdateSight()
     self:EvaluateTarget()
     self:UpdateOutline()
+    self:UpdateRaidMark()
 end
 
 function HMUnitFrame:UpdateRange()
@@ -285,6 +292,33 @@ function HMUnitFrame:SetOutlineColor(r, g, b)
     else
         self.targetOutline:Hide()
     end
+end
+
+function HMUnitFrame:UpdateRaidMark()
+    local unit = self:GetResolvedUnit()
+    local fake = self:IsFake()
+    if not unit and not fake then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+
+    if unit == "target" and not UnitExists("target") then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+
+    local markIndex
+    if fake then
+        markIndex = self.fakeStats.raidMark
+    else
+        markIndex = GetRaidTargetIndex(unit)
+    end
+    if not markIndex then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+    SetRaidTargetIconTexture(self.raidMarkIcon.icon, markIndex)
+    self.raidMarkIcon.frame:Show()
 end
 
 function HMUnitFrame:Flash()
@@ -982,6 +1016,16 @@ function HMUnitFrame:Initialize()
     roleIcon:SetAlpha(profile.RoleIcon:GetAlpha())
     roleFrame:Hide()
 
+    -- Raid Mark Icon
+
+    local raidMarkFrame = CreateFrame("Frame", nil, container)
+    raidMarkFrame:SetFrameLevel(container:GetFrameLevel() + 3)
+    local raidMarkIcon = raidMarkFrame:CreateTexture(nil, "OVERLAY")
+    self.raidMarkIcon = {frame = raidMarkFrame, icon = raidMarkIcon}
+    raidMarkIcon:SetAlpha(profile.RaidMarkIcon:GetAlpha())
+    raidMarkIcon:SetTexture("Interface\\TARGETINGFRAME\\UI-RaidTargetingIcons")
+    raidMarkFrame:Hide()
+
     -- Health Bar Element
 
     local healthBar = CreateFrame("StatusBar", unit.."HealthBar", container)
@@ -1297,10 +1341,16 @@ function HMUnitFrame:SizeElements()
     losIcon:SetAllPoints(losFrame)
 
     local roleFrame = self.roleIcon.frame
-    self:UpdateComponent(self.roleIcon.frame, profile.RoleIcon)
+    self:UpdateComponent(roleFrame, profile.RoleIcon)
 
     local roleIcon = self.roleIcon.icon
     roleIcon:SetAllPoints(roleFrame)
+
+    local raidMarkFrame = self.raidMarkIcon.frame
+    self:UpdateComponent(raidMarkFrame, profile.RaidMarkIcon)
+
+    local raidMarkIcon = self.raidMarkIcon.icon
+    raidMarkIcon:SetAllPoints(raidMarkFrame)
 
     local auraPanel = self.auraPanel
     self:UpdateComponent(auraPanel, profile.AuraTracker)
