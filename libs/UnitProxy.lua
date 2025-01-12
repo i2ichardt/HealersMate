@@ -426,31 +426,25 @@ function CreateUnitProxies()
     -- UnitXP SP3 compatibility
     CustomProxy("UnitXP", function()
         local UnitXP = _G.UnitXP
-        local function ScanArg(arg)
-            if AllCustomUnitsSet[arg] then
-                return CustomUnitGUIDMap[arg]
-            end
-            return arg
-        end
         return function(a1, a2, a3, a4, a5)
             if a1 then
-                a1 = ScanArg(a1)
+                a1 = AllCustomUnitsSet[a1] and CustomUnitGUIDMap[a1] or a1
                 if not a1 then return 0 end
             end
             if a2 then
-                a2 = ScanArg(a2)
+                a2 = AllCustomUnitsSet[a2] and CustomUnitGUIDMap[a2] or a2
                 if not a2 then return 0 end
             end
             if a3 then
-                a3 = ScanArg(a3)
+                a3 = AllCustomUnitsSet[a3] and CustomUnitGUIDMap[a3] or a3
                 if not a3 then return 0 end
             end
             if a4 then
-                a4 = ScanArg(a4)
+                a4 = AllCustomUnitsSet[a4] and CustomUnitGUIDMap[a4] or a4
                 if not a4 then return 0 end
             end
             if a5 then
-                a5 = ScanArg(a5)
+                a5 = AllCustomUnitsSet[a5] and CustomUnitGUIDMap[a5] or a5
                 if not a5 then return 0 end
             end
             return UnitXP(a1, a2, a3, a4, a5)
