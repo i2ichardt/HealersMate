@@ -520,30 +520,68 @@ end
 -- L1: Shift
 -- L2: Control
 -- L3: Alt
-local keyModifierMap = {
-    [true] = {
-        [true] = {
-            [true] = "Shift+Control+Alt",
-            [false] = "Shift+Control"
-        },
-        [false] = {
-            [true] = "Shift+Alt",
-            [false] = "Shift"
-        }
-    },
-    [false] = {
-        [true] = {
-            [true] = "Control+Alt",
-            [false] = "Control"
-        },
-        [false] = {
-            [true] = "Alt",
-            [false] = "None"
-        }
-    }
-}
+KeyModifierMap = {}
+do
+    -- That moment when trying to be more concise goes terribly wrong
+    local keys = {{"Shift", "S", {0.4, 1, 0.4}}, {"Control", "C", {0.4, 0.4, 1}}, {"Alt", "A", {1, 0.4, 0.4}}}
+    local states = {true, false}
+    for _, l1State in ipairs(states) do
+        local l1 = {}
+        KeyModifierMap[l1State] = l1
+        for _, l2State in ipairs(states) do
+            local l2 = {}
+            l1[l2State] = l2
+            for _, l3State in ipairs(states) do
+                local keyStr = ""
+                local keyStrColored = ""
+                local keyAbbStr = ""
+                local keyAbbStrColored = ""
+                for i = 1, 3 do
+                    if (i == 1 and l1State) or (i == 2 and l2State) or (i == 3 and l3State) then
+                        local key = keys[i]
+                        if keyStr ~= "" then
+                            keyStr = keyStr.."+"
+                            keyStrColored = keyStrColored.."+"
+                            keyAbbStr = keyAbbStr.."+"
+                            keyAbbStrColored = keyAbbStrColored.."+"
+                        end
+                        keyStr = keyStr..key[1]
+                        keyStrColored = keyStrColored..Colorize(key[1], key[3])
+                        keyAbbStr = keyAbbStr..key[2]
+                        keyAbbStrColored = keyAbbStrColored..Colorize(key[2], key[3])
+                    end
+                end
+
+                if keyStr == "" then
+                    keyStr = "None"
+                    keyStrColored = "None"
+                    keyAbbStr = "None"
+                    keyAbbStrColored = "None"
+                end
+
+                l2[l3State] = {keyStr, keyStrColored, keyAbbStr, keyAbbStrColored}
+            end
+        end
+    end
+end
 function GetKeyModifier()
-    return keyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1]
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][1]
+end
+
+function GetColoredKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][2]
+end
+
+function GetAbbreviatedKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][3]
+end
+
+function GetColoredAbbreviatedKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][4]
+end
+
+function GetKeyModifierTypeByID(id)
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][id]
 end
 
 local buttons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}

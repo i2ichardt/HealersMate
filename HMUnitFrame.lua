@@ -435,7 +435,7 @@ function HMUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
         if self.isCustomUnit or self.unit == "target" then
-            self.healthText:SetText(util.Colorize(self.unit == "target" and "" or "Too Far", 0.7, 0.7, 0.7))
+            self.healthText:SetText(util.Colorize(self.unit ~= "target" and "Too Far" or "", 0.7, 0.7, 0.7))
             self.missingHealthText:SetText("")
             self.healthBar:SetValue(0)
             self.powerBar:SetValue(0)
@@ -443,7 +443,7 @@ function HMUnitFrame:UpdateHealth()
             self:AdjustHealthPosition()
         end
         if self.unit == "target" then
-            self.nameText:SetText(util.Colorize("No Target", 0.7, 0.7, 0.7))
+            self.nameText:SetText("")
         end
         return
     end

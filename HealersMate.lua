@@ -177,12 +177,6 @@ ResurrectionSpells = {
     ["DRUID"] = "Rebirth"
 }
 
-GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
-
-CurrentlyHeldButton = nil
-SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
-SpellsTooltipOwner = nil
-
 local hmBarsPath = util.GetAssetsPath().."textures\\bars\\"
 BarStyles = {
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
@@ -192,6 +186,37 @@ BarStyles = {
     ["HealersMate Shineless"] = hmBarsPath.."HealersMate-Shineless",
     ["HealersMate Shineless Borderless"] = hmBarsPath.."HealersMate-Shineless-Borderless"
 }
+
+GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
+
+CurrentlyHeldButton = nil
+SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
+SpellsTooltipOwner = nil
+SpellsTooltipPowerBar = nil
+do
+    local manaBar = CreateFrame("StatusBar", "HMSpellsTooltipManaBar", SpellsTooltip)
+    SpellsTooltipPowerBar = manaBar
+    manaBar:SetStatusBarTexture(BarStyles["HealersMate"])
+    manaBar:SetMinMaxValues(0, 1)
+    manaBar:SetWidth(100)
+    manaBar:SetHeight(12)
+    manaBar:SetPoint("TOPRIGHT", SpellsTooltip, "TOPRIGHT", -10, -12)
+
+    local bg = manaBar:CreateTexture(nil, "BACKGROUND")
+    manaBar.background = bg
+    bg:SetAllPoints(true)
+    bg:SetTexture(0.3, 0.3, 0.3, 0.8)
+
+    local text = manaBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    manaBar.text = text
+    text:SetWidth(manaBar:GetWidth())
+    text:SetHeight(manaBar:GetHeight())
+    text:SetPoint("CENTER", manaBar, "CENTER")
+    text:SetFont("Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
+    text:SetShadowOffset(0, 0)
+    text:SetJustifyH("CENTER")
+    text:SetJustifyV("CENTER")
+end
 
 -- An unmapped array of all unit frames
 AllUnitFrames = {}
@@ -536,8 +561,8 @@ local ITEM_PREFIX = "Item: "
 local MACRO_PREFIX = "Macro: "
 local lowToHighColors = {
     {1, 0, 0}, 
-    {1, 1, 0}, 
-    {0, 1, 0}
+    {1, 0.9, 0}, 
+    {0.35, 1, 0.35}
 }
 local tooltipPowerColors = {
     ["mana"] = {0.5, 0.7, 1}, -- Not the accurate color, but more readable
@@ -548,17 +573,33 @@ function ShowSpellsTooltip(attachTo, spells, owner)
     SpellsTooltipOwner = owner
     SpellsTooltip:SetOwner(attachTo, "ANCHOR_RIGHT")
     SpellsTooltip:SetPoint("RIGHT", attachTo, "LEFT", 0, 0)
-    local modifier = GetKeyModifier()
+    local options = HMOptions.SpellsTooltip
     local currentPower = UnitMana("player")
     local maxPower = UnitManaMax("player")
     local powerType = GetPowerType("player")
     local powerColor = tooltipPowerColors[powerType]
-    local powerText = colorize(currentPower.."/"..maxPower, powerColor)
-    if powerType == "mana" then
-        local color = util.InterpolateColors(lowToHighColors, (currentPower / maxPower))
-        powerText = powerText.." "..colorize(util.RoundNumber((currentPower / maxPower) * 100).."%", color)
+    local powerText = ""
+    local showPowerBar = options.ShowPowerBar
+    if options.ShowPowerAs == "Power" then
+        powerText = tostring(currentPower)
+    elseif options.ShowPowerAs == "Power/Max Power" then
+        powerText = currentPower.."/"..maxPower
+    elseif options.ShowPowerAs == "Power %" then
+        powerText = util.RoundNumber((currentPower / maxPower) * 100).."%"
     end
-    SpellsTooltip:AddDoubleLine("Key: "..modifier, powerText, 1, 1, 1)
+
+    if showPowerBar then
+        local color = util.InterpolateColors(lowToHighColors, (currentPower / maxPower))
+        powerText = colorize(powerText, color)
+        SpellsTooltipPowerBar:SetStatusBarColor(powerColor[1], powerColor[2], powerColor[3])
+        SpellsTooltipPowerBar:SetValue(currentPower / maxPower)
+        SpellsTooltipPowerBar.text:SetText(powerText)
+    else
+        powerText = colorize(powerText, powerColor)
+    end
+
+    local modifier = util.GetKeyModifierTypeByID(1 + (options.AbbreviatedKeys and 2 or 0) + (options.ColoredKeys and 1 or 0))
+    SpellsTooltip:AddDoubleLine(modifier, showPowerBar and "                 " or powerText, 1, 1, 1)
 
     for _, kv in ipairs(spells) do
         for button, spell in pairs(kv) do
@@ -599,18 +640,18 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                     if resource ~= powerType then -- A druid can't cast a spell that requires a different power type
                         casts = 0
                     end
-                    local castsColor = {0.6, 1, 0.6}
+                    local r, g, b = 0.6, 1, 0.6
                     if casts == 0 then
-                        castsColor = {1, 0.5, 0.5}
-                    elseif casts <= 2 then
-                        castsColor = {1, 1, 0}
+                        r, g, b = 1, 0.5, 0.5
+                    elseif casts <= options.CriticalCastsLevel then
+                        r, g, b = 1, 1, 0
                     end
                     local costText
                     if powerType == "mana" and resource == powerType then
-                        if HMOptions.SpellsTooltip.ShowManaCost then
+                        if options.ShowManaCost then
                             costText = cost
                         end
-                        if HMOptions.SpellsTooltip.ShowManaPercentCost then
+                        if options.ShowManaPercentCost then
                             costText = (costText and (costText.." ") or "")..util.RoundNumber((cost / maxPower) * 100, 1).."%"
                         end
                     else
@@ -620,9 +661,11 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                     if casts == 0 then
                         rightText = colorize(util.StripColors(rightText), 0.5, 0.5, 0.5)
                     end
-                    rightText = rightText.." "..colorize(costText, resourceColor)
-                    if casts <= 2 then
-                        rightText = rightText..colorize(" ("..casts..")", castsColor)
+                    if costText then
+                        rightText = rightText.." "..colorize(costText, resourceColor)
+                    end
+                    if casts <= options.HideCastsAbove then
+                        rightText = rightText..colorize(" ("..casts..")", r, g, b)
                     end
                 end
             end
@@ -713,7 +756,10 @@ local function initUIs()
     end
 
     UnitFrameGroups["Target"].ShowCondition = function(self)
-        return (HMOptions.AlwaysShowTargetFrame or UnitExists("target")) and not HMOptions.Hidden
+        local friendly = not UnitCanAttack("player", "target")
+        return (HMOptions.AlwaysShowTargetFrame or (UnitExists("target") and 
+            (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile))) 
+            and not HMOptions.Hidden
     end
 
     OpenUnitFramesIterator()
@@ -941,6 +987,12 @@ function EventAddonLoaded()
         end
         hostileSpells["None"]["LeftButton"] = "Target"
     end
+end
+
+function CheckPartyFramesEnabled()
+    local shouldBeDisabled = (CurrentlyInRaid and HMOptions.DisablePartyFrames.InRaid) or 
+        (not CurrentlyInRaid and HMOptions.DisablePartyFrames.InParty)
+    SetPartyFramesEnabled(not shouldBeDisabled)
 end
 
 function SetPartyFramesEnabled(enabled)
@@ -1445,6 +1497,30 @@ function CheckGroup()
     RunTrackingScan()
 end
 
+function CheckTarget()
+    local exists, guid = UnitExists("target")
+    if exists then
+        local friendly = not UnitCanAttack("player", "target")
+        if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
+            for ui in UnitFrames("target") do
+                ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+                ui:UpdateRange()
+                ui:UpdateSight()
+                ui:UpdateRole()
+                ui:UpdateIncomingHealing()
+            end
+        end
+    else
+        for ui in UnitFrames("target") do
+            ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+            ui:UpdateAll()
+            ui:UpdateRole()
+            ui:UpdateIncomingHealing()
+        end
+    end
+    UnitFrameGroups["Target"]:EvaluateShown()
+end
+
 
 function IsRelevantUnit(unit)
     --return not string.find(unit, "0x")
@@ -1517,42 +1593,23 @@ function EventHandler()
         for _, ui in ipairs(AllUnitFrames) do
             ui:EvaluateTarget()
         end
-        if HMOptions.Hidden then
-            return
-        end
         local exists, guid = UnitExists("target")
         if guid then
             HMUnit.UpdateGuidCaches()
         end
         HMUnit.Get("target"):UpdateAll()
+        GuidRoster.SetUnitGuid("target", guid)
+        HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+
         if exists then
-            local friendly = not UnitCanAttack("player", "target")
-            if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
-                if guid then -- If the guid isn't nil, then SuperWoW is present
-                    GuidRoster.SetUnitGuid("target", guid)
-                    HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
-                end
-                for ui in UnitFrames("target") do
-                    ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
-                    ui:UpdateRange()
-                    ui:UpdateSight()
-                    ui:UpdateRole()
-                    ui:UpdateIncomingHealing()
-                end
-                EvaluateTracking("target", true)
-            end
-        else
-            if util.IsSuperWowPresent() then
-                GuidRoster.SetUnitGuid("target", nil)
-            end
-            for ui in UnitFrames("target") do
-                ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
-                ui:UpdateAll()
-                ui:UpdateRole()
-                ui:UpdateIncomingHealing()
-            end
+            EvaluateTracking("target", true)
         end
-        UnitFrameGroups["Target"]:EvaluateShown()
+
+        if HMOptions.Hidden then
+            return
+        end
+
+        CheckTarget()
     elseif event == "SPELLS_CHANGED" then
         HealersMateSettings.UpdateTrackedDebuffTypes()
     elseif event == "RAID_TARGET_UPDATE" then
