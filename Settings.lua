@@ -332,7 +332,9 @@ function InitSettings()
     containerBorder:SetWidth(450) -- width
     containerBorder:SetHeight(500) -- height
     containerBorder:SetPoint("CENTER", container, "CENTER")
-    containerBorder:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",       edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
+    containerBorder:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", 
+        edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, 
+        insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
 
     containerBorder.title = CreateFrame("Frame", container:GetName().."Title", containerBorder)
     containerBorder.title:SetPoint("TOP", containerBorder, "TOP", 0, 12)
@@ -348,6 +350,21 @@ function InitSettings()
     containerBorder.title.text:SetPoint("TOP", 0, -14)
 
 
+
+    function resetSpells()
+        EditedSpells = {}
+        for context, spells in pairs(HMSpells) do
+            EditedSpells[context] = {}
+            local copy = EditedSpells[context]
+            for modifier, buttons in pairs(spells) do
+                copy[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    copy[modifier][button] = spell
+                end
+            end
+        end
+        SpellsContext = EditedSpells[UIDropDownMenu_GetSelectedName(targetDropdown)]
+    end
 
 
 
@@ -368,23 +385,12 @@ function InitSettings()
     local spellsFrame = CreateFrame("Frame", "spellsFrame", container)
     addFrame("Spells", spellsFrame)
     spellsFrame:SetWidth(400)
-    spellsFrame:SetHeight(365)
-    spellsFrame:SetPoint("CENTER", container, "CENTER")
+    spellsFrame:SetHeight(440)
+    spellsFrame:SetPoint("CENTER", container, "CENTER", 0, -20)
     local spellsFrameOldShow = spellsFrame.Show
     spellsFrame.Show = function(self)
         spellsFrameOldShow(self)
-        EditedSpells = {}
-        for context, spells in pairs(HMSpells) do
-            EditedSpells[context] = {}
-            local copy = EditedSpells[context]
-            for modifier, buttons in pairs(spells) do
-                copy[modifier] = {}
-                for button, spell in pairs(buttons) do
-                    copy[modifier][button] = spell
-                end
-            end
-        end
-        SpellsContext = EditedSpells[UIDropDownMenu_GetSelectedName(targetDropdown)]
+        resetSpells()
     end
     spellsFrame:Hide()
 
@@ -1385,7 +1391,7 @@ function InitSettings()
     end
 
     local spellApplyButton = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
-    spellApplyButton:SetPoint("BOTTOM", 0, 10)
+    spellApplyButton:SetPoint("TOP", 0, -230)
     spellApplyButton:SetWidth(125)
     spellApplyButton:SetHeight(20)
     spellApplyButton:SetText("Save & Close")
@@ -1401,8 +1407,92 @@ function InitSettings()
                 end
             end
         end
+        PlaySound("GAMESPELLBUTTONMOUSEDOWN")
         closeButton:GetScript("OnClick")()
     end)
+
+    local spellApplyButtonNoClose = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
+    spellApplyButtonNoClose:SetPoint("TOP", 140, -230)
+    spellApplyButtonNoClose:SetWidth(125)
+    spellApplyButtonNoClose:SetHeight(20)
+    spellApplyButtonNoClose:SetText("Save Changes")
+    spellApplyButtonNoClose:RegisterForClicks("LeftButtonUp")
+    spellApplyButtonNoClose:SetScript("OnClick", function()
+        saveSpellEditBoxes()
+        for context, spells in pairs(EditedSpells) do
+            local Spells = HMSpells[context]
+            for modifier, buttons in pairs(spells) do
+                Spells[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    Spells[modifier][button] = spell
+                end
+            end
+        end
+        PlaySound("GAMESPELLBUTTONMOUSEDOWN")
+    end)
+
+    do
+        local spellDiscardButton = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
+        spellDiscardButton:SetPoint("TOP", -140, -230)
+        spellDiscardButton:SetWidth(125)
+        spellDiscardButton:SetHeight(20)
+        spellDiscardButton:SetText("Discard Changes")
+        spellDiscardButton:RegisterForClicks("LeftButtonUp")
+        spellDiscardButton:SetScript("OnClick", function()
+            resetSpells()
+            populateSpellEditBoxes()
+            PlaySound("GAMESPELLBUTTONMOUSEDOWN")
+        end)
+    end
+
+    do
+        local helpScrollFrame = CreateFrame("ScrollFrame", "$parentHelpScrollFrame", spellsFrame, "UIPanelScrollFrameTemplate")
+        helpScrollFrame:SetWidth(400) -- width
+        helpScrollFrame:SetHeight(175) -- height
+        helpScrollFrame:SetPoint("TOPRIGHT", spellsFrame, "TOPRIGHT", -10, -260)
+
+        local helpFrame = CreateFrame("Frame", "$parentHelpFrame", helpScrollFrame)
+        helpFrame:SetWidth(400) -- width
+        helpFrame:SetHeight(175) -- height
+
+        helpScrollFrame:SetScrollChild(helpFrame)
+
+
+        do
+            local explainerHeader = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            explainerHeader:SetPoint("TOP", 0, 0)
+            explainerHeader:SetFont("Fonts\\FRIZQT__.TTF", 14)
+            explainerHeader:SetWidth(helpFrame:GetWidth() * 1)
+            explainerHeader:SetJustifyH("CENTER")
+            explainerHeader:SetText("Spell Binding Help & Info")
+
+            local explainer = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            explainer:SetPoint("TOP", 0, -20)
+            explainer:SetFont("Fonts\\FRIZQT__.TTF", 12)
+            explainer:SetWidth(helpFrame:GetWidth() * 0.9)
+            explainer:SetJustifyH("LEFT")
+            local colorize = util.Colorize
+            explainer:SetText(colorize("How to downrank: ", 1, 0.6, 0.6).."Input the name of the spell, suffixed by \"(Rank #)\""..
+                ". For example, "..colorize("Lesser Heal(Rank 2)", 0.6, 1, 0.6).."\n\n"..
+            colorize("Special Bindings:", 1, 0.6, 0.6).."\n"..
+            colorize("Target", 0.6, 0.6, 1).." - ".."Sets your target\n"..
+            colorize("Assist", 0.6, 0.6, 1).." - ".."Sets your target as the unit's target\n"..
+            colorize("Role", 0.6, 0.6, 1).." - ".."Choose the role of the player\n"..
+            colorize("Context", 0.6, 0.6, 1).." - ".."Open the right-click context menu\n"..
+            colorize("Follow", 0.6, 0.6, 1).." - ".."Follow a player\n"..
+            colorize("Focus", 0.6, 0.6, 1)..colorize(" (SuperWoW Required)", 1, 0.8, 0.8).." - ".."Add/remove a unit to your focus\n"..
+            colorize("Promote Focus", 0.6, 0.6, 1)..colorize(" (SuperWoW Required)", 1, 0.8, 0.8).." - "..
+                "Moves the focus to the top\n\n"..
+            colorize("Binding Items: ", 1, 0.6, 0.6).."Prefix \"Item: \" to indicate that you're binding an item in your bags."..
+                " For example, "..colorize("Item: Silk Bandage", 0.6, 1, 0.6).."\n\n"..
+            colorize("Binding Macros: ", 1, 0.6, 0.6).."Prefix \"Macro: \" to indicate that you're binding a macro. For example, "..
+                colorize("Macro: Summon", 0.6, 1, 0.6).."\n\n"..
+            colorize("Information on Macros: ", 1, 0.6, 0.6).."When clicking on a unit with macro binds, you will automatically"..
+                " target them for a split second, allowing you to use the \"target\" unit in your macros. Additionally, the "..
+                "global \"HM_MacroTarget\" is exposed, allowing you to see the actual unit that was clicked, such as "..
+                "\"party1\". Beware that clicking on a focus will produce fake units, such as \"focus1\".")
+        end
+    end
 
     local lastTab
     for tabIndex, name in ipairs(frameNames) do
