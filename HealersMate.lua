@@ -834,6 +834,21 @@ function EventAddonLoaded()
     HealersMateSettings.UpdateTrackedDebuffTypes()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
+
+    do
+        if HMOptions.Scripts.OnLoad then
+            local scriptString = "local GetProfile = HMProfileManager.GetProfile "..
+                "local CreateProfile = HMProfileManager.CreateProfile "..HMOptions.Scripts.OnLoad
+            local script = loadstring(scriptString)
+            local ok, result = pcall(script)
+            if not ok then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("ERROR: ", 1, 0.2, 0.2)
+                    ..colorize("The Load Script produced an error! If this causes HealersMate to fail to load, "..
+                        "you will need to manually edit the script in your game files.", 1, 0.4, 0.4))
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("OnLoad Script Error: "..tostring(result), 1, 0, 0))
+            end
+        end
+    end
     HealersMateSettings.InitSettings()
     if HMHealPredict then
         HMHealPredict.OnLoad()
@@ -986,6 +1001,21 @@ function EventAddonLoaded()
             spells["None"]["RightButton"] = "Context"
         end
         hostileSpells["None"]["LeftButton"] = "Target"
+    end
+
+
+    do
+        if HMOptions.Scripts.OnPostLoad then
+            local scriptString = HMOptions.Scripts.OnPostLoad
+            local script = loadstring(scriptString)
+            local ok, result = pcall(script)
+            if not ok then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("ERROR: ", 1, 0.2, 0.2)
+                    ..colorize("The Postload Script produced an error! If this causes HealersMate to fail to operate, "..
+                        "you may need to manually edit the script in your game files.", 1, 0.4, 0.4))
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("OnPostLoad Script Error: "..tostring(result), 1, 0, 0))
+            end
+        end
     end
 end
 

@@ -19,6 +19,11 @@ function GetProfile(name)
     return HMDefaultProfiles[name]
 end
 
+function CreateProfile(name, baseName)
+    HMDefaultProfiles[name] = HMUIProfile:New(GetProfile(baseName or "Compact"))
+    return HMDefaultProfiles[name]
+end
+
 function InitializeDefaultProfiles()
     HMUIProfile.SetDefaults()
 

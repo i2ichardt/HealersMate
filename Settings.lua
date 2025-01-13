@@ -110,6 +110,10 @@ function HealersMateSettings.SetDefaults()
                 ["Target"] = "Long",
                 ["Focus"] = "Compact"
             },
+            ["Scripts"] = {
+                ["OnLoad"] = "",
+                ["OnPostLoad"] = ""
+            },
             ["OptionsVersion"] = 1
         }
     
@@ -855,7 +859,7 @@ function InitSettings()
             HMOptions.DisablePartyFrames.InParty = CheckboxInParty:GetChecked() == 1
             HealersMate.CheckPartyFramesEnabled()
         end)
-        ApplyTooltip(CheckboxInParty, "Hide party frames while in party", "This may cause issues with other addons")
+        ApplyTooltip(CheckboxInParty, "Hide default party frames while in party", "This may cause issues with other addons")
 
         -- Label for the "Enemy" checkbox
         local InRaidLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -872,7 +876,7 @@ function InitSettings()
             HMOptions.DisablePartyFrames.InRaid = CheckboxInRaid:GetChecked() == 1
             HealersMate.CheckPartyFramesEnabled()
         end)
-        ApplyTooltip(CheckboxInRaid, "Hide party frames while in raid", "This may cause issues with other addons")
+        ApplyTooltip(CheckboxInRaid, "Hide default party frames while in raid", "This may cause issues with other addons")
     end
 
     yOffset = yOffset - 40
@@ -921,29 +925,37 @@ function InitSettings()
 
 
     local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
-    customizeScrollFrame:SetWidth(370) -- width
-    customizeScrollFrame:SetHeight(380) -- height
-    customizeScrollFrame:SetPoint("CENTER", container, "CENTER")
+    customizeScrollFrame:SetWidth(400) -- width
+    customizeScrollFrame:SetHeight(440) -- height
+    customizeScrollFrame:SetPoint("CENTER", container, "CENTER", -10, -20)
     customizeScrollFrame:Hide() -- Initially hidden
 
     local customizeFrame = CreateFrame("Frame", "$parentContent", customizeScrollFrame)
     addFrame("Customize", customizeScrollFrame)
-    customizeFrame:SetWidth(370 + 20) -- width
-    customizeFrame:SetHeight(360) -- height
+    customizeFrame:SetWidth(400) -- width
+    customizeFrame:SetHeight(440) -- height
     customizeFrame:SetPoint("CENTER", container, "CENTER")
 
     customizeScrollFrame:SetScrollChild(customizeFrame)
 
     local soonTM = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", customizeFrame, "CENTER", 0, 0)
+    soonTM:SetPoint("TOP", 0, -190)
     soonTM:SetText("Fully customizable frames coming in future updates")
 
+    do
+        local frameStyle = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frameStyle:SetPoint("TOP", 0, 0)
+        frameStyle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        frameStyle:SetWidth(customizeFrame:GetWidth())
+        frameStyle:SetJustifyH("CENTER")
+        frameStyle:SetText("Choose Frame Style")
+    end
 
 
     do
         frameDropdown = CreateFrame("Frame", "$parentFrameDropdown", customizeFrame, "UIDropDownMenuTemplate")
         frameDropdown:Show()
-        frameDropdown:SetPoint("TOP", -60, 0)
+        frameDropdown:SetPoint("TOP", -60, -40)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", frameDropdown, "RIGHT", -40, 5)
@@ -982,7 +994,7 @@ function InitSettings()
     do
         profileDropdown = CreateFrame("Frame", "$parentProfileDropdown", customizeFrame, "UIDropDownMenuTemplate")
         profileDropdown:Show()
-        profileDropdown:SetPoint("TOP", -60, -30)
+        profileDropdown:SetPoint("TOP", -60, -70)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", profileDropdown, "RIGHT", -40, 5)
@@ -1053,12 +1065,12 @@ function InitSettings()
 
     do
         local reloadNotify = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-        reloadNotify:SetPoint("TOP", 0, -80)
+        reloadNotify:SetPoint("TOP", 0, -120)
         reloadNotify:SetText("Reload is recommended after changing UI styles")
 
 
         local reloadUI = CreateFrame("Button", "$parentReloadUIButton", customizeFrame, "UIPanelButtonTemplate")
-        reloadUI:SetPoint("TOP", 0, -100)
+        reloadUI:SetPoint("TOP", 0, -140)
         reloadUI:SetWidth(125)
         reloadUI:SetHeight(20)
         reloadUI:SetText("Reload UI")
@@ -1068,6 +1080,144 @@ function InitSettings()
         end)
     end
 
+    do
+        local advanced = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        advanced:SetPoint("TOP", 0, -240)
+        advanced:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        advanced:SetWidth(customizeFrame:GetWidth())
+        advanced:SetJustifyH("CENTER")
+        advanced:SetText("Advanced Options")
+    end
+
+    do
+        local explainer = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        explainer:SetPoint("TOP", 0, -260)
+        explainer:SetFont("Fonts\\FRIZQT__.TTF", 12)
+        explainer:SetWidth(customizeFrame:GetWidth() * 0.85)
+        explainer:SetJustifyH("CENTER")
+        explainer:SetText("The Load Script runs after profiles are initialized, but before UIs are created, "..
+            "making it good for editing profile attributes. GetProfile and CreateProfile are defined locals. "..
+            "The Postload Script runs after everything is initialized. Reload is required for changes to take effect.")
+    end
+
+    do
+        local editFrame = CreateFrame("Frame", "HMPreLoadScriptFrame", container)
+        editFrame:SetWidth(325)
+        editFrame:SetHeight(230)
+        editFrame:SetPoint("CENTER", 0, 0)
+        editFrame:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
+        editFrame:SetBackdropColor(0, 0, 0, 0.75)
+        editFrame:SetPoint("LEFT", container, "RIGHT", 20, 0)
+        editFrame:Hide()
+
+        editFrame:EnableMouse(true)
+
+        local scrollFrame = CreateFrame("ScrollFrame", "$parentCodeScrollFrame", editFrame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetWidth(300)
+        scrollFrame:SetHeight(200)
+        scrollFrame:SetPoint("TOPLEFT", 0, 0)
+
+        local editBox = CreateFrame("EditBox", "$parentContent", scrollFrame)
+        editBox:SetFontObject(ChatFontNormal)
+        editBox:SetMultiLine(true)
+        editBox:SetAutoFocus(false)
+        
+        editBox:SetWidth(300)
+        -- Stolen from SuperMacro
+        editBox:SetScript("OnTextChanged", function()
+            local scrollBar = getglobal(editBox:GetParent():GetName().."ScrollBar")
+            editBox:GetParent():UpdateScrollChildRect();
+
+            local _, max = scrollBar:GetMinMaxValues();
+            scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+            if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+                -- if scroll is down and add new line then move scroll
+                scrollBar:SetValue(max);
+            end
+            if max ~= scrollBar.prevMaxValue then
+                -- save max value
+                scrollBar.prevMaxValue = max
+            end
+        end)
+        editBox:SetScript("OnEscapePressed", function()
+            editFrame:Hide()
+        end)
+        editBox:SetScript("OnEditFocusGained", function()
+            this:SetText(HMOptions.Scripts[this.editScript])
+        end)
+        editBox:SetScript("OnEditFocusLost", function()
+            if not this.editScript then
+                return
+            end
+            HMOptions.Scripts[this.editScript] = this:GetText()
+            editFrame:Hide()
+        end)
+        
+        local editTargetLabel = editFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        editTargetLabel:SetPoint("TOP", 0, -207)
+        editTargetLabel:SetFont("Fonts\\FRIZQT__.TTF", 12)
+        editTargetLabel:SetWidth(editFrame:GetWidth())
+        editTargetLabel:SetJustifyH("CENTER")
+
+        editBox.SetEditScript = function(self, scriptName)
+            self.editScript = scriptName
+            editTargetLabel:SetText(scriptName)
+        end
+        scrollFrame:SetScrollChild(editBox)
+
+        do
+            local ok = CreateFrame("Button", nil, editFrame, "UIPanelButtonTemplate")
+            ok:SetPoint("TOP", -90, -205)
+            ok:SetWidth(100)
+            ok:SetHeight(20)
+            ok:SetText("Save")
+            ok:RegisterForClicks("LeftButtonUp")
+            ok:SetScript("OnClick", function()
+                editFrame:Hide()
+            end)
+
+            local cancel = CreateFrame("Button", nil, editFrame, "UIPanelButtonTemplate")
+            cancel:SetPoint("TOP", 90, -205)
+            cancel:SetWidth(100)
+            cancel:SetHeight(20)
+            cancel:SetText("Discard")
+            cancel:RegisterForClicks("LeftButtonUp")
+            cancel:SetScript("OnClick", function()
+                editBox:SetEditScript(nil)
+                editFrame:Hide()
+            end)
+        end
+
+        do
+            local openPreLoadScript = CreateFrame("Button", nil, customizeFrame, "UIPanelButtonTemplate")
+            openPreLoadScript:SetPoint("TOP", 0, -340)
+            openPreLoadScript:SetWidth(150)
+            openPreLoadScript:SetHeight(20)
+            openPreLoadScript:SetText("Edit Load Script")
+            openPreLoadScript:RegisterForClicks("LeftButtonUp")
+            openPreLoadScript:SetScript("OnClick", function()
+                editBox:ClearFocus()
+                editBox:SetEditScript("OnLoad")
+                editFrame:Show()
+                editBox:SetFocus()
+            end)
+
+
+            local postLoadScriptButton = CreateFrame("Button", nil, customizeFrame, "UIPanelButtonTemplate")
+            postLoadScriptButton:SetPoint("TOP", 0, -365)
+            postLoadScriptButton:SetWidth(150)
+            postLoadScriptButton:SetHeight(20)
+            postLoadScriptButton:SetText("Edit Postload Script")
+            postLoadScriptButton:RegisterForClicks("LeftButtonUp")
+            postLoadScriptButton:SetScript("OnClick", function()
+                editBox:ClearFocus()
+                editBox:SetEditScript("OnPostLoad")
+                editFrame:Show()
+                editBox:SetFocus()
+            end)
+        end
+    end
 
 
 
