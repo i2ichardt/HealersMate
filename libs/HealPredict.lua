@@ -37,6 +37,18 @@ Listeners = {}
 local hmprint
 local colorize = HMUtil.Colorize
 
+local PRAYER_OF_HEALING_IDS = HMUtil.ToSet({596, 996, 10960, 10961, 25316})
+local ResurrectionSpells = HMUtil.ToSet({
+    "Resurrection", "Revive Champion", "Redemption", "Ancestral Spirit", "Rebirth"
+})
+
+local TRACKED_HOTS = HMUtil.ToSet({
+    "Rejuvenation", "Regrowth", -- Druid
+    "Renew", -- Priest
+    "Mend Pet", -- Hunter
+    "First Aid" -- Generic
+})
+
 function OnLoad()
     hmprint = HealersMate.hmprint
     if not HMHealCache then
@@ -241,16 +253,20 @@ function UpdateCache(heal, name)
 
     local spellID = lastCastedSpell["spellID"]
 
-    -- A rather messy dependency on HealersMate
-    local units = HMGuidRoster.GetUnits(lastCastedSpell["unit"])
-    if not units then
-        hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
-        return
-    end
-    local normalUnit = units[1]
-    if HMUnit.Get(normalUnit).HasHealingModifier then
-        hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
-        return
+    if not PRAYER_OF_HEALING_IDS[spellID] then
+        if lastCastedSpell["target"] == "" then
+            hmprint(colorize("Don't have a target of spell cast for "..name.."'s "..spellID, 1, 0, 0))
+            return
+        end
+        local cache = HMUnit.Get(lastCastedSpell["target"])
+        if not cache or cache == HMUnit then
+            hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
+            return
+        end
+        if cache.HasHealingModifier then
+            hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+            return
+        end
     end
 
     -- Update the generic cache
@@ -298,6 +314,16 @@ function UpdateCacheHot(spellName, heal, targetGuid, targetName, casterGuid, cas
             PlayerHealCache[casterName] = {}
         end
         local spellID = hot["id"]
+
+        local cache = HMUnit.Get(targetGuid)
+        if not cache or cache == HMUnit then
+            hmprint(colorize("Could not find "..targetName.."'s unit while updating cache!", 1, 0, 0))
+            return
+        end
+        if cache.HasHealingModifier then
+            hmprint(colorize("Not updating cache for "..casterName.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+            return
+        end
         -- Update the player-specific cache
         local playerCache = PlayerHealCache[casterName]
         spellID = spellID.."-HoT"
@@ -359,18 +385,6 @@ local function getSelfGuid()
     local _, guid = UnitExists("player")
     return guid
 end
-
-local PRAYER_OF_HEALING_IDS = HMUtil.ToSet({596, 996, 10960, 10961, 25316})
-local ResurrectionSpells = HMUtil.ToSet({
-    "Resurrection", "Revive Champion", "Redemption", "Ancestral Spirit", "Rebirth"
-})
-
-local TRACKED_HOTS = HMUtil.ToSet({
-    "Rejuvenation", "Regrowth", -- Druid
-    "Renew", -- Priest
-    "Mend Pet", -- Hunter
-    "First Aid" -- Generic
-})
 
 local eventFrame = CreateFrame("Frame", "HMHealPredictCasts")
 eventFrame:RegisterEvent("UNIT_CASTEVENT")
@@ -455,7 +469,7 @@ eventFrame:SetScript("OnEvent", function()
     local currentCast = GetCurrentCast(caster)
     if event == "CAST" and currentCast and currentCast["spellID"] == spellID then
         RemoveIncomingCast(caster)
-        LastCastedSpells[UnitName(caster)] = compost:AcquireHash("unit", caster, "spellID", spellID)
+        LastCastedSpells[UnitName(caster)] = compost:AcquireHash("unit", caster, "target", target, "spellID", spellID)
         return
     end
 
