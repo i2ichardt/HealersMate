@@ -1045,7 +1045,7 @@ function SetPartyFramesEnabled(enabled)
     else
         for i = 1, MAX_PARTY_MEMBERS do
             local frame = getglobal("PartyMemberFrame"..i)
-            if frame then
+            if frame and not frame.HMRealShow then
                 frame:UnregisterAllEvents()
                 frame.HMRealShow = frame.Show
                 frame.Show = function() end
