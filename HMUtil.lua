@@ -450,7 +450,8 @@ function GetUnitsInRange(center, units, range)
     local inRange = compost:GetTable()
     for _, unit in ipairs(units) do
         local exists, guid = UnitExists(unit)
-        if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(center, unit) <= (range or 30) then
+        if exists and UnitIsConnected(unit) and not UnitIsDeadOrGhost(unit) and 
+            GetDistanceBetween(center, unit) <= (range or 30) then
             table.insert(inRange, guid)
         end
     end
