@@ -161,7 +161,7 @@ do
         "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
             "Bulwark of the Righteous", "Blessing of Sacrifice", "Hand of Sacrifice",
         "Power Infusion", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", -- Priest
-        "Shield Wall", "Recklessness", -- Warrior
+        "Shield Wall", "Recklessness", "Last Stand", -- Warrior
         "Evasion", "Vanish", -- Rogue
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", "Abolish Poison", -- Druid

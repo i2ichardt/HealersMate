@@ -94,6 +94,7 @@ local trackedCastedAuras = {
     -- Warrior
     ["Battle Shout"] = 2 * 60,
     ["Shield Wall"] = 10, -- 12 with talent
+    ["Last Stand"] = 20,
     -- Warrior: Offensive
     ["Rend"] = 21,
     -- Racial
