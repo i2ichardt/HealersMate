@@ -1336,7 +1336,7 @@ do
     SpecialBinds = upperSpecialBinds
 end
 
-function HM_ToggleFocusUnit(unit)
+function _G.HM_ToggleFocusUnit(unit)
     if HMUnitProxy.IsUnitUnitType(unit, "focus") then
         if not HMUnitProxy.CustomUnitsSetMap["focus"][unit] then
             return -- Do not toggle focus if user is clicking on a UI that isn't the focus UI
@@ -1347,7 +1347,7 @@ function HM_ToggleFocusUnit(unit)
     end
 end
 
-function HM_FocusUnit(unit)
+function _G.HM_FocusUnit(unit)
     local guid = HMGuidRoster.ResolveUnitGuid(unit)
     if not guid or HMUnitProxy.IsGuidUnitType(guid, "focus") then
         return
@@ -1357,7 +1357,7 @@ function HM_FocusUnit(unit)
     PlaySound("GAMETARGETHOSTILEUNIT")
 end
 
-function HM_UnfocusUnit(unit)
+function _G.HM_UnfocusUnit(unit)
     local guid = HMGuidRoster.ResolveUnitGuid(unit)
     if not guid then
         return
@@ -1370,7 +1370,7 @@ function HM_UnfocusUnit(unit)
     PlaySound("INTERFACESOUND_LOSTTARGETUNIT")
 end
 
-function HM_PromoteFocus(unit)
+function _G.HM_PromoteFocus(unit)
     local guid = HMGuidRoster.ResolveUnitGuid(unit)
     if not guid then
         return
