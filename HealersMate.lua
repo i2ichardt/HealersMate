@@ -729,8 +729,12 @@ function UpdateAllOutlines()
     end
 end
 
-function createUIGroup(groupName, environment, units, petGroup, profile)
-    local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile)
+function CreateUnitFrameGroup(groupName, environment, units, petGroup, profile, sortByRole)
+    if UnitFrameGroups[groupName] then
+        error("[HealersMate] Tried to create a unit frame group using existing name! \""..groupName.."\"")
+        return
+    end
+    local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile, sortByRole)
     for _, unit in ipairs(units) do
         local ui = HMUnitFrame:New(unit, AllCustomUnitsSet[unit] ~= nil)
         if not HMUnitFrames[unit] then
@@ -743,18 +747,19 @@ function createUIGroup(groupName, environment, units, petGroup, profile)
             ui:Hide()
         end
     end
+    UnitFrameGroups[groupName] = uiGroup
     return uiGroup
 end
 
-local function initUIs()
+local function initUnitFrames()
     local getSelectedProfile = HealersMateSettings.GetSelectedProfile
-    UnitFrameGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
-    UnitFrameGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
-    UnitFrameGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
-    UnitFrameGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
-    UnitFrameGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    CreateUnitFrameGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
+    CreateUnitFrameGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
+    CreateUnitFrameGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
+    CreateUnitFrameGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
     if util.IsSuperWowPresent() then
-        UnitFrameGroups["Focus"] = createUIGroup("Focus", "all", HMUnitProxy.CustomUnitsMap["focus"], false, getSelectedProfile("Focus"))
+        CreateUnitFrameGroup("Focus", "all", HMUnitProxy.CustomUnitsMap["focus"], false, getSelectedProfile("Focus"), false)
     end
 
     UnitFrameGroups["Target"].ShowCondition = function(self)
@@ -908,7 +913,7 @@ function EventAddonLoaded()
         DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] UI Testing is enabled. Use /hm testui to disable.", 1, 0.6, 0.6))
     end
 
-    initUIs()
+    initUnitFrames()
     StartDistanceScanner()
 
     HealersMateLib:RegisterEvent("Banzai_UnitGainedAggro", function(unit)

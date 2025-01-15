@@ -13,6 +13,7 @@ HMUnitFrameGroup.units = nil
 
 HMUnitFrameGroup.petGroup = false
 HMUnitFrameGroup.environment = "all" -- party, raid, or all
+HMUnitFrameGroup.sortByRole = true
 
 HMUnitFrameGroup.moveContainer = CreateFrame("Frame", "HMUnitFrameGroupBulkMoveContainer", UIParent)
 HMUnitFrameGroup.moveContainer:EnableMouse(true)
@@ -28,10 +29,13 @@ end
 local HM
 local util
 
-function HMUnitFrameGroup:New(name, environment, units, petGroup, profile)
+function HMUnitFrameGroup:New(name, environment, units, petGroup, profile, sortByRole)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
     local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup, profile = profile}
+    if sortByRole ~= nil then
+        obj.sortByRole = sortByRole
+    end
     setmetatable(obj, self)
     self.__index = self
     obj:Initialize()
@@ -386,22 +390,25 @@ function HMUnitFrameGroup:GetSortedUIs()
             end
         end
     end
+    local sortByRole = self.sortByRole
     for _, group in ipairs(sortedGroups) do
-        local rolePriority = {
-            ["Tank"] = 1,
-            ["Healer"] = 2,
-            ["Damage"] = 3
-        }
-        local groupCopy = util.CloneTable(group)
-        local roleSorter = function(a, b)
-            if not a or not b then
-                return false
+        if sortByRole then
+            local rolePriority = {
+                ["Tank"] = 1,
+                ["Healer"] = 2,
+                ["Damage"] = 3
+            }
+            local groupCopy = util.CloneTable(group)
+            local roleSorter = function(a, b)
+                if not a or not b then
+                    return false
+                end
+                local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
+                local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
+                return aRank < bRank
             end
-            local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
-            local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
-            return aRank < bRank
+            table.sort(group, roleSorter)
         end
-        table.sort(group, roleSorter)
         for _, ui in ipairs(group) do
             ui:UpdateRole()
         end
