@@ -729,12 +729,14 @@ function UpdateAllOutlines()
     end
 end
 
-local function createUIGroup(groupName, environment, units, petGroup, profile)
+function createUIGroup(groupName, environment, units, petGroup, profile)
     local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile)
     for _, unit in ipairs(units) do
         local ui = HMUnitFrame:New(unit, AllCustomUnitsSet[unit] ~= nil)
-        local uis = {ui}
-        HMUnitFrames[unit] = uis
+        if not HMUnitFrames[unit] then
+            HMUnitFrames[unit] = {}
+        end
+        table.insert(HMUnitFrames[unit], ui)
         table.insert(AllUnitFrames, ui)
         uiGroup:AddUI(ui)
         if unit ~= "target" then

@@ -411,7 +411,7 @@ function InitSettings()
 
     local xOffset = 140
     local xDropdownOffset = 30
-    local yOffset = -20
+    local yOffset = 0
     local yCheckboxOffset = -2
     local yDropdownOffset = -5
     local yInterval = -30
@@ -1187,7 +1187,7 @@ function InitSettings()
             cancel:SetPoint("TOP", 90, -205)
             cancel:SetWidth(100)
             cancel:SetHeight(20)
-            cancel:SetText("Discard")
+            cancel:SetText("Cancel")
             cancel:RegisterForClicks("LeftButtonUp")
             cancel:SetScript("OnClick", function()
                 editBox:SetEditScript(nil)
