@@ -153,7 +153,7 @@ function HealersMateSettings.SetDefaults()
             }
         }
 
-        if HMOptions.OptionsVersion < OPTIONS_VERSION then
+        if HMOptions.OptionsVersion and HMOptions.OptionsVersion < OPTIONS_VERSION then
             for _, upgrade in ipairs(optionsUpgrades) do
                 if upgrade:shouldUpgrade(HMOptions) then
                     local prevVersion = HMOptions.OptionsVersion
