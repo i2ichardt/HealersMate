@@ -1627,9 +1627,12 @@ function EventHandler()
         if guid then
             HMUnit.UpdateGuidCaches()
         end
+        
         HMUnit.Get("target"):UpdateAll()
-        GuidRoster.SetUnitGuid("target", guid)
-        HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+        if guid then
+            GuidRoster.SetUnitGuid("target", guid)
+            HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+        end
 
         if exists then
             EvaluateTracking("target", true)
