@@ -11,7 +11,8 @@ setfenv(1, HMProfileManager)
 local util = getglobal("HMUtil")
 
 DefaultProfileOrder = {
-    "Compact", "Compact (Short Bar)", "Compact (Small)", "Long", "Long (Small)", "Long (Integrated)", "Legacy"
+    "Default", "Default (Short Bar)", "Small", "Very Small", "Very Small (Horizontal)", "Long", "Long (Small)", 
+    "Long (Integrated)", "Legacy"
 }
 DefaultProfileOrder = util.ToSet(DefaultProfileOrder, true)
 
@@ -20,7 +21,7 @@ function GetProfile(name)
 end
 
 function CreateProfile(name, baseName)
-    HMDefaultProfiles[name] = HMUIProfile:New(GetProfile(baseName or "Compact"))
+    HMDefaultProfiles[name] = HMUIProfile:New(GetProfile(baseName or "Default"))
     return HMDefaultProfiles[name]
 end
 
@@ -30,10 +31,8 @@ function InitializeDefaultProfiles()
     -- Master base profile
     HMDefaultProfiles["Base"] = HMUIProfile:New()
 
-    HMDefaultProfiles["Long"] = HMUIProfile:New(GetProfile("Base"))
-    
     do
-        local profile = GetProfile("Long")
+        local profile = CreateProfile("Long", "Base")
         profile.RaidMarkIcon.AlignmentH = "CENTER"
         profile.RaidMarkIcon.PaddingV = 0
         profile.RaidMarkIcon.OffsetY = 5
@@ -43,12 +42,13 @@ function InitializeDefaultProfiles()
         profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
         profile.RoleIcon.OffsetY = 5
-        profile.RoleIcon.OffsetX = 5
+        profile.RoleIcon.OffsetX = -5
     end
 
+
+
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Long (Small)"] = profile
+        local profile = CreateProfile("Long (Small)", "Base")
 
         profile.Width = 120
         profile.HealthBarHeight = 16
@@ -74,12 +74,12 @@ function InitializeDefaultProfiles()
         profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
         profile.RoleIcon.OffsetY = 5
-        profile.RoleIcon.OffsetX = 4
+        profile.RoleIcon.OffsetX = -4
     end
 
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Long (Integrated)"] = profile
+        local profile = CreateProfile("Long (Integrated)", "Base")
+
         profile.HealthBarHeight = 35
         profile.PaddingBottom = 0
         profile.AuraTracker.Height = 17
@@ -103,12 +103,11 @@ function InitializeDefaultProfiles()
         profile.RoleIcon.AlignmentH = "LEFT"
         profile.RoleIcon.PaddingV = 0
         profile.RoleIcon.OffsetY = 6
-        profile.RoleIcon.OffsetX = 5
+        profile.RoleIcon.OffsetX = -5
     end
 
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Compact (Small)"] = profile
+        local profile = CreateProfile("Small", "Base")
 
         profile.Width = 67
         profile.HealthBarHeight = 36
@@ -165,8 +164,66 @@ function InitializeDefaultProfiles()
     end
 
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Compact"] = profile
+        local profile = CreateProfile("Very Small", "Base")
+
+        profile.Width = 50
+        profile.HealthBarHeight = 29
+        profile.NameText.FontSize = 9
+        profile.NameText.AlignmentH = "LEFT"
+        profile.NameText.AlignmentV = "TOP"
+        profile.NameText.PaddingV = 1
+        profile.NameText.OffsetX = 6
+        profile.NameText.MaxWidth = 34
+        profile.NameText.Color = "Class"
+        profile.PowerBarHeight = 5
+        profile.PaddingBottom = 0
+        profile.AuraTracker.Height = 11
+        profile.AuraTracker.Anchor = "Health Bar"
+        profile.AuraTracker.AlignmentH = "LEFT"
+        profile.TrackedAurasAlignment = "BOTTOM"
+        profile.TrackedAurasSpacing = 1
+
+        local healthTexts = profile.HealthTexts
+        healthTexts.Normal.FontSize = 8
+        healthTexts.Normal.AlignmentH = "CENTER"
+        healthTexts.Normal.AlignmentV = "CENTER"
+        healthTexts.Normal.OffsetY = 1
+
+        profile.IncomingHealDisplay = "Hidden"
+        profile.IncomingHealText.AlignmentH = "RIGHT"
+        profile.IncomingHealText.AlignmentV = "CENTER"
+        profile.IncomingHealText.OffsetY = -6
+        profile.IncomingHealText.PaddingH = 2
+        profile.IncomingHealText.FontSize = 7
+
+        profile.RangeText.AlignmentV = "CENTER"
+        profile.RangeText.OffsetY = -6
+        profile.RangeText.FontSize = 7
+        profile.LineOfSightIcon.Width = 16
+        profile.LineOfSightIcon.Height = 16
+        profile.LineOfSightIcon.Anchor = "Health Bar"
+        profile.LineOfSightIcon.Opacity = 70
+        profile.RoleIcon.Width = 10
+        profile.RoleIcon.Height = 10
+        profile.RaidMarkIcon.AlignmentH = "CENTER"
+        profile.RaidMarkIcon.PaddingV = 0
+        profile.RaidMarkIcon.OffsetY = 4
+        profile.RaidMarkIcon.Width = 10
+        profile.RaidMarkIcon.Height = 10
+        profile.HealthDisplay = "Health"
+        profile.MissingHealthDisplay = "Hidden"
+        profile.PowerDisplay = "Hidden"
+        profile.PowerText.FontSize = 8
+        profile.Orientation = "Vertical"
+    end
+
+    do
+        local profile = CreateProfile("Very Small (Horizontal)", "Very Small")
+        profile.Orientation = "Horizontal"
+    end
+
+    do
+        local profile = CreateProfile("Default", "Base")
 
         profile.Width = 100
         profile.HealthBarHeight = 36
@@ -219,8 +276,7 @@ function InitializeDefaultProfiles()
     end
 
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Compact (Short Bar)"] = profile
+        local profile = CreateProfile("Default (Short Bar)", "Base")
 
         profile.Width = 100
         profile.HealthBarHeight = 24
@@ -233,7 +289,7 @@ function InitializeDefaultProfiles()
         profile.NameText.Anchor = "Container"
         profile.PaddingTop = 12
         profile.PaddingBottom = 0
-        profile.AuraTracker.Height = 12
+        profile.AuraTracker.Height = 13
         profile.AuraTracker.Anchor = "Health Bar"
         profile.AuraTracker.AlignmentH = "LEFT"
         profile.TrackedAurasAlignment = "BOTTOM"
@@ -278,8 +334,7 @@ function InitializeDefaultProfiles()
 
     -- Legacy profile - Meant to look as close as possible to HealersMate 1.3.0
     do
-        local profile = HMUIProfile:New(GetProfile("Base"))
-        HMDefaultProfiles["Legacy"] = profile
+        local profile = CreateProfile("Legacy", "Base")
 
         profile.Width = 200
 

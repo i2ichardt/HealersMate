@@ -63,6 +63,7 @@ function HealersMateSettings.SetDefaults()
         HMOptions = {}
     end
     
+    local OPTIONS_VERSION = 2
     local isHealer = util.IsHealerClass("player")
     local isManaUser = util.ClassPowerTypes[util.GetClass("player")]
     do
@@ -82,6 +83,7 @@ function HealersMateSettings.SetDefaults()
                 ["InRaid"] = false
             },
             ["SpellsTooltip"] = {
+                ["Enabled"] = isHealer,
                 ["ShowManaCost"] = false,
                 ["ShowManaPercentCost"] = true,
                 ["HideCastsAbove"] = 3,
@@ -97,25 +99,70 @@ function HealersMateSettings.SetDefaults()
                 ["Long"] = 60 * 2 -- >2 min
             },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
-            ["ShowSpellsTooltip"] = isHealer,
             ["UseHealPredictions"] = true,
             ["SetMouseover"] = true,
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
-                ["Party"] = "Compact",
-                ["Pets"] = "Compact",
-                ["Raid"] = "Compact (Small)",
-                ["Raid Pets"] = "Compact (Small)",
+                ["Party"] = "Default",
+                ["Pets"] = "Default",
+                ["Raid"] = "Small",
+                ["Raid Pets"] = "Small",
                 ["Target"] = "Long",
-                ["Focus"] = "Compact"
+                ["Focus"] = "Default"
             },
             ["Scripts"] = {
                 ["OnLoad"] = "",
                 ["OnPostLoad"] = ""
             },
-            ["OptionsVersion"] = 1
+            ["OptionsVersion"] = OPTIONS_VERSION
         }
+
+        local optionsUpgrades = {
+            {
+                version = 2,
+                upgrade = function(self, options)
+                    local upgraded = util.CloneTable(options, true)
+                    if options["ShowSpellsTooltip"] ~= nil then
+                        if not options["SpellsTooltip"] then
+                            upgraded["SpellsTooltip"] = {}
+                        end
+                        upgraded["SpellsTooltip"]["Enabled"] = options["ShowSpellsTooltip"]
+                        upgraded["ShowSpellsTooltip"] = nil
+                    end
+                    if options["ChosenProfiles"] ~= nil then
+                        local groupNames = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+                        local changedProfileNames = {
+                            ["Compact"] = "Default",
+                            ["Compact (Small)"] = "Small",
+                            ["Compact (Short Bar)"] = "Default (Short Bar)"
+                        }
+                        for _, name in ipairs(groupNames) do
+                            local currentlySelected = options["ChosenProfiles"][name]
+                            if changedProfileNames[currentlySelected] then
+                                upgraded["ChosenProfiles"][name] = changedProfileNames[currentlySelected]
+                            end
+                        end
+                    end
+                    upgraded["OptionsVersion"] = self.version
+                    return upgraded
+                end,
+                shouldUpgrade = function(self, options)
+                    return options.OptionsVersion < self.version
+                end
+            }
+        }
+
+        if HMOptions.OptionsVersion < OPTIONS_VERSION then
+            for _, upgrade in ipairs(optionsUpgrades) do
+                if upgrade:shouldUpgrade(HMOptions) then
+                    local prevVersion = HMOptions.OptionsVersion
+                    HMOptions = upgrade:upgrade(HMOptions)
+                    DEFAULT_CHAT_FRAME:AddMessage("[HealersMate] Upgraded options from version "..
+                        prevVersion.." to "..upgrade.version)
+                end
+            end
+        end
     
         for field, value in pairs(defaults) do
             if HMOptions[field] == nil then
@@ -246,7 +293,7 @@ SpellsContext = {}
 function GetSelectedProfileName(frame)
     local selected = HMOptions.ChosenProfiles[frame]
     if not HMDefaultProfiles[selected] then
-        selected = "Compact"
+        selected = "Default"
     end
     return selected
 end
@@ -527,9 +574,9 @@ function InitSettings()
         CheckboxShowSpellsTooltip:SetPoint("LEFT", CheckboxShowSpellsTooltipLabel, "RIGHT", 5, yCheckboxOffset)
         CheckboxShowSpellsTooltip:SetWidth(20) -- width
         CheckboxShowSpellsTooltip:SetHeight(20) -- height
-        CheckboxShowSpellsTooltip:SetChecked(HMOptions.ShowSpellsTooltip)
+        CheckboxShowSpellsTooltip:SetChecked(HMOptions.SpellsTooltip.Enabled)
         CheckboxShowSpellsTooltip:SetScript("OnClick", function()
-            HMOptions.ShowSpellsTooltip = CheckboxShowSpellsTooltip:GetChecked() == 1
+            HMOptions.SpellsTooltip.Enabled = CheckboxShowSpellsTooltip:GetChecked() == 1
         end)
         ApplyTooltip(CheckboxShowSpellsTooltip, "Show the spells tooltip when hovering over frames")
     end

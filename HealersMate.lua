@@ -498,7 +498,7 @@ function GetAuraInfo(unit, type, index)
 end
 
 function ApplySpellsTooltip(attachTo, unit)
-    if not HMOptions.ShowSpellsTooltip then
+    if not HMOptions.SpellsTooltip.Enabled then
         return
     end
 
