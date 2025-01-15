@@ -614,17 +614,20 @@ local AURA_DURATION_TEXT_LOW_THRESHOLD = 30
 -- A map of all seconds below the flash threshold to an array of colors to interpolate
 local durationTextFlashColorsRange
 if util.IsSuperWowPresent() then
-    local flashColorReset = {1, 0.9, 0.9} -- the color the interpolation will move towards as the second progresses
-    local flashColorIntense = {1, 0.3, 0.3} -- 0 seconds will be this color
-    local flashColorLight = {1, 0.7, 0.7} -- start of threshold will be this color
+    local flashColorsReset = {{1, 1, 0.75}, {1, 0.7, 0.55}, {1, 0.6, 0.6}}
+    local flashColors = {{1, 1, 0.25}, {1, 0.6, 0.35}, {1, 0.4, 0.4}}
+
     local textFlashColors = {}
     for i = 0, AURA_DURATION_TEXT_FLASH_THRESHOLD + 1 do
-        textFlashColors[i] = util.InterpolateColors({flashColorLight, flashColorIntense}, 
+        textFlashColors[i] = {}
+        textFlashColors[i][1] = util.InterpolateColors(flashColors, 
             (AURA_DURATION_TEXT_FLASH_THRESHOLD - i) / AURA_DURATION_TEXT_FLASH_THRESHOLD)
+        textFlashColors[i][2] = util.InterpolateColors(flashColorsReset, 
+        (AURA_DURATION_TEXT_FLASH_THRESHOLD - i) / AURA_DURATION_TEXT_FLASH_THRESHOLD)
     end
     durationTextFlashColorsRange = {}
-    for seconds, color in pairs(textFlashColors) do
-        durationTextFlashColorsRange[seconds] = {flashColorReset, color}
+    for seconds, colors in pairs(textFlashColors) do
+        durationTextFlashColorsRange[seconds] = {colors[2], colors[1]}
     end
 end
 function HMUnitFrame:AllocateAura()
