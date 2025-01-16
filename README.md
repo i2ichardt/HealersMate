@@ -54,7 +54,7 @@ HealersMate will display buffs and debuffs relevant to you, as well as color hea
 
 ### Not Just For Healers
 
-While HealersMate is made with a healers-first mentality, HealersMate can be a viable option for raid frames for non-healers or dispellers.
+While HealersMate is made with a healers-first mentality, it can be a viable option for raid frames for non-healers or dispellers.
 
 ### Still In Development
 
