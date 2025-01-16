@@ -1080,7 +1080,7 @@ function InitSettings()
                     group.uis = {}
                     group:ResetFrameLevel() -- Need to lower frame or the added UIs are somehow under it
                     for unit, ui in pairs(oldUIs) do
-                        HealersMate.hmprint(unit)
+                        --HealersMate.hmprint(unit)
                         ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
                         ui:GetRootContainer():Hide()

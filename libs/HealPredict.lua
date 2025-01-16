@@ -255,16 +255,16 @@ function UpdateCache(heal, name)
 
     if not PRAYER_OF_HEALING_IDS[spellID] then
         if lastCastedSpell["target"] == "" then
-            hmprint(colorize("Don't have a target of spell cast for "..name.."'s "..spellID, 1, 0, 0))
+            --hmprint(colorize("Don't have a target of spell cast for "..name.."'s "..spellID, 1, 0, 0))
             return
         end
         local cache = HMUnit.Get(lastCastedSpell["target"])
         if not cache or cache == HMUnit then
-            hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
+            --hmprint(colorize("Could not find "..name.."'s unit while updating cache!", 1, 0, 0))
             return
         end
         if cache.HasHealingModifier then
-            hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
+            --hmprint(colorize("Not updating cache for "..name.."'s "..spellID.." because of healing modifier", 0.5, 0.5, 0.5))
             return
         end
     end
