@@ -1,50 +1,70 @@
-HealUI = {}
+HMUnitFrame = {}
 
-HealUI.owningGroup = nil
+HMUnitFrame.owningGroup = nil
 
-HealUI.unit = nil
+HMUnitFrame.unit = nil
+HMUnitFrame.isCustomUnit = false
+HMUnitFrame.guidUnit = nil -- Used for custom units
 
-HealUI.rootContainer = nil -- Contains the main container and the overlay
-HealUI.overlayContainer = nil -- Contains elements that should not be affected by opacity
-HealUI.container = nil -- Most elements are contained in this
-HealUI.nameText = nil
-HealUI.healthBar = nil
-HealUI.incomingHealthBar = nil
-HealUI.healthText = nil
-HealUI.missingHealthText = nil
-HealUI.incomingHealText = nil
-HealUI.powerBar = nil
-HealUI.powerText = nil
-HealUI.roleIcon = nil
-HealUI.button = nil
-HealUI.auraPanel = nil
-HealUI.scrollingDamageFrame = nil -- Unimplemented
-HealUI.scrollingHealFrame = nil -- Unimplemented
-HealUI.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
-HealUI.auraIcons = {} -- map: {"frame", "icon", "stackText"}
+HMUnitFrame.rootContainer = nil -- Contains the main container and the overlay
+HMUnitFrame.overlayContainer = nil -- Contains elements that should not be affected by opacity
+HMUnitFrame.container = nil -- Most elements are contained in this
+HMUnitFrame.nameText = nil
+HMUnitFrame.healthBar = nil
+HMUnitFrame.incomingHealthBar = nil
+HMUnitFrame.incomingDirectHealthBar = nil
+HMUnitFrame.healthText = nil
+HMUnitFrame.missingHealthText = nil
+HMUnitFrame.incomingHealText = nil
+HMUnitFrame.powerBar = nil
+HMUnitFrame.powerText = nil
+HMUnitFrame.roleIcon = nil
+HMUnitFrame.button = nil
+HMUnitFrame.auraPanel = nil
+HMUnitFrame.scrollingDamageFrame = nil -- Unimplemented
+HMUnitFrame.scrollingHealFrame = nil -- Unimplemented
+HMUnitFrame.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
+HMUnitFrame.auraIcons = {} -- map: {"frame", "icon", "stackText"}
 
-HealUI.incomingHealing = 0
+HMUnitFrame.targetOutline = nil
 
-HealUI.hovered = false
-HealUI.pressed = false
+HMUnitFrame.targeted = false
 
-HealUI.distanceText = nil
-HealUI.lineOfSightIcon = nil -- map: {"frame", "icon"}
+HMUnitFrame.flashTexture = nil -- {"frame", "texture"}
+HMUnitFrame.flashTime = 0
+HMUnitFrame.lastHealthPercent = 0
 
-HealUI.inRange = true
-HealUI.distance = 0
-HealUI.inSight = true
+HMUnitFrame.incomingHealing = 0
+HMUnitFrame.incomingDirectHealing = 0
 
-HealUI.fakeStats = {} -- Used for displaying a fake party/raid
+HMUnitFrame.hovered = false
+HMUnitFrame.pressed = false
+
+HMUnitFrame.distanceText = nil
+HMUnitFrame.lineOfSightIcon = nil -- map: {"frame", "icon"}
+
+HMUnitFrame.inRange = true
+HMUnitFrame.distance = 0
+HMUnitFrame.inSight = true
+
+HMUnitFrame.fakeStats = {} -- Used for displaying a fake party/raid
+
+local _G = getfenv(0)
+if HMUtil.IsSuperWowPresent() then
+    setmetatable(HMUnitProxy, {__index = getfenv(1)})
+    setfenv(1, HMUnitProxy)
+end
 
 -- Singleton references, assigned in constructor
 local HM
-local util
+local util = HMUtil
 
-function HealUI:New(unit)
+local compost = AceLibrary("Compost-2.0")
+
+function HMUnitFrame:New(unit, isCustomUnit)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
-    util = HMUtil
-    local obj = {unit = unit, auraIconPool = {}, auraIcons = {}, fakeStats = HealUI.GenerateFakeStats()}
+    local obj = {unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, 
+        auraIcons = {}, fakeStats = HMUnitFrame.GenerateFakeStats()}
     setmetatable(obj, self)
     self.__index = self
     return obj
@@ -60,7 +80,7 @@ local fakeNames = {"Leeroyjenkins", "Realsigred", "Appledog", "Exdraclespy", "Di
     "Erazergus", "Scarlatina", "Holdrim", "Soulbane", "Debilitated", "Doorooid", "Palefire", "Tellarna", 
     "Breathofwing", "Chillaf", "Hulena", "Hyperiann", "Bluebeam", "Daevana", "Adriena", "Aeywynn", "Bluaa", 
     "Chadd", "Leutry", "Mouzer", "Qiner"}
-function HealUI.GenerateFakeStats()
+function HMUnitFrame.GenerateFakeStats()
 
     local name = fakeNames[math.random(table.getn(fakeNames))]
 
@@ -90,6 +110,11 @@ function HealUI.GenerateFakeStats()
         end
     end
 
+    local raidMark
+    if math.random(10) == 1 then
+        raidMark = math.random(8)
+    end
+
     local online = not (math.random(12) == 1)
 
     local fakeStats = {
@@ -100,46 +125,51 @@ function HealUI.GenerateFakeStats()
         currentPower = currentPower,
         maxPower = maxPower,
         debuffType = debuffType,
+        raidMark = raidMark,
         online = online}
     return fakeStats
 end
 
-function HealUI:GetUnit()
+function HMUnitFrame:GetUnit()
     return self.unit
 end
 
-function HealUI:GetRootContainer()
+function HMUnitFrame:GetResolvedUnit()
+    return not self.isCustomUnit and self.unit or self.guidUnit
+end
+
+function HMUnitFrame:GetRootContainer()
     return self.rootContainer
 end
 
-function HealUI:GetContainer()
+function HMUnitFrame:GetContainer()
     return self.container
 end
 
-function HealUI:Show()
+function HMUnitFrame:Show()
     self.container:Show()
     self.rootContainer:Show()
     self:UpdateAll()
 end
 
-function HealUI:Hide()
+function HMUnitFrame:Hide()
     if not self:IsFake() then
         self.container:Hide()
         self.rootContainer:Hide()
     end
 end
 
-function HealUI:IsShown()
+function HMUnitFrame:IsShown()
     return self.rootContainer:IsShown()
 end
 
-function HealUI:SetOwningGroup(group)
+function HMUnitFrame:SetOwningGroup(group)
     self.owningGroup = group
     self:Initialize()
     self:GetRootContainer():SetParent(group:GetContainer())
 end
 
-function HealUI:RegisterClicks()
+function HMUnitFrame:RegisterClicks()
     local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     self.button:RegisterForClicks(unpack(buttons))
     for _, aura in ipairs(self.auraIcons) do
@@ -150,20 +180,21 @@ function HealUI:RegisterClicks()
     end
 end
 
-function HealUI:UpdateAll()
+function HMUnitFrame:UpdateAll()
     self:UpdateAuras()
     self:UpdateHealth()
     self:UpdatePower()
+    self:UpdateRange()
+    self:UpdateSight()
+    self:EvaluateTarget()
+    self:UpdateOutline()
+    self:UpdateRaidMark()
 end
 
-function HealUI:CheckRange(dist)
-    local unit = self.unit
-    if not dist then
-        dist = util.GetDistanceTo(unit)
-    end
-    self.distance = dist
+function HMUnitFrame:UpdateRange()
     local wasInRange = self.inRange
-    self.inRange = dist <= 40
+    self.distance = self:GetCache():GetDistance()
+    self.inRange = self.distance <= 40
     if wasInRange ~= self.inRange then
         self:UpdateOpacity()
     end
@@ -171,12 +202,12 @@ function HealUI:CheckRange(dist)
     self:UpdateRangeText()
 end
 
-function HealUI:CheckSight()
-    self.inSight = util.IsInSight(self.unit)
+function HMUnitFrame:UpdateSight()
+    self.inSight = self:GetCache():IsInSight()
     local frame = self.lineOfSightIcon.frame
     if frame:IsShown() ~= self.inSight then
         local dist = math.ceil(self.distance)
-        if not self.inSight and dist < 80 then
+        if not self.inSight and (dist < 80 or UnitIsUnit(self.unit, "target")) then
             frame:Show()
         else
             frame:Hide()
@@ -184,26 +215,35 @@ function HealUI:CheckSight()
     end
 end
 
-function HealUI:UpdateRangeText()
+local preciseDistance = util.CanClientGetPreciseDistance()
+function HMUnitFrame:UpdateRangeText()
     local dist = math.ceil(self.distance)
     local distanceText = self.distanceText
     local text = ""
-    if dist >= 30 and dist < 100 then
-        local color
-        if dist <= 40 then
-            color = {1, 0.6, 0}
+    if dist >= (preciseDistance and 30 or 28) and dist < 9999 then
+        local r, g, b
+        if dist > 80 then
+            r, g, b = 0.75, 0.75, 0.75
+        elseif dist > 40 then
+            r, g, b = 1, 0.3, 0.3
         else
-            color = {1, 0.3, 0.3}
+            r, g, b = 1, 0.6, 0
         end
 
-        text = text..util.Colorize(dist.." yd", color)
-    elseif dist >= 100 and dist < 9999 then
-        text = text..util.Colorize("99+ yd", {1, 0.3, 0.3})
+        if preciseDistance then
+            text = text..util.Colorize(dist.." yd", r, g, b)
+        else
+            if dist < 28 then
+                text = text..util.Colorize("<"..dist.." yd", r, g, b)
+            else
+                text = text..util.Colorize("28+ yd", r, g, b)
+            end
+        end
     end
     distanceText:SetText(text)
 end
 
-function HealUI:UpdateOpacity()
+function HMUnitFrame:UpdateOpacity()
     local profile = self:GetProfile()
     
     local alpha = 1
@@ -217,7 +257,121 @@ function HealUI:UpdateOpacity()
     self.container:SetAlpha(alpha)
 end
 
-function HealUI:GetCurrentHealth()
+-- Evaluate if the unit of this frame is the target and update the target outline if the state has changed
+function HMUnitFrame:EvaluateTarget()
+    if self.unit == "target" then -- "target" frames should not show a border since it's obvious they're the target
+        return
+    end
+    local wasTargeted = self.targeted
+    self.targeted = UnitIsUnit(self.unit, "target")
+    if self.targeted ~= wasTargeted then
+        self:UpdateOutline()
+    end
+end
+
+function HMUnitFrame:UpdateOutline()
+    local aggro = self:HasAggro()
+    local targeted = self.targeted
+
+    local r, g, b
+    if aggro and targeted then
+        r, g, b  = 1, 0.6, 0.5
+    elseif aggro then
+        r, g, b = 1, 0, 0
+    elseif targeted then
+        r, g, b = 1, 1, 0.85
+    end
+
+    self:SetOutlineColor(r, g, b)
+end
+
+function HMUnitFrame:SetOutlineColor(r, g, b)
+    if r then
+        self.targetOutline:Show()
+        self.targetOutline:SetBackdropBorderColor(r, g, b, 0.75)
+    else
+        self.targetOutline:Hide()
+    end
+end
+
+function HMUnitFrame:UpdateRaidMark()
+    local unit = self:GetResolvedUnit()
+    local fake = self:IsFake()
+    if not unit and not fake then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+
+    if unit == "target" and not UnitExists("target") then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+
+    local markIndex
+    if fake then
+        markIndex = self.fakeStats.raidMark
+    else
+        markIndex = GetRaidTargetIndex(unit)
+    end
+    if not markIndex then
+        self.raidMarkIcon.frame:Hide()
+        return
+    end
+    SetRaidTargetIconTexture(self.raidMarkIcon.icon, markIndex)
+    self.raidMarkIcon.frame:Show()
+end
+
+function HMUnitFrame:Flash()
+    local FLASH_TIME = 0.15
+    local START_OPACITY = self:GetProfile().FlashOpacity / 100
+
+    self.flashTime = FLASH_TIME
+    local frame = self.flashTexture.frame
+    frame:Show()
+    frame:SetAlpha(START_OPACITY)
+
+    frame.flashTime = FLASH_TIME
+    frame.startOpacity = START_OPACITY
+
+    if not frame:GetScript("OnUpdate") then
+        frame:SetScript("OnUpdate", HMUnitFrame.Flash_OnUpdate)
+    end
+end
+
+do
+    function HMUnitFrame.Flash_OnUpdate()
+        local frame = this
+        local self = frame.unitFrame
+        local FLASH_TIME = frame.flashTime
+        local START_OPACITY = frame.startOpacity
+        self.flashTime = self.flashTime - arg1
+        frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
+
+        if self.flashTime <= 0 then
+            frame:Hide()
+            frame:SetScript("OnUpdate", nil)
+        end
+    end
+end
+
+-- If direct healing is nil, it will be assumed that all the incoming healing is direct healing
+function HMUnitFrame:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+    self.incomingHealing = incomingHealing
+    self.incomingDirectHealing = incomingDirectHealing or incomingHealing
+    self:UpdateHealth()
+end
+
+function HMUnitFrame:UpdateIncomingHealing()
+    if HMHealPredict then
+        local _, guid = UnitExists(self:GetUnit())
+        self:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+    else
+        local name = UnitName(self:GetUnit())
+        self:SetIncomingHealing(HealersMate.HealComm:getHeal(name))
+    end
+end
+
+function HMUnitFrame:GetCurrentHealth()
     if self:IsFake() then
         if not self.fakeStats.online then
             return 0
@@ -227,28 +381,28 @@ function HealUI:GetCurrentHealth()
     return UnitHealth(self.unit)
 end
 
-function HealUI:GetMaxHealth()
+function HMUnitFrame:GetMaxHealth()
     if self:IsFake() then
         return self.fakeStats.maxHealth
     end
     return UnitHealthMax(self.unit)
 end
 
-function HealUI:GetCurrentPower()
+function HMUnitFrame:GetCurrentPower()
     if self:IsFake() then
         return self.fakeStats.currentPower
     end
     return UnitMana(self.unit)
 end
 
-function HealUI:GetMaxPower()
+function HMUnitFrame:GetMaxPower()
     if self:IsFake() then
         return self.fakeStats.maxPower
     end
     return UnitManaMax(self.unit)
 end
 
-function HealUI:ShouldShowMissingHealth()
+function HMUnitFrame:ShouldShowMissingHealth()
     local profile = self:GetProfile()
     local currentHealth = self:GetCurrentHealth()
     if currentHealth == 0 then
@@ -256,10 +410,11 @@ function HealUI:ShouldShowMissingHealth()
     end
     local missingHealth = self:GetMaxHealth() - currentHealth
     return (missingHealth > 0 or profile.AlwaysShowMissingHealth) and profile.MissingHealthDisplay ~= "Hidden" 
-                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) and not UnitIsGhost(self.unit)
+                and (profile.ShowEnemyMissingHealth or not self:IsEnemy()) 
+                and not UnitIsGhost(self.unit) and (UnitIsConnected(self.unit) or self:IsFake())
 end
 
-function HealUI.GetColorizedText(color, class, theText)
+function HMUnitFrame.GetColorizedText(color, class, theText)
     local text = ""
     if color == "Class" then
         local r, g, b = util.GetClassColor(class)
@@ -276,9 +431,20 @@ function HealUI.GetColorizedText(color, class, theText)
     return text
 end
 
-function HealUI:UpdateHealth()
+function HMUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
+        if self.isCustomUnit or self.unit == "target" then
+            self.healthText:SetText(util.Colorize(self.unit ~= "target" and "Too Far" or "", 0.7, 0.7, 0.7))
+            self.missingHealthText:SetText("")
+            self.healthBar:SetValue(0)
+            self.powerBar:SetValue(0)
+            self:UpdateOpacity()
+            self:AdjustHealthPosition()
+        end
+        if self.unit == "target" then
+            self.nameText:SetText("")
+        end
         return
     end
     local profile = self:GetProfile()
@@ -323,11 +489,21 @@ function HealUI:UpdateHealth()
 
     -- Set Health Status
     if currentHealth <= 0 then -- Unit Dead
-
-        local text = util.Colorize("DEAD", 1, 0.3, 0.3)
+        local cache = self:GetCache()
+        local text
+        if cache:IsBeingResurrected() then
+            if cache:GetResurrectionCasts() > 1 then
+                text = util.Colorize("DEAD", 0.8, 1, 0.8)
+            else
+                text = util.Colorize("DEAD", 0.3, 1, 0.3)
+            end
+        else
+            text = util.Colorize("DEAD", 1, 0.3, 0.3)
+        end
 
         -- Check for Feign Death so the healer doesn't get alarmed
-        if util.IsFeigning(unit) then
+        local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
+        if feign then
             text = "Feign"
         end
 
@@ -335,6 +511,12 @@ function HealUI:UpdateHealth()
         missingHealthText:SetText("")
         self.healthBar:SetValue(0)
         self.powerBar:SetValue(0)
+        if self.lastHealthPercent > 0 and not self:IsEnemy() then
+            if not feign then
+                self:Flash()
+            end
+            self.lastHealthPercent = 0
+        end
     elseif UnitIsGhost(unit) then
         healthText:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
         missingHealthText:SetText("")
@@ -378,13 +560,23 @@ function HealUI:UpdateHealth()
         missingHealthText:SetText(missingText)
 
         self.healthBar:SetValue(currentHealth / maxHealth)
+
+        local healthPercent = (currentHealth / maxHealth) * 100
+        if healthPercent < self.lastHealthPercent - profile.FlashThreshold and not self:IsEnemy() then
+            self:Flash()
+        end
+        self.lastHealthPercent = healthPercent
+
+        if self:GetCache():HasBuffIDOrName(27827, "Spirit of Redemption") then
+            healthText:SetText(util.Colorize("Spirit", 1, 0.3, 0.3))
+        end
     end
 
     self:UpdateOpacity()
     self:AdjustHealthPosition()
 end
 
-function HealUI:UpdatePower()
+function HMUnitFrame:UpdatePower()
     local profile = self:GetProfile()
     local unit = self.unit
     local powerBar = self.powerBar
@@ -393,11 +585,13 @@ function HealUI:UpdatePower()
     local currentPower = self:GetCurrentPower()
     local maxPower = self:GetMaxPower()
 
-    if class == nil then
+    if not UnitExists(self.unit) and not fake then
+        powerBar:SetValue(0)
+        self.powerText:SetText("")
         return
     end
     
-    local powerColor = fake and util.PowerColors[util.ClassPowerTypes[class]] or util.GetPowerColor(unit)
+    local powerColor = fake and util.PowerColors[util.ClassPowerTypes[class or "WARRIOR"]] or util.GetPowerColor(unit)
 
     powerBar:SetValue(currentPower / maxPower)
     powerBar:SetStatusBarColor(powerColor[1], powerColor[2], powerColor[3])
@@ -415,23 +609,115 @@ function HealUI:UpdatePower()
     self.powerText:SetText(text)
 end
 
-function HealUI:AllocateAura()
+local AURA_DURATION_TEXT_FLASH_THRESHOLD = 5
+local AURA_DURATION_TEXT_LOW_THRESHOLD = 30
+-- A map of all seconds below the flash threshold to an array of colors to interpolate
+local durationTextFlashColorsRange
+if util.IsSuperWowPresent() then
+    local flashColorsReset = {{1, 1, 0.75}, {1, 0.7, 0.55}, {1, 0.6, 0.6}}
+    local flashColors = {{1, 1, 0.25}, {1, 0.6, 0.35}, {1, 0.4, 0.4}}
+
+    local textFlashColors = {}
+    for i = 0, AURA_DURATION_TEXT_FLASH_THRESHOLD + 1 do
+        textFlashColors[i] = {}
+        textFlashColors[i][1] = util.InterpolateColors(flashColors, 
+            (AURA_DURATION_TEXT_FLASH_THRESHOLD - i) / AURA_DURATION_TEXT_FLASH_THRESHOLD)
+        textFlashColors[i][2] = util.InterpolateColors(flashColorsReset, 
+        (AURA_DURATION_TEXT_FLASH_THRESHOLD - i) / AURA_DURATION_TEXT_FLASH_THRESHOLD)
+    end
+    durationTextFlashColorsRange = {}
+    for seconds, colors in pairs(textFlashColors) do
+        durationTextFlashColorsRange[seconds] = {colors[2], colors[1]}
+    end
+end
+function HMUnitFrame:AllocateAura()
     local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
+    frame.unitFrame = self
     frame:SetNormalTexture(nil)
     frame:SetHighlightTexture(nil)
     frame:SetPushedTexture(nil)
     local buttons = HMOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     frame:RegisterForClicks(unpack(buttons))
     frame:EnableMouse(true)
+
+    frame:SetScript("OnEnter", HMUnitFrame.Aura_OnEnter)
+    frame:SetScript("OnLeave", HMUnitFrame.Aura_OnLeave)
+    frame:SetScript("OnClick", HMUnitFrame.Aura_OnClick)
+    frame:SetScript("OnMouseUp", HMUnitFrame.Aura_OnMouseUp)
+    frame:SetScript("OnMouseDown", HMUnitFrame.Aura_OnMouseDown)
     
     local icon = frame:CreateTexture(nil, "OVERLAY")
     local stackText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     stackText:SetTextColor(1, 1, 1)
+
+    -- Duration display, only used when SuperWoW is present
+    if util.IsSuperWowPresent() then
+        local duration = CreateFrame("Model", nil, frame, "CooldownFrameTemplate")
+        duration.noCooldownCount = true
+        duration:SetAlpha(0.8)
+        local durationOverlayFrame = CreateFrame("Frame", nil, frame)
+        durationOverlayFrame:SetFrameLevel(durationOverlayFrame:GetFrameLevel() + 1)
+        local durationText = durationOverlayFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        durationText:SetPoint("BOTTOMLEFT", durationOverlayFrame, "BOTTOMLEFT", 0, 0)
+        durationText.SetSeconds = function(self, seconds)
+            self.seconds = seconds
+            if seconds == nil then
+                self:SetText("")
+                return
+            end
+            self:SetText(seconds <= 60 and seconds or math.ceil(seconds / 60).."m")
+            self:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(frame:GetHeight() * 
+                (seconds < 540 and (seconds < 10 and 0.6 or 0.45) or 0.35)), "OUTLINE")
+        end
+        duration.UpdateText = function()
+            local seconds = duration.seconds
+            local secondsPrecise = duration.secondsPrecise
+            durationText:SetSeconds(seconds)
+            if seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
+                durationText:SetTextColor(
+                    util.InterpolateColorsNoTable(durationTextFlashColorsRange[seconds], 
+                    secondsPrecise - seconds))
+            elseif seconds <= AURA_DURATION_TEXT_LOW_THRESHOLD then
+                durationText:SetTextColor(1, 1, 0.25)
+            else
+                durationText:SetTextColor(1, 1, 1)
+            end
+            duration:SetScript("OnUpdate", nil)
+        end
+        duration:SetScript("OnUpdateModel", function()
+            if this.stopping == 0 then
+                this:SetAlpha(0.8)
+                local time = GetTime()
+                local progress = (time - this.start) / this.duration
+                if progress < 1.0 then
+                    this:SetSequenceTime(0, 1000 - (progress * 1000))
+                    local secondsPrecise = this.start - time + this.duration
+                    local seconds = math.floor(secondsPrecise)
+                    if seconds <= (this.displayAt and this.displayAt or AURA_DURATION_TEXT_FLASH_THRESHOLD) then
+                        if durationText.seconds ~= seconds or seconds <= AURA_DURATION_TEXT_FLASH_THRESHOLD then
+                            -- You don't want to know why it's gotta be done like this..
+                            -- (If you're insane and you do, it's because otherwise the text will disappear for one frame otherwise)
+                            duration.seconds = seconds
+                            duration.secondsPrecise = secondsPrecise
+                            duration:SetScript("OnUpdate", duration.UpdateText)
+                        end
+                    elseif durationText.seconds ~= nil then
+                        durationText:SetSeconds(nil)
+                    end
+                    return
+                end
+                durationText:SetSeconds(nil)
+                this:SetSequenceTime(0, 0)
+            end
+        end)
+        return {["frame"] = frame, ["icon"] = icon, ["stackText"] = stackText, ["overlay"] = durationOverlayFrame, 
+            ["durationText"] = durationText, ["duration"] = duration, ["durationEnabled"] = true}
+    end
     return {["frame"] = frame, ["icon"] = icon, ["stackText"] = stackText}
 end
 
 -- Get an icon from the available pool. Automatically inserts into the used pool.
-function HealUI:GetUnusedAura()
+function HMUnitFrame:GetUnusedAura()
     local aura
     if table.getn(self.auraIconPool) > 0 then
         aura = table.remove(self.auraIconPool, table.getn(self.auraIconPool))
@@ -443,18 +729,13 @@ function HealUI:GetUnusedAura()
     return aura
 end
 
-function HealUI:ReleaseAuras()
+function HMUnitFrame:ReleaseAuras()
     if table.getn(self.auraIcons) == 0 then
         return
     end
     -- Release all icons back to the icon pool
     for _, aura in ipairs(self.auraIcons) do
         local frame = aura.frame
-        frame:SetScript("OnEnter", nil)
-        frame:SetScript("OnLeave", nil)
-        frame:SetScript("OnClick", nil)
-        frame:SetScript("OnMouseUp", nil)
-        frame:SetScript("OnMouseDown", nil)
         frame:Hide()
         frame:ClearAllPoints()
 
@@ -465,27 +746,42 @@ function HealUI:ReleaseAuras()
         stackText:ClearAllPoints()
         stackText:SetText("")
 
+        if aura.durationEnabled then
+            aura.durationText:SetSeconds(nil)
+            CooldownFrame_SetTimer(aura.duration, 0, 0, 0)
+        end
+
         table.insert(self.auraIconPool, aura)
     end
-    self.auraIcons = {} -- Allocating new table instead of clearing, might be a mistake?
+    self.auraIcons = compost:Erase(self.auraIcons)
 end
 
-function HealUI:UpdateAuras()
+do
+    local trackedBuffs = HealersMateSettings.TrackedBuffs
+    function HMUnitFrame.BuffSorter(a, b)
+        return trackedBuffs[a.name] < trackedBuffs[b.name]
+    end
+end
+
+do
+    local trackedDebuffs = HealersMateSettings.TrackedDebuffs
+    function HMUnitFrame.DebuffSorter(a, b)
+        return trackedDebuffs[a.name] < trackedDebuffs[b.name]
+    end
+end
+
+function HMUnitFrame:UpdateAuras()
     local profile = self:GetProfile()
     local unit = self.unit
     local enemy = self:IsEnemy()
 
     self:ReleaseAuras()
 
-    if not UnitExists(unit) then
-        return
-    end
-
     local cache = self:GetCache()
     
     local trackedBuffs = HealersMateSettings.TrackedBuffs
 
-    local buffs = {} -- Buffs that are tracked because of matching name
+    local buffs = compost:GetTable() -- Buffs that are tracked because of matching name
     for name, array in pairs(cache.BuffsMap) do
         if trackedBuffs[name] or enemy then
             util.AppendArrayElements(buffs, array)
@@ -493,17 +789,15 @@ function HealUI:UpdateAuras()
     end
 
     if not enemy then
-        table.sort(buffs, function(a, b)
-            return trackedBuffs[a.name] < trackedBuffs[b.name]
-        end)
+        table.sort(buffs, self.BuffSorter)
     end
     
 
     local trackedDebuffs = HealersMateSettings.TrackedDebuffs
     local trackedDebuffTypes = HealersMateSettings.TrackedDebuffTypesSet
 
-    local debuffs = {} -- Debuffs that are tracked because of matching name, later combined with typed debuffs
-    local typedDebuffs = {} -- Debuffs that are tracked because it's a tracked type (like "Magic" or "Disease")
+    local debuffs = compost:GetTable() -- Debuffs that are tracked because of matching name, later combined with typed debuffs
+    local typedDebuffs = compost:GetTable() -- Debuffs that are tracked because it's a tracked type (like "Magic" or "Disease")
     for name, array in pairs(cache.DebuffsMap) do
         if trackedDebuffs[name] or enemy then
             util.AppendArrayElements(debuffs, array)
@@ -518,9 +812,7 @@ function HealUI:UpdateAuras()
     end
 
     if not enemy then
-        table.sort(debuffs, function(a, b)
-            return trackedDebuffs[a.name] < trackedDebuffs[b.name]
-        end)
+        table.sort(debuffs, self.DebuffSorter)
         util.AppendArrayElements(debuffs, typedDebuffs)
     end
 
@@ -542,15 +834,18 @@ function HealUI:UpdateAuras()
     local yOffset = profile.TrackedAurasAlignment == "TOP" and 0 or origSize - auraSize
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.index, buff.texture, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
+        self:CreateAura(aura, buff.name, buff.index, buff.texture, buff.stacks, xOffset, -yOffset, "Buff", auraSize)
         xOffset = xOffset + auraSize + spacing
     end
     xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
+        self:CreateAura(aura, debuff.name, debuff.index, debuff.texture, debuff.stacks, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
     end
+    compost:Reclaim(buffs)
+    compost:Reclaim(debuffs)
+    compost:Reclaim(typedDebuffs)
 
     -- Prevent lingering tooltips when the icon is removed or is changed to a different aura
     if not HM.GameTooltip.OwningFrame or not HM.GameTooltip.OwningFrame:IsShown() or 
@@ -559,61 +854,92 @@ function HealUI:UpdateAuras()
     end
 end
 
-function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, type, size)
-    local unit = self.unit
 
+function HMUnitFrame.Aura_OnEnter()
+    local self = this.unitFrame
+    local aura = this.aura
+    local index = this.auraIndex
+    local type = this.auraType
+
+    local tooltip = HM.GameTooltip
+    local cache = self:GetCache()
+    tooltip:SetOwner(this, "ANCHOR_BOTTOMLEFT")
+    tooltip.OwningFrame = this
+    tooltip.OwningIcon = aura.icon
+    local unit = self:GetResolvedUnit()
+    if type == "Buff" then
+        tooltip.IconTexture = cache.Buffs[index].texture
+        tooltip:SetUnitBuff(unit, index)
+    else
+        tooltip.IconTexture = cache.Debuffs[index].texture
+        tooltip:SetUnitDebuff(unit, index)
+    end
+    local auraTime = cache.AuraTimes[(type == "Buff" and cache.Buffs[index] or cache.Debuffs[index]).name]
+    if auraTime then
+        local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
+        if seconds < 60 then
+            tooltip:AddLine(seconds.." second"..(seconds ~= 1 and "s" or "").." remaining")
+        else
+            tooltip:AddLine(math.ceil(seconds / 60).." minutes remaining")
+        end
+    end
+    tooltip:Show()
+
+    if MouseIsOver(self.button) then
+        self.button:GetScript("OnEnter")()
+    end
+end
+
+function HMUnitFrame.Aura_OnLeave()
+    HM.GameTooltip:Hide()
+    HM.GameTooltip.OwningFrame = nil
+    HM.GameTooltip.OwningIcon = nil
+    HM.GameTooltip.IconTexture = nil
+    -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
+    this.unitFrame.button:GetScript("OnLeave")()
+end
+
+do
+    local wrapButtonScript = function(scriptName)
+        return function()
+            local self = this.unitFrame
+            if MouseIsOver(self.button) then
+                self.button:GetScript(scriptName)()
+            end
+        end
+    end
+
+    HMUnitFrame.Aura_OnClick = wrapButtonScript("OnClick")
+
+    HMUnitFrame.Aura_OnMouseUp = wrapButtonScript("OnMouseUp")
+
+    HMUnitFrame.Aura_OnMouseDown = wrapButtonScript("OnMouseDown")
+end
+
+function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset, yOffset, type, size)
     local frame = aura.frame
     frame:SetWidth(size)
     frame:SetHeight(size)
     frame:SetPoint(type == "Buff" and "TOPLEFT" or "TOPRIGHT", xOffset, yOffset)
     frame:Show()
+    frame.unitFrame = self
+    frame.aura = aura
+    frame.auraIndex = index
+    frame.auraType = type
 
     local icon = aura.icon
     icon:SetAllPoints(frame)
     icon:SetTexture(texturePath)
     --icon:SetVertexColor(1, 0, 0)
 
-    -- Creates a function that checks if the mouse is over the UI's button and calls the script if so
-    local wrapScript = function(scriptName)
-        return function()
-            if MouseIsOver(self.button) then
-                self.button:GetScript(scriptName)()
-            end
-        end
+    if aura.durationEnabled then
+        local overlay = aura.overlay
+        overlay:SetAllPoints()
+
+        local duration = aura.duration
+        duration:SetAllPoints()
+        duration:SetScale(size * 0.0275)
     end
-    
-    frame:SetScript("OnEnter", function()
-        local tooltip = HM.GameTooltip
-        local cache = self:GetCache()
-        tooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
-        tooltip.OwningFrame = frame
-        tooltip.OwningIcon = icon
-        if type == "Buff" then
-            tooltip.IconTexture = cache.Buffs[index].texture
-            tooltip:SetUnitBuff(unit, index)
-        else
-            tooltip.IconTexture = cache.Debuffs[index].texture
-            tooltip:SetUnitDebuff(unit, index)
-        end
-        tooltip:Show()
-
-        wrapScript("OnEnter")()
-    end)
-    
-    frame:SetScript("OnLeave", function()
-        HM.GameTooltip:Hide()
-        HM.GameTooltip.OwningFrame = nil
-        HM.GameTooltip.OwningIcon = nil
-        HM.GameTooltip.IconTexture = nil
-        -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
-        self.button:GetScript("OnLeave")()
-    end)
-
-    frame:SetScript("OnClick", wrapScript("OnClick"))
-
-    frame:SetScript("OnMouseUp", wrapScript("OnMouseUp"))
-
-    frame:SetScript("OnMouseDown", wrapScript("OnMouseDown"))
     
     if stacks > 1 then
         local stackText = aura.stackText
@@ -621,13 +947,37 @@ function HealUI:CreateAura(aura, index, texturePath, stacks, xOffset, yOffset, t
         stackText:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(size * (stacks < 10 and 0.75 or 0.6)))
         stackText:SetText(stacks)
     end
+
+    if aura.durationEnabled then
+        local cache = self:GetCache()
+        if cache.AuraTimes[name] then
+            local debuffTime = cache.AuraTimes[name]
+            local start = debuffTime["startTime"]
+            local duration = debuffTime["duration"]
+            local durationUI = aura.duration
+
+            CooldownFrame_SetTimer(durationUI, start, duration, 1)
+
+            if duration < 60 then
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Short
+            elseif duration <= 60 * 2 then
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Medium
+            else
+                durationUI.displayAt = HMOptions.ShowAuraTimesAt.Long
+            end
+
+            -- To prevent having a frame where the duration is not updated
+            aura.durationText:SetSeconds(nil)
+            util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
+        end
+    end
 end
 
-function HealUI:SetHealth(health)
+function HMUnitFrame:SetHealth(health)
     self.healthBar:SetValue(health)
 end
 
-function HealUI:Initialize()
+function HMUnitFrame:Initialize()
     local unit = self.unit
 
     local profile = self:GetProfile()
@@ -670,18 +1020,34 @@ function HealUI:Initialize()
     roleIcon:SetAlpha(profile.RoleIcon:GetAlpha())
     roleFrame:Hide()
 
-    -- Health Bar Element
+    -- Raid Mark Icon
 
-    local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
-    self.incomingHealthBar = incomingHealthBar
-    incomingHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
-    incomingHealthBar:SetMinMaxValues(0, 1)
-    incomingHealthBar:SetAlpha(0.5)
+    local raidMarkFrame = CreateFrame("Frame", nil, container)
+    raidMarkFrame:SetFrameLevel(container:GetFrameLevel() + 3)
+    local raidMarkIcon = raidMarkFrame:CreateTexture(nil, "OVERLAY")
+    self.raidMarkIcon = {frame = raidMarkFrame, icon = raidMarkIcon}
+    raidMarkIcon:SetAlpha(profile.RaidMarkIcon:GetAlpha())
+    raidMarkIcon:SetTexture("Interface\\TARGETINGFRAME\\UI-RaidTargetingIcons")
+    raidMarkFrame:Hide()
+
+    -- Health Bar Element
 
     local healthBar = CreateFrame("StatusBar", unit.."HealthBar", container)
     self.healthBar = healthBar
     healthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
     healthBar:SetMinMaxValues(0, 1)
+
+    local incomingHealthBar = CreateFrame("StatusBar", unit.."IncomingHealthBar", container)
+    self.incomingHealthBar = incomingHealthBar
+    incomingHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
+    incomingHealthBar:SetMinMaxValues(0, 1)
+    incomingHealthBar:SetFrameLevel(healthBar:GetFrameLevel() - 1)
+
+    local incomingDirectHealthBar = CreateFrame("StatusBar", unit.."IncomingDirectHealthBar", container)
+    self.incomingDirectHealthBar = incomingDirectHealthBar
+    incomingDirectHealthBar:SetStatusBarTexture(HM.BarStyles[profile.HealthBarStyle])
+    incomingDirectHealthBar:SetMinMaxValues(0, 1)
+    incomingDirectHealthBar:SetFrameLevel(healthBar:GetFrameLevel() - 1)
 
     -- Name Element
 
@@ -698,43 +1064,60 @@ function HealUI:Initialize()
     -- Incoming Text
     local incomingHealText = overlayContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     self.incomingHealText = incomingHealText
-    incomingHealText:SetTextColor(0.5, 1, 0.5)
 
     local origSetValue = healthBar.SetValue
-    --local greenToRedColors = {{1, 0, 0}, {1, 1, 0}, {0, 0.753, 0}}
     local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
-    local greenToOverhealColors = {{0, 0.8, 0}, {0.2, 1, 0.2}}
     healthBar.SetValue = function(healthBarSelf, value)
+        local unit = self.unit
         origSetValue(healthBarSelf, value)
+        local profile = self:GetProfile()
         local healthIncMaxRatio = 0
+        local healthIncDirectMaxRatio = 0
         if self.incomingHealing > 0 then
             healthIncMaxRatio = value + (self.incomingHealing / self:GetMaxHealth())
+            healthIncDirectMaxRatio = value + (self.incomingDirectHealing / self:GetMaxHealth())
             incomingHealthBar:SetValue(healthIncMaxRatio)
+            incomingDirectHealthBar:SetValue(healthIncDirectMaxRatio)
             if profile.IncomingHealDisplay == "Overheal" then
                 if healthIncMaxRatio > 1 then
                     incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + self.incomingHealing - self:GetMaxHealth()))
+                    local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                        profile.IncomingHealText.IndirectColor
+                    if self.incomingDirectHealing > 0 then
+                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                    else
+                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                    end
                 else
                     incomingHealText:SetText("")
                 end
             elseif profile.IncomingHealDisplay == "Heal" then
                 incomingHealText:SetText("+"..self.incomingHealing)
+                local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                        profile.IncomingHealText.IndirectColor
+                if self.incomingDirectHealing > 0 then
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                else
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                end
             else
                 incomingHealText:SetText("")
             end
         else
             incomingHealthBar:SetValue(0)
+            incomingDirectHealthBar:SetValue(0)
             incomingHealText:SetText("")
         end
-        incomingHealthBar:SetAlpha(0.5)
-        local rgb
-
-        local profile = self:GetProfile()
+        incomingHealthBar:SetAlpha(0.35)
+        incomingDirectHealthBar:SetAlpha(0.4)
+        local r, g, b
 
         local enemy = self:IsEnemy()
         if not enemy then -- Do not display debuff colors for enemies
             for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
                 if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
-                    rgb = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                    local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                    r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
                     break
                 end
             end
@@ -742,38 +1125,39 @@ function HealUI:Initialize()
 
         local fake = self:IsFake()
         if fake and self.fakeStats.debuffType then
-            rgb = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+            local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+            r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
         end
         
-        if rgb == nil then -- If there's no debuff color, proceed to normal colors
+        if r == nil then -- If there's no debuff color, proceed to normal colors
             local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
             if hbc == "Class" then
                 local class = util.GetClass(unit)
                 if class == nil then
                     class = self.fakeStats.class
                 end
-                local r, g, b = util.GetClassColor(class)
-                rgb = {r, g, b}
+                r, g, b = util.GetClassColor(class)
             elseif hbc == "Green" then
-                if healthIncMaxRatio > 1 and value == 1 then
-                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
-                else
-                    rgb = {0, 0.8, 0}
-                end
+                r, g, b = 0, 0.8, 0
             elseif hbc == "Green To Red" then
-                if healthIncMaxRatio > 1 and value == 1 then
-                    rgb = util.InterpolateColors(greenToOverhealColors, math.min(healthIncMaxRatio - 1, 1))
-                else
-                    rgb = util.InterpolateColors(greenToRedColors, value)
-                end
+                r, g, b = util.InterpolateColorsNoTable(greenToRedColors, value)
+            end
+
+            if healthIncMaxRatio > 1 then
+                local brightenFactor = math.min(((healthIncMaxRatio - 1) / 4) + 1, 1.25)
+                r = math.min(r * brightenFactor, 1)
+                g = math.min(g * brightenFactor, 1)
+                b = math.min(b * brightenFactor, 1)
             end
         end
-        healthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
-        incomingHealthBar:SetStatusBarColor(rgb[1], rgb[2], rgb[3])
+        healthBar:SetStatusBarColor(r, g, b)
+        incomingHealthBar:SetStatusBarColor(0, 0.8, 0)
+        incomingDirectHealthBar:SetStatusBarColor(0, 0.8, 0)
 
-        if value == 0 then
+        local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
+        if value == 0 and not feign then
             bg:SetTexture(0.5, 0.5, 0.5, 0.5)
-        elseif value < 0.3 and not enemy then
+        elseif value < 0.3 and not enemy and not feign then
             bg:SetTexture(1, 0.4, 0.4, 0.25)
         else
             bg:SetTexture(0.5, 0.5, 0.5, 0.25)
@@ -814,6 +1198,9 @@ function HealUI:Initialize()
 
     self:RegisterClicks()
     button:SetScript("OnClick", function()
+        if self:IsFake() then
+            return
+        end
         local buttonType = arg1
         HM.ClickHandler(buttonType, unit, self)
     end)
@@ -835,7 +1222,7 @@ function HealUI:Initialize()
         self.hovered = true
         self:UpdateHealth()
         if HMOptions.SetMouseover and util.IsSuperWowPresent() then
-            SetMouseoverUnit(unit)
+            SetMouseoverUnit(self:GetResolvedUnit())
         end
     end)
     button:SetScript("OnLeave", function()
@@ -857,6 +1244,20 @@ function HealUI:Initialize()
     local buffPanel = CreateFrame("Frame", unit.."BuffPanel", container)
     self.auraPanel = buffPanel
     buffPanel:SetFrameLevel(container:GetFrameLevel() + 2)
+
+    local targetOutline = CreateFrame("Frame", "$parentTargetOutline", rootContainer)
+    self.targetOutline = targetOutline
+    targetOutline:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = profile.TargetOutline.Thickness})
+    targetOutline:SetFrameLevel(container:GetFrameLevel() + 10)
+    targetOutline:Hide()
+
+    local flashFrame = CreateFrame("Frame", "$parentFlash", container)
+    flashFrame:SetFrameLevel(container:GetFrameLevel() + 9)
+    flashFrame.unitFrame = self
+    local flashTexture = flashFrame:CreateTexture(nil, "OVERLAY")
+    self.flashTexture = {frame = flashFrame, texture = flashTexture}
+    flashTexture:SetTexture(1, 1, 1)
+    flashFrame:Hide()
 
     --[[
     local scrollingDamageFrame = CreateFrame("Frame", unit.."ScrollingDamageFrame", container)
@@ -883,7 +1284,7 @@ function HealUI:Initialize()
     self:SizeElements()
 end
 
-function HealUI:SizeElements()
+function HMUnitFrame:SizeElements()
     local profile = self:GetProfile()
     local width = profile.Width
     local healthBarHeight = profile.HealthBarHeight
@@ -907,6 +1308,11 @@ function HealUI:SizeElements()
     incomingHealthBar:SetWidth(width)
     incomingHealthBar:SetHeight(healthBarHeight)
     incomingHealthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
+
+    local directIncomingHealthBar = self.incomingDirectHealthBar
+    directIncomingHealthBar:SetWidth(width)
+    directIncomingHealthBar:SetHeight(healthBarHeight)
+    directIncomingHealthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -profile.PaddingTop)
 
     local powerBar = self.powerBar
     powerBar:SetWidth(width)
@@ -939,20 +1345,31 @@ function HealUI:SizeElements()
     losIcon:SetAllPoints(losFrame)
 
     local roleFrame = self.roleIcon.frame
-    self:UpdateComponent(self.roleIcon.frame, profile.RoleIcon)
+    self:UpdateComponent(roleFrame, profile.RoleIcon)
 
     local roleIcon = self.roleIcon.icon
     roleIcon:SetAllPoints(roleFrame)
 
+    local raidMarkFrame = self.raidMarkIcon.frame
+    self:UpdateComponent(raidMarkFrame, profile.RaidMarkIcon)
+
+    local raidMarkIcon = self.raidMarkIcon.icon
+    raidMarkIcon:SetAllPoints(raidMarkFrame)
+
     local auraPanel = self.auraPanel
     self:UpdateComponent(auraPanel, profile.AuraTracker)
+
+    self:UpdateComponent(self.targetOutline, profile.TargetOutline)
+
+    self:UpdateComponent(self.flashTexture.frame, profile.Flash)
+    self.flashTexture.texture:SetAllPoints(self.flashTexture.frame)
 
     rootContainer:SetHeight(self:GetHeight())
     overlayContainer:SetHeight(self:GetHeight())
     container:SetHeight(self:GetHeight())
 end
 
-function HealUI:AdjustHealthPosition()
+function HMUnitFrame:AdjustHealthPosition()
     local profile = self:GetProfile()
 
     local healthTexts = profile.HealthTexts
@@ -985,7 +1402,7 @@ local alignmentAnchorMap = {
         ["BOTTOM"] = "BOTTOMRIGHT",
     }
 }
-function HealUI:UpdateComponent(component, props, xOffset, yOffset)
+function HMUnitFrame:UpdateComponent(component, props, xOffset, yOffset)
     xOffset = xOffset or 0
     yOffset = yOffset or 0
 
@@ -1002,43 +1419,57 @@ function HealUI:UpdateComponent(component, props, xOffset, yOffset)
         component:SetJustifyH(props.AlignmentH)
         component:SetJustifyV(props.AlignmentV)
     else
-        component:SetWidth(props.Width == "Anchor" and anchor:GetWidth() or props.Width)
-        component:SetHeight(props.Height == "Anchor" and anchor:GetHeight() or props.Height)
+        component:SetWidth(props:GetWidth(self))
+        component:SetHeight(props:GetHeight(self))
     end
     local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
     component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
 end
 
-function HealUI:GetCache()
-    return HMUnit.Get(self.unit)
+function HMUnitFrame:GetCache()
+    return HMUnit.Get(self.unit) or HMUnit
 end
 
-function HealUI:GetAfflictedDebuffTypes()
+function HMUnitFrame:GetAfflictedDebuffTypes()
     return self:GetCache().AfflictedDebuffTypes
 end
 
-function HealUI:GetWidth()
+function HMUnitFrame:GetWidth()
     return self:GetProfile().Width
 end
 
-function HealUI:GetHeight()
+function HMUnitFrame:GetHeight()
     return self:GetProfile():GetHeight()
 end
 
-function HealUI:IsPlayer()
+function HMUnitFrame:IsPlayer()
     return UnitIsPlayer(self.unit)
 end
 
-function HealUI:IsEnemy()
+function HMUnitFrame:IsEnemy()
     return UnitCanAttack("player", self.unit)
 end
 
-function HealUI:IsFake()
+function HMUnitFrame:IsFake()
     return HealersMate.TestUI and not UnitExists(self.unit)
 end
 
-function HealUI:GetRole()
+function HMUnitFrame:GetRole()
     return HealersMate.GetUnitAssignedRole(self:GetUnit())
+end
+
+function HMUnitFrame:HasAggro()
+    local unit = self:GetUnit()
+    if self.isCustomUnit then
+        if not self.guidUnit then
+            return false
+        end
+        unit = HMUnitProxy.ResolveCustomUnit(self.guidUnit)
+        if not unit then
+            return false
+        end
+    end
+    return HealersMate.Banzai:GetUnitAggroByUnitId(unit)
 end
 
 local roleTexturesPath = HMUtil.GetAssetsPath().."textures\\roles\\"
@@ -1047,7 +1478,7 @@ local roleTextures = {
     ["Healer"] = roleTexturesPath.."Healer",
     ["Damage"] = roleTexturesPath.."Damage"
 }
-function HealUI:UpdateRole()
+function HMUnitFrame:UpdateRole()
     local role = self:GetRole()
     self.roleIcon.icon:SetTexture(roleTextures[role])
     if role then
@@ -1057,6 +1488,6 @@ function HealUI:UpdateRole()
     end
 end
 
-function HealUI:GetProfile()
+function HMUnitFrame:GetProfile()
     return self.owningGroup:GetProfile()
 end

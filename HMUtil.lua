@@ -1,4 +1,4 @@
--- Contains standalone utility functions that cause no side effects and don't require data from other files
+-- Contains standalone utility functions that cause no side effects and don't require data from other files, other than the unit proxy
 
 HMUtil = {}
 
@@ -7,9 +7,17 @@ setmetatable(HMUtil, {__index = getfenv(1)})
 setfenv(1, HMUtil)
 
 Classes = {"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID"}
+HealerClasses = {"PRIEST", "DRUID", "SHAMAN", "PALADIN"}
 
 UnitXPSP3 = pcall(UnitXP, "inSight", "player", "player") -- WTB better way to check for UnitXP SP3
+UnitXPSP3_Version = -1
+if UnitXPSP3 and pcall(UnitXP, "version", "coffTimeDateStamp") then
+    UnitXPSP3_Version = UnitXP("version", "coffTimeDateStamp") or -1
+end
 SuperWoW = SpellInfo ~= nil
+Nampower = QueueSpellByName ~= nil
+
+TurtleWow = true
 
 PowerColors = {
     ["mana"] = {0.1, 0.25, 1}, --{r = 0, g = 0, b = 0.882}, Not accurate, changed color to make brighter
@@ -52,6 +60,12 @@ RaidPetUnits = {}
 for i = 1, MAX_RAID_MEMBERS do
     RaidPetUnits[i] = "raidpet"..i
 end
+CustomUnits = HMUnitProxy and HMUnitProxy.AllCustomUnits or {}
+CustomUnitsSet = HMUnitProxy and HMUnitProxy.AllCustomUnitsSet or {}
+FocusUnits = HMUnitProxy and HMUnitProxy.CustomUnitsMap["focus"] or {}
+if HMUnitProxy then
+    HMUnitProxy.ImportFunctions(HMUtil)
+end
 
 local unitArrays = {PartyUnits, PetUnits, RaidUnits, RaidPetUnits, TargetUnits}
 AllUnits = {}
@@ -60,6 +74,32 @@ for _, unitArray in ipairs(unitArrays) do
         table.insert(AllUnits, unit)
     end
 end
+AllRealUnits = {}
+for i, unit in ipairs(AllUnits) do
+    AllRealUnits[i] = unit
+end
+if HMUnitProxy then
+    for _, unit in ipairs(CustomUnits) do
+        table.insert(AllUnits, unit)
+    end
+    HMUnitProxy.RegisterUpdateListener(function()
+        local i = 1
+        for _, unit in ipairs(AllRealUnits) do
+            AllUnits[i] = unit
+            i = i + 1
+        end
+        for _, unit in ipairs(CustomUnits) do
+            AllUnits[i] = unit
+            i = i + 1
+        end
+        ClearTable(AllUnitsSet)
+        for k, v in pairs(ToSet(AllUnits)) do
+            AllUnitsSet[k] = v
+        end
+    end)
+end
+
+
 
 local assetsPath = "Interface\\AddOns\\HealersMate\\assets\\"
 function GetAssetsPath()
@@ -126,8 +166,54 @@ function CloneTable(table, deep)
     return clone
 end
 
+local compost = AceLibrary("Compost-2.0")
+function CloneTableCompost(t, deep)
+    local clone = compost:GetTable()
+    local n = 0
+    for k, v in pairs(t) do
+        if deep and type(v) == "table" then
+            clone[k] = CloneTableCompost(v, true)
+        else
+            clone[k] = v
+        end
+        n = n + 1
+    end
+    table.setn(clone, n)
+    return clone
+end
+
+function ClearTable(table)
+    for k, v in pairs(table) do
+        table[k] = nil
+    end
+end
+
+-- Courtesy of ChatGPT
+function SplitString(str, delimiter)
+    local result = {}
+    local pattern = "([^" .. delimiter .. "]+)"  -- The pattern to match substrings excluding the delimiter
+    for part in string.gmatch(str, pattern) do
+        table.insert(result, part)
+    end
+    return result
+end
+
+function StartsWith(str, starts)
+    return string.sub(str, 1, string.len(starts)) == starts
+end
+
+function RoundNumber(number, decimalPlaces)
+    decimalPlaces = decimalPlaces or 0
+    return math.floor(number * 10^decimalPlaces + 0.5) / 10^decimalPlaces
+end
+
 -- Courtesy of ChatGPT
 function InterpolateColors(colors, t)
+    local r, g, b = InterpolateColorsNoTable(colors, t)
+    return {r, g, b}
+end
+
+function InterpolateColorsNoTable(colors, t)
     local numColors = table.getn(colors)
     
     -- Ensure t is between 0 and 1
@@ -135,7 +221,8 @@ function InterpolateColors(colors, t)
 
     -- If there are fewer than 2 colors, just return the single color
     if numColors < 2 then
-        return colors[1]
+        local c = colors[1]
+        return c[1], c[2], c[3]
     end
 
     -- Determine the segment in which t falls
@@ -145,7 +232,8 @@ function InterpolateColors(colors, t)
 
     -- Handle edge cases where index is out of bounds
     if index >= numColors - 1 then
-        return colors[numColors]
+        local c = colors[numColors]
+        return c[1], c[2], c[3]
     end
 
     local color1 = colors[index + 1]
@@ -156,7 +244,7 @@ function InterpolateColors(colors, t)
     local g = color1[2] + (color2[2] - color1[2]) * fraction
     local b = color1[3] + (color2[3] - color1[3]) * fraction
 
-    return {r, g, b}
+    return r, g, b
 end
 
 function Colorize(text, r, g, b)
@@ -188,6 +276,7 @@ function GetColoredRoleText(role)
     return coloredRoles[role]
 end
 
+-- Deprecated
 function IsFeigning(unit)
     local unitClass = GetClass(unit)
     if unitClass == "HUNTER" then
@@ -228,27 +317,83 @@ function HasAura(unit, auraType, auraTexture, auraID)
     return false
 end
 
+function GetBagSlotInfo(bag, slot)
+    local link = GetContainerItemLink(bag, slot)
+    if not link then
+        return
+    end
+    local _, _, name = string.find(link, "%[(.*)%]")
+    local _, count = GetContainerItemInfo(bag, slot)
+    return name, count
+end
+
+-- Returns: Bag index, Slot index
+function FindBagSlot(itemName)
+    local bestBag, bestSlot, lowestStackSize
+    for bag = 0, NUM_BAG_FRAMES do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local name, count = GetBagSlotInfo(bag, slot)
+            if itemName == name then
+                if not lowestStackSize or lowestStackSize > count then
+                    bestBag = bag
+                    bestSlot = slot
+                    lowestStackSize = count
+                end
+            end
+        end
+    end
+    return bestBag, bestSlot
+end
+
+-- Returns true if an item was found and attempted to be used
+function UseItem(itemName)
+    local bag, slot = FindBagSlot(itemName)
+    if not bag then
+        return
+    end
+    UseContainerItem(bag, slot)
+    return true
+end
+
+function GetItemCount(itemName)
+    local total = 0
+    for bag = 0, NUM_BAG_FRAMES do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local name, count = GetBagSlotInfo(bag, slot)
+            if itemName == name then
+                total = total + count
+            end
+        end
+    end
+    return total
+end
+
 -- Returns an array of the units in the party number or the unit's raid group
 function GetRaidPartyMembers(partyNumberOrUnit)
     if not RAID_SUBGROUP_LISTS then
-        return {}
+        return compost:GetTable()
     end
     if type(partyNumberOrUnit) == "string" then
         partyNumberOrUnit = FindUnitRaidGroup(partyNumberOrUnit)
     end
     local members = {}
-    for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
-        table.insert(members, "raid"..raidNumber)
+    if RAID_SUBGROUP_LISTS[partyNumberOrUnit] then
+        for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[partyNumberOrUnit]) do
+            table.insert(members, RaidUnits[raidNumber])
+        end
     end
     return members
 end
 
 -- Returns the raid unit that this unit is, or nil if the unit is not in the raid
 function FindRaidUnit(unit)
+    if not RAID_SUBGROUP_LISTS then
+        return nil
+    end
     for party = 1, 8 do
         if RAID_SUBGROUP_LISTS[party] then
             for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
-                local raidUnit = "raid"..raidNumber
+                local raidUnit = RaidUnits[raidNumber]
                 if UnitIsUnit(unit, raidUnit) then
                     return raidUnit
                 end
@@ -262,7 +407,7 @@ function FindUnitRaidGroup(unit)
     for party = 1, 8 do
         if RAID_SUBGROUP_LISTS[party] then
             for frameNumber, raidNumber in pairs(RAID_SUBGROUP_LISTS[party]) do
-                local raidUnit = "raid"..raidNumber
+                local raidUnit = RaidUnits[raidNumber]
                 if UnitIsUnit(unit, raidUnit) then
                     return party
                 end
@@ -272,23 +417,54 @@ function FindUnitRaidGroup(unit)
 end
 
 -- Requires SuperWoW
-function GetSurroundingPartyMembers(player)
+function GetSurroundingPartyMembers(player, range)
     local units
     if UnitInRaid("player") then
         units = GetRaidPartyMembers(player)
     else
-        units = CloneTable(PartyUnits)
+        units = CloneTableCompost(PartyUnits)
         AppendArrayElements(units, PetUnits)
     end
 
-    local inRange = {}
+    return GetUnitsInRange(player, units, range or 30)
+end
+
+function GetSurroundingRaidMembers(player, range, checkPets)
+    local units
+    if UnitInRaid("player") then
+        units = CloneTableCompost(RaidUnits)
+        if checkPets then
+            AppendArrayElements(units, RaidPetUnits)
+        end
+    else
+        units = CloneTableCompost(PartyUnits)
+        if checkPets then
+            AppendArrayElements(units, PetUnits)
+        end
+    end
+
+    return GetUnitsInRange(player, units, range or 30)
+end
+
+function GetUnitsInRange(center, units, range)
+    local inRange = compost:GetTable()
     for _, unit in ipairs(units) do
         local exists, guid = UnitExists(unit)
-        if exists and not UnitIsDeadOrGhost(unit) and GetDistanceBetween(player, unit) <= 30 then
+        if exists and UnitIsConnected(unit) and not UnitIsDeadOrGhost(unit) and 
+            GetDistanceBetween(center, unit) <= (range or 30) then
             table.insert(inRange, guid)
         end
     end
     return inRange
+end
+
+-- Blizzard's UI functions seem to get called referring to a global called "this" referring to the UI object.
+-- This function calls a function on the object, emulating the "this" variable.
+function CallWithThis(object, func)
+    local prevThis = _G.this
+    _G.this = object
+    func()
+    _G.this = prevThis
 end
 
 -- Returns the class without the first return variable fluff
@@ -297,13 +473,17 @@ function GetClass(unit)
     return class
 end
 
-local classes = {"HUNTER", "ROGUE", "PRIEST", "PALADIN", "DRUID", "SHAMAN", "WARRIOR", "MAGE", "WARLOCK"}
 function GetClasses()
-    return classes
+    return Classes
 end
 
 function GetRandomClass()
-    return classes[math.random(1, 9)]
+    return Classes[math.random(1, 9)]
+end
+
+local healerClassesSet = ToSet(HealerClasses)
+function IsHealerClass(unit)
+    return healerClassesSet[GetClass(unit)] == 1
 end
 
 local classColors = {
@@ -338,25 +518,71 @@ function GetKeyModifiers()
     return keyModifiers
 end
 
-function GetKeyModifier()
-    local modifier = IsShiftKeyDown() and "Shift" or ""
-    if IsControlKeyDown() then
-        if modifier ~= "" then
-            modifier = modifier.."+"
-        end
-        modifier = modifier.."Control"
-    end
-    if IsAltKeyDown() then
-        if modifier ~= "" then
-            modifier = modifier.."+"
-        end
-        modifier = modifier.."Alt"
-    end
+-- L1: Shift
+-- L2: Control
+-- L3: Alt
+KeyModifierMap = {}
+do
+    -- That moment when trying to be more concise goes terribly wrong
+    local keys = {{"Shift", "S", {0.4, 1, 0.4}}, {"Control", "C", {0.4, 0.4, 1}}, {"Alt", "A", {1, 0.4, 0.4}}}
+    local states = {true, false}
+    for _, l1State in ipairs(states) do
+        local l1 = {}
+        KeyModifierMap[l1State] = l1
+        for _, l2State in ipairs(states) do
+            local l2 = {}
+            l1[l2State] = l2
+            for _, l3State in ipairs(states) do
+                local keyStr = ""
+                local keyStrColored = ""
+                local keyAbbStr = ""
+                local keyAbbStrColored = ""
+                for i = 1, 3 do
+                    if (i == 1 and l1State) or (i == 2 and l2State) or (i == 3 and l3State) then
+                        local key = keys[i]
+                        if keyStr ~= "" then
+                            keyStr = keyStr.."+"
+                            keyStrColored = keyStrColored.."+"
+                            keyAbbStr = keyAbbStr.."+"
+                            keyAbbStrColored = keyAbbStrColored.."+"
+                        end
+                        keyStr = keyStr..key[1]
+                        keyStrColored = keyStrColored..Colorize(key[1], key[3])
+                        keyAbbStr = keyAbbStr..key[2]
+                        keyAbbStrColored = keyAbbStrColored..Colorize(key[2], key[3])
+                    end
+                end
 
-    if modifier == "" then
-        return "None"
+                if keyStr == "" then
+                    keyStr = "None"
+                    keyStrColored = "None"
+                    keyAbbStr = "None"
+                    keyAbbStrColored = "None"
+                end
+
+                l2[l3State] = {keyStr, keyStrColored, keyAbbStr, keyAbbStrColored}
+            end
+        end
     end
-    return modifier
+end
+function GetKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][1]
+end
+
+function GetColoredKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][2]
+end
+
+function GetAbbreviatedKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][3]
+end
+
+function GetColoredAbbreviatedKeyModifier()
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][4]
+end
+
+function GetKeyModifierTypeByID(id)
+    return KeyModifierMap[IsShiftKeyDown() == 1][IsControlKeyDown() == 1][IsAltKeyDown() == 1][id]
 end
 
 local buttons = {"LeftButton", "MiddleButton", "RightButton", "Button4", "Button5"}
@@ -393,47 +619,89 @@ function GetPowerColor(unit)
 end
 
 -- Returns distance if UnitXP SP3 or SuperWoW is present;
--- 0 if unit is offline, not visible, or unit is enemy and SuperWoW is the distance provider;
+-- 0 if unit is offline, or unit is enemy and SuperWoW is the distance provider;
 -- 9999 if unit is not visible or UnitXP SP3 is not present.
 -- Might try to do hacky stuff for people without mods later on.
 function GetDistanceTo(unit)
-    if not UnitIsConnected(unit) then
-        return 0
-    end
-
-    if UnitXPSP3 then
-        return math.max((UnitXP("distanceBetween", "player", unit) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
-    elseif SuperWoW then -- Try to fallback to SuperWoW distance
-        return math.max((GetDistanceBetween_SuperWow("player", unit) or (9999 + 3)) - 3, 0)
-    end
-    return UnitIsVisible(unit) and 0 or 9999
-end
-
-local function getDistance(x1, z1, x2, z2)
-    local dx = x2 - x1
-    local dz = z2 - z1
-    return math.sqrt(dx*dx + dz*dz)
+    return GetDistanceBetween("player", unit)
 end
 
 function GetDistanceBetween_SuperWow(unit1, unit2)
-    local x1, z1 = UnitPosition(unit1)
-    local x2, z2 = UnitPosition(unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
+    end
+
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
+    local x1, z1, y1 = UnitPosition(unit1)
+    local x2, z2, y2 = UnitPosition(unit2)
+    
     if not x1 or not x2 then
         return 0
     end
-    return getDistance(x1, z1, x2, z2)
+    local dx = x2 - x1
+    local dz = z2 - z1
+    local dy = y2 - y1
+    return math.sqrt(dx*dx + dz*dz + dy*dy)
 end
 
-function GetDistanceBetween(unit1, unit2)
+function GetDistanceBetween_UnitXPSP3_Legacy(unit1, unit2)
     if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
+    end
+
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
         return 9999
     end
-    if UnitXPSP3 then
-        return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
-    elseif SuperWoW then
-        return math.max((GetDistanceBetween_SuperWow(unit1, unit2) or (9999 + 3)) - 3, 0)
+
+    return math.max((UnitXP("distanceBetween", unit1, unit2) or (9999 + 3)) - 3, 0) -- UnitXP SP3 modded function
+end
+
+function GetDistanceBetween_UnitXPSP3(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
     end
-    return (UnitIsVisible(unit1) and UnitIsVisible(unit2)) and 0 or 9999
+
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
+    return math.max(UnitXP("distanceBetween", unit1, unit2) or 9999, 0) -- UnitXP SP3 modded function
+end
+
+function GetDistanceBetween_Vanilla(unit1, unit2)
+    if not UnitIsConnected(unit1) or not UnitIsConnected(unit2) then
+        return 0
+    end
+
+    if not UnitIsVisible(unit1) or not UnitIsVisible(unit2) then
+        return 9999
+    end
+
+    if unit1 == "player" then
+        if CheckInteractDistance(unit2, 3) then
+            return 9
+        end
+        if CheckInteractDistance(unit2, 4) then
+            return 27
+        end
+    end
+
+    return 28
+end
+
+if UnitXPSP3 then
+    if UnitXPSP3_Version > -1 then -- Newer versions have more accurate distances
+        GetDistanceBetween = GetDistanceBetween_UnitXPSP3
+    else -- Fall back to old distance calculation
+        GetDistanceBetween = GetDistanceBetween_UnitXPSP3_Legacy
+    end
+elseif SuperWoW then
+    GetDistanceBetween = GetDistanceBetween_SuperWow
+else -- sad
+    GetDistanceBetween = GetDistanceBetween_Vanilla
 end
 
 -- SuperWoW cannot provide precise distance for enemies
@@ -442,11 +710,21 @@ function CanClientGetPreciseDistance(alsoEnemies)
 end
 
 -- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
-function IsInSight(unit)
-    if not UnitXPSP3 then
-        return true
-    end
-    return UnitXP("inSight", "player", unit) -- UnitXP SP3 modded function
+IsInSight = function()
+    return true
+end
+
+do -- This is done to prevent crashes from checking sight too early
+    local sightEnableFrame = CreateFrame("Frame")
+    sightEnableFrame:RegisterEvent("ADDON_LOADED")
+    sightEnableFrame:SetScript("OnEvent", function()
+        if arg1 == "HealersMate" and UnitXPSP3 then
+            IsInSight = function(unit)
+                return UnitXP("inSight", "player", unit) -- UnitXP SP3 modded function
+            end
+            sightEnableFrame:SetScript("OnEvent", nil)
+        end
+    end)
 end
 
 function CanClientSightCheck()
@@ -460,3 +738,15 @@ end
 function IsUnitXPSP3Present()
     return UnitXPSP3
 end
+
+-- Only detects Pepopo's Nampower
+function IsNampowerPresent()
+    return Nampower
+end
+
+function IsTurtleWow()
+    return TurtleWow
+end
+
+AllUnitsSet = ToSet(AllUnits)
+FocusUnitsSet = ToSet(FocusUnits)

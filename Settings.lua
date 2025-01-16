@@ -63,12 +63,16 @@ function HealersMateSettings.SetDefaults()
         HMOptions = {}
     end
     
+    local OPTIONS_VERSION = 2
+    local isHealer = util.IsHealerClass("player")
+    local isManaUser = util.ClassPowerTypes[util.GetClass("player")]
     do
         local defaults = {
             ["ShowTargets"] = {
-                ["Friendly"] = true,
+                ["Friendly"] = isHealer,
                 ["Hostile"] = false
             },
+            ["AlwaysShowTargetFrame"] = false,
             ["AutoTarget"] = false,
             ["FrameDrag"] = {
                 ["MoveAll"] = false,
@@ -78,21 +82,87 @@ function HealersMateSettings.SetDefaults()
                 ["InParty"] = false,
                 ["InRaid"] = false
             },
+            ["SpellsTooltip"] = {
+                ["Enabled"] = isHealer,
+                ["ShowManaCost"] = false,
+                ["ShowManaPercentCost"] = true,
+                ["HideCastsAbove"] = 3,
+                ["CriticalCastsLevel"] = 3,
+                ["AbbreviatedKeys"] = false,
+                ["ColoredKeys"] = true,
+                ["ShowPowerBar"] = true,
+                ["ShowPowerAs"] = isManaUser and "Power %" or "Power" -- "Power", "Power/Max Power", "Power %"
+            },
+            ["ShowAuraTimesAt"] = {
+                ["Short"] = 5, -- <1 min
+                ["Medium"] = 10, -- <=2 min
+                ["Long"] = 60 * 2 -- >2 min
+            },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
-            ["ShowSpellsTooltip"] = true,
             ["UseHealPredictions"] = true,
-            ["SetMouseover"] = false,
+            ["SetMouseover"] = true,
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
-                ["Party"] = "Compact",
-                ["Pets"] = "Compact",
-                ["Raid"] = "Compact (Small)",
-                ["Raid Pets"] = "Compact (Small)",
-                ["Target"] = "Long"
+                ["Party"] = "Default",
+                ["Pets"] = "Default",
+                ["Raid"] = "Small",
+                ["Raid Pets"] = "Small",
+                ["Target"] = "Long",
+                ["Focus"] = "Default"
             },
-            ["OptionsVersion"] = 1
+            ["Scripts"] = {
+                ["OnLoad"] = "",
+                ["OnPostLoad"] = ""
+            },
+            ["OptionsVersion"] = OPTIONS_VERSION
         }
+
+        local optionsUpgrades = {
+            {
+                version = 2,
+                upgrade = function(self, options)
+                    local upgraded = util.CloneTable(options, true)
+                    if options["ShowSpellsTooltip"] ~= nil then
+                        if not options["SpellsTooltip"] then
+                            upgraded["SpellsTooltip"] = {}
+                        end
+                        upgraded["SpellsTooltip"]["Enabled"] = options["ShowSpellsTooltip"]
+                        upgraded["ShowSpellsTooltip"] = nil
+                    end
+                    if options["ChosenProfiles"] ~= nil then
+                        local groupNames = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+                        local changedProfileNames = {
+                            ["Compact"] = "Default",
+                            ["Compact (Small)"] = "Small",
+                            ["Compact (Short Bar)"] = "Default (Short Bar)"
+                        }
+                        for _, name in ipairs(groupNames) do
+                            local currentlySelected = options["ChosenProfiles"][name]
+                            if changedProfileNames[currentlySelected] then
+                                upgraded["ChosenProfiles"][name] = changedProfileNames[currentlySelected]
+                            end
+                        end
+                    end
+                    upgraded["OptionsVersion"] = self.version
+                    return upgraded
+                end,
+                shouldUpgrade = function(self, options)
+                    return options.OptionsVersion < self.version
+                end
+            }
+        }
+
+        if HMOptions.OptionsVersion and HMOptions.OptionsVersion < OPTIONS_VERSION then
+            for _, upgrade in ipairs(optionsUpgrades) do
+                if upgrade:shouldUpgrade(HMOptions) then
+                    local prevVersion = HMOptions.OptionsVersion
+                    HMOptions = upgrade:upgrade(HMOptions)
+                    DEFAULT_CHAT_FRAME:AddMessage("[HealersMate] Upgraded options from version "..
+                        prevVersion.." to "..upgrade.version)
+                end
+            end
+        end
     
         for field, value in pairs(defaults) do
             if HMOptions[field] == nil then
@@ -100,6 +170,16 @@ function HealersMateSettings.SetDefaults()
                     HMOptions[field] = HMUtil.CloneTable(value, true)
                 else
                     HMOptions[field] = value
+                end
+            elseif type(value) == "table" then
+                for field2, value2 in pairs(value) do
+                    if HMOptions[field][field2] == nil then
+                        if type(value2) == "table" then
+                            HMOptions[field][field2] = HMUtil.CloneTable(value2, true)
+                        else
+                            HMOptions[field][field2] = value2
+                        end
+                    end
                 end
             end
         end
@@ -118,20 +198,22 @@ TrackedDebuffTypes = {} -- Default tracked is variable based on class
 -- Buffs/debuffs that significantly modify healing
 TrackedHealingBuffs = {"Amplify Magic", "Dampen Magic"}
 TrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Gehennas' Curse", 
-    "Necrotic Poison", "Blood Fury", "Necrotic Aura"}
+    "Necrotic Poison", "Blood Fury", "Necrotic Aura", 
+    "Shadowbane Curse" -- Turtle WoW
+}
 
 do
     -- Tracked buffs for all classes
     local defaultTrackedBuffs = {
         "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
-            "Bulwark of the Righteous",
-        "Power Infusion", "Spirit of Redemption", "Abolish Disease", -- Priest
-        "Shield Wall", -- Warrior
+            "Bulwark of the Righteous", "Blessing of Sacrifice", "Hand of Sacrifice",
+        "Power Infusion", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", -- Priest
+        "Shield Wall", "Recklessness", "Last Stand", -- Warrior
         "Evasion", "Vanish", -- Rogue
         "Deterrence", "Feign Death", "Mend Pet", -- Hunter
         "Frenzied Regeneration", "Innervate", "Abolish Poison", -- Druid
         "Soulstone Resurrection", "Hellfire", -- Warlock
-        "Ice Block", "Evocation", -- Mage
+        "Ice Block", "Evocation", "Ice Barrier", "Mana Shield", -- Mage
         "Quel'dorei Meditation", "Grace of the Sunwell", -- Racial
         "First Aid", "Food", "Drink" -- Generic
     }
@@ -143,12 +225,12 @@ do
             "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
             "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
-            "Fear Ward", "Inner Fire", "Power Word: Shield", "Renew", "Lightwell Renew", "Inspiration", 
+            "Fear Ward", "Inner Fire", "Renew", "Lightwell Renew", "Inspiration", 
             "Fade", "Spirit Tap"},
         ["WARRIOR"] = {"Battle Shout"},
         ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth"},
         ["SHAMAN"] = {"Water Walking", "Healing Way", "Ancestral Fortitude"},
-        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor", "Ice Barrier"},
+        ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor"},
         ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield"},
         ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
             "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
@@ -163,7 +245,8 @@ do
         "Forbearance", -- Paladin
         "Death Wish", -- Warrior
         "Enrage", -- Druid
-        "Recently Bandaged", "Resurrection Sickness", "Ghost" -- Generic
+        "Recently Bandaged", "Resurrection Sickness", "Ghost", -- Generic
+        "Deafening Screech" -- Applied by mobs
     }
     -- Tracked debuffs for specific classes
     local defaultClassTrackedDebuffs = {
@@ -210,7 +293,7 @@ SpellsContext = {}
 function GetSelectedProfileName(frame)
     local selected = HMOptions.ChosenProfiles[frame]
     if not HMDefaultProfiles[selected] then
-        selected = "Compact"
+        selected = "Default"
     end
     return selected
 end
@@ -264,6 +347,11 @@ function InitSettings()
     --container:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
     container:EnableMouse(true)
     container:SetMovable(true)
+    container:Hide()
+
+    if Aero then
+        Aero:RegisterAddon("HealersMate", "HM_SettingsContainer")
+    end
 
     container:SetScript("OnMouseDown", function()
         local button = arg1
@@ -291,7 +379,9 @@ function InitSettings()
     containerBorder:SetWidth(450) -- width
     containerBorder:SetHeight(500) -- height
     containerBorder:SetPoint("CENTER", container, "CENTER")
-    containerBorder:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",       edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
+    containerBorder:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", 
+        edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, 
+        insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
 
     containerBorder.title = CreateFrame("Frame", container:GetName().."Title", containerBorder)
     containerBorder.title:SetPoint("TOP", containerBorder, "TOP", 0, 12)
@@ -307,6 +397,21 @@ function InitSettings()
     containerBorder.title.text:SetPoint("TOP", 0, -14)
 
 
+
+    function resetSpells()
+        EditedSpells = {}
+        for context, spells in pairs(HMSpells) do
+            EditedSpells[context] = {}
+            local copy = EditedSpells[context]
+            for modifier, buttons in pairs(spells) do
+                copy[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    copy[modifier][button] = spell
+                end
+            end
+        end
+        SpellsContext = EditedSpells[UIDropDownMenu_GetSelectedName(targetDropdown)]
+    end
 
 
 
@@ -327,76 +432,118 @@ function InitSettings()
     local spellsFrame = CreateFrame("Frame", "spellsFrame", container)
     addFrame("Spells", spellsFrame)
     spellsFrame:SetWidth(400)
-    spellsFrame:SetHeight(365)
-    spellsFrame:SetPoint("CENTER", container, "CENTER")
+    spellsFrame:SetHeight(440)
+    spellsFrame:SetPoint("CENTER", container, "CENTER", 0, -20)
     local spellsFrameOldShow = spellsFrame.Show
     spellsFrame.Show = function(self)
         spellsFrameOldShow(self)
-        EditedSpells = {}
-        for context, spells in pairs(HMSpells) do
-            EditedSpells[context] = {}
-            local copy = EditedSpells[context]
-            for modifier, buttons in pairs(spells) do
-                copy[modifier] = {}
-                for button, spell in pairs(buttons) do
-                    copy[modifier][button] = spell
-                end
-            end
-        end
-        SpellsContext = EditedSpells[UIDropDownMenu_GetSelectedName(targetDropdown)]
+        resetSpells()
     end
     spellsFrame:Hide()
 
-    local optionsFrame = CreateFrame("Frame", "$parentOptionsFrame", container)
-    addFrame("Options", optionsFrame)
-    optionsFrame:SetWidth(250) -- width
-    optionsFrame:SetHeight(380) -- height
-    optionsFrame:SetPoint("CENTER", container, "CENTER")
-    optionsFrame:Hide() -- Initially hidden
+    local optionsScrollFrame = CreateFrame("ScrollFrame", "$parentOptionsScrollFrame", container, "UIPanelScrollFrameTemplate")
+    optionsScrollFrame:SetWidth(400) -- width
+    optionsScrollFrame:SetHeight(440) -- height
+    optionsScrollFrame:SetPoint("CENTER", container, "CENTER", -10, -20)
+    optionsScrollFrame:Hide() -- Initially hidden
 
-    -- Label for the checkbox
-    local CheckboxShowTargetLabel = optionsFrame:CreateFontString("CheckboxShowTargetLabel", "OVERLAY", "GameFontNormal")
-    CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -20)
-    CheckboxShowTargetLabel:SetText("Show Targets:")
+    local optionsFrame = CreateFrame("Frame", "$parentOptionsFrame", optionsScrollFrame)
+    optionsFrame:SetWidth(400) -- width
+    optionsFrame:SetHeight(440) -- height
+    --optionsFrame:SetPoint("CENTER", container, "CENTER", -200, 0)
 
-    -- Label for the "Friendly" checkbox
-    local CheckboxFriendlyLabel = optionsFrame:CreateFontString("CheckboxFriendlyLabel", "OVERLAY", "GameFontNormal")
-    CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 20, 0)
-    CheckboxFriendlyLabel:SetText("Friendly")
+    optionsScrollFrame:SetScrollChild(optionsFrame)
+    optionsScrollFrame:Hide()
+    addFrame("Options", optionsScrollFrame)
 
-    -- Create the "Friendly" checkbox
-    local CheckboxFriendly = CreateFrame("CheckButton", "$parentTargetFriendly", optionsFrame, "UICheckButtonTemplate")
-    CheckboxFriendly:SetPoint("LEFT", CheckboxFriendlyLabel, "RIGHT", 5, -2)
-    CheckboxFriendly:SetWidth(20) -- width
-    CheckboxFriendly:SetHeight(20) -- height
-    CheckboxFriendly:SetChecked(HMOptions.ShowTargets.Friendly)
-    CheckboxFriendly:SetScript("OnClick", function()
-        HMOptions.ShowTargets.Friendly = CheckboxFriendly:GetChecked() == 1
-    end)
-    ApplyTooltip(CheckboxFriendly, "Show friendly targets in the Target frame")
+    local xOffset = 140
+    local xDropdownOffset = 30
+    local yOffset = 0
+    local yCheckboxOffset = -2
+    local yDropdownOffset = -5
+    local yInterval = -30
 
-    -- Label for the "Enemy" checkbox
-    local CheckboxEnemyLabel = optionsFrame:CreateFontString("CheckboxEnemyLabel", "OVERLAY", "GameFontNormal")
-    CheckboxEnemyLabel:SetPoint("LEFT", CheckboxFriendly, "RIGHT", 10, 0)
-    CheckboxEnemyLabel:SetText("Hostile")
+    do
+        local TargetSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        TargetSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        TargetSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        TargetSettingsLabel:SetWidth(optionsFrame:GetWidth())
+        TargetSettingsLabel:SetJustifyH("CENTER")
+        TargetSettingsLabel:SetText("Target Settings")
+    end
 
-    -- Create the "Enemy" checkbox
-    local CheckboxHostile = CreateFrame("CheckButton", "$parentTargetHostile", optionsFrame, "UICheckButtonTemplate")
-    CheckboxHostile:SetPoint("LEFT", CheckboxEnemyLabel, "RIGHT", 5, -2)
-    CheckboxHostile:SetWidth(20) -- width
-    CheckboxHostile:SetHeight(20) -- height
-    CheckboxHostile:SetChecked(HMOptions.ShowTargets.Hostile)
-    CheckboxHostile:SetScript("OnClick", function()
-        HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
-    end)
-    ApplyTooltip(CheckboxHostile, "Show hostile targets in the Target frame")
+    yOffset = yOffset + yInterval
+
+    do
+        local ShowTargetLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        ShowTargetLabel:SetText("Always Show Target")
+
+        local ShowTargetCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        ShowTargetCheckbox:SetPoint("LEFT", ShowTargetLabel, "RIGHT", 5, yCheckboxOffset)
+        ShowTargetCheckbox:SetWidth(20) -- width
+        ShowTargetCheckbox:SetHeight(20) -- height
+        ShowTargetCheckbox:SetChecked(HMOptions.AlwaysShowTargetFrame)
+        ShowTargetCheckbox:SetScript("OnClick", function()
+            HMOptions.AlwaysShowTargetFrame = ShowTargetCheckbox:GetChecked() == 1
+            HealersMate.CheckTarget()
+        end)
+        ApplyTooltip(ShowTargetCheckbox, "Always show the target frame, regardless of whether you have a target or not")
+    end
+
+    yOffset = yOffset - 20
+
+    do
+        -- Label for the checkbox
+        local CheckboxShowTargetLabel = optionsFrame:CreateFontString("CheckboxShowTargetLabel", "OVERLAY", "GameFontNormal")
+        CheckboxShowTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        CheckboxShowTargetLabel:SetText("Show Targets:")
+
+        -- Label for the "Friendly" checkbox
+        local CheckboxFriendlyLabel = optionsFrame:CreateFontString("CheckboxFriendlyLabel", "OVERLAY", "GameFontNormal")
+        CheckboxFriendlyLabel:SetPoint("LEFT", CheckboxShowTargetLabel, "RIGHT", 20, 0)
+        CheckboxFriendlyLabel:SetText("Friendly")
+
+        -- Create the "Friendly" checkbox
+        local CheckboxFriendly = CreateFrame("CheckButton", "$parentTargetFriendly", optionsFrame, "UICheckButtonTemplate")
+        CheckboxFriendly:SetPoint("LEFT", CheckboxFriendlyLabel, "RIGHT", 5, yCheckboxOffset)
+        CheckboxFriendly:SetWidth(20) -- width
+        CheckboxFriendly:SetHeight(20) -- height
+        CheckboxFriendly:SetChecked(HMOptions.ShowTargets.Friendly)
+        CheckboxFriendly:SetScript("OnClick", function()
+            HMOptions.ShowTargets.Friendly = CheckboxFriendly:GetChecked() == 1
+            HealersMate.CheckTarget()
+        end)
+        ApplyTooltip(CheckboxFriendly, "Show the Target frame when targeting friendlies", 
+            "No effect if Always Show Target is checked")
+
+        -- Label for the "Enemy" checkbox
+        local CheckboxEnemyLabel = optionsFrame:CreateFontString("CheckboxEnemyLabel", "OVERLAY", "GameFontNormal")
+        CheckboxEnemyLabel:SetPoint("LEFT", CheckboxFriendly, "RIGHT", 10, -yCheckboxOffset)
+        CheckboxEnemyLabel:SetText("Hostile")
+
+        -- Create the "Enemy" checkbox
+        local CheckboxHostile = CreateFrame("CheckButton", "$parentTargetHostile", optionsFrame, "UICheckButtonTemplate")
+        CheckboxHostile:SetPoint("LEFT", CheckboxEnemyLabel, "RIGHT", 5, yCheckboxOffset)
+        CheckboxHostile:SetWidth(20) -- width
+        CheckboxHostile:SetHeight(20) -- height
+        CheckboxHostile:SetChecked(HMOptions.ShowTargets.Hostile)
+        CheckboxHostile:SetScript("OnClick", function()
+            HMOptions.ShowTargets.Hostile = CheckboxHostile:GetChecked() == 1
+            HealersMate.CheckTarget()
+        end)
+        ApplyTooltip(CheckboxHostile, "Show the Target frame when targeting hostiles", 
+            "No effect if Always Show Target is checked")
+    end
+
+    yOffset = yOffset - 30
 
     local CheckboxAutoTargetLabel = optionsFrame:CreateFontString("CheckboxAutoTargetLabel", "OVERLAY", "GameFontNormal")
-    CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -50)
-    CheckboxAutoTargetLabel:SetText("Auto Target")
+    CheckboxAutoTargetLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+    CheckboxAutoTargetLabel:SetText("Target On Cast")
 
     local CheckboxAutoTarget = CreateFrame("CheckButton", "$parentAutoTarget", optionsFrame, "UICheckButtonTemplate")
-    CheckboxAutoTarget:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, -2)
+    CheckboxAutoTarget:SetPoint("LEFT", CheckboxAutoTargetLabel, "RIGHT", 5, yCheckboxOffset)
     CheckboxAutoTarget:SetWidth(20) -- width
     CheckboxAutoTarget:SetHeight(20) -- height
     CheckboxAutoTarget:SetChecked(HMOptions.AutoTarget)
@@ -405,26 +552,238 @@ function InitSettings()
     end)
     ApplyTooltip(CheckboxAutoTarget, "If enabled, casting a spell on a player will also cause you to target them")
 
+    yOffset = yOffset - 30
+
+    do
+        local SpellsTooltipSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        SpellsTooltipSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        SpellsTooltipSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        SpellsTooltipSettingsLabel:SetWidth(optionsFrame:GetWidth())
+        SpellsTooltipSettingsLabel:SetJustifyH("CENTER")
+        SpellsTooltipSettingsLabel:SetText("Spells Tooltip Settings")
+    end
+
+    yOffset = yOffset - 30
+
     do
         local CheckboxShowSpellsTooltipLabel = optionsFrame:CreateFontString("CheckboxShowSpellsTooltipLabel", "OVERLAY", "GameFontNormal")
-        CheckboxShowSpellsTooltipLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -80)
+        CheckboxShowSpellsTooltipLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
         CheckboxShowSpellsTooltipLabel:SetText("Show Spells Tooltip")
 
         local CheckboxShowSpellsTooltip = CreateFrame("CheckButton", "$parentShowSpellsTooltip", optionsFrame, "UICheckButtonTemplate")
-        CheckboxShowSpellsTooltip:SetPoint("LEFT", CheckboxShowSpellsTooltipLabel, "RIGHT", 5, -2)
+        CheckboxShowSpellsTooltip:SetPoint("LEFT", CheckboxShowSpellsTooltipLabel, "RIGHT", 5, yCheckboxOffset)
         CheckboxShowSpellsTooltip:SetWidth(20) -- width
         CheckboxShowSpellsTooltip:SetHeight(20) -- height
-        CheckboxShowSpellsTooltip:SetChecked(HMOptions.ShowSpellsTooltip)
+        CheckboxShowSpellsTooltip:SetChecked(HMOptions.SpellsTooltip.Enabled)
         CheckboxShowSpellsTooltip:SetScript("OnClick", function()
-            HMOptions.ShowSpellsTooltip = CheckboxShowSpellsTooltip:GetChecked() == 1
+            HMOptions.SpellsTooltip.Enabled = CheckboxShowSpellsTooltip:GetChecked() == 1
         end)
         ApplyTooltip(CheckboxShowSpellsTooltip, "Show the spells tooltip when hovering over frames")
     end
 
+    yOffset = yOffset - 30
+
+    do
+        local ShowPercManaCostLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ShowPercManaCostLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        ShowPercManaCostLabel:SetText("Show % Mana Cost")
+
+        local ShowPercManaCostCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        ShowPercManaCostCheckbox:SetPoint("LEFT", ShowPercManaCostLabel, "RIGHT", 5, yCheckboxOffset)
+        ShowPercManaCostCheckbox:SetWidth(20) -- width
+        ShowPercManaCostCheckbox:SetHeight(20) -- height
+        ShowPercManaCostCheckbox:SetChecked(HMOptions.SpellsTooltip.ShowManaPercentCost)
+        ShowPercManaCostCheckbox:SetScript("OnClick", function()
+            HMOptions.SpellsTooltip.ShowManaPercentCost = ShowPercManaCostCheckbox:GetChecked() == 1
+        end)
+        ApplyTooltip(ShowPercManaCostCheckbox, "Show the percent mana cost in the spells tooltip", "Does nothing for non-mana users")
+
+        local ShowManaCostLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ShowManaCostLabel:SetPoint("LEFT", ShowPercManaCostCheckbox, "RIGHT", 20, -yCheckboxOffset)
+        ShowManaCostLabel:SetText("Show # Mana Cost")
+
+        local ShowManaCostCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        ShowManaCostCheckbox:SetPoint("LEFT", ShowManaCostLabel, "RIGHT", 5, yCheckboxOffset)
+        ShowManaCostCheckbox:SetWidth(20) -- width
+        ShowManaCostCheckbox:SetHeight(20) -- height
+        ShowManaCostCheckbox:SetChecked(HMOptions.SpellsTooltip.ShowManaCost)
+        ShowManaCostCheckbox:SetScript("OnClick", function()
+            HMOptions.SpellsTooltip.ShowManaCost = ShowManaCostCheckbox:GetChecked() == 1
+        end)
+        ApplyTooltip(ShowManaCostCheckbox, "Show the number mana cost in the spells tooltip", "Does nothing for non-mana users")
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local HideCastsAboveLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        HideCastsAboveLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        HideCastsAboveLabel:SetText("Hide Casts Above")
+
+        local HideCastsAboveEditBox = CreateFrame("Editbox", "$parentHideCastsAboveEditBox", optionsFrame, "InputBoxTemplate")
+        HideCastsAboveEditBox:SetPoint("LEFT", HideCastsAboveLabel, "RIGHT", 10, yCheckboxOffset)
+        HideCastsAboveEditBox:SetWidth(30)
+        HideCastsAboveEditBox:SetHeight(20)
+        HideCastsAboveEditBox:SetText(tostring(HMOptions.SpellsTooltip.HideCastsAbove))
+        HideCastsAboveEditBox:SetAutoFocus(false)
+        HideCastsAboveEditBox:SetScript("OnTextChanged" , function()
+            local num = tonumber(this:GetText())
+            if not num then
+                return
+            end
+            num = math.floor(num)
+            HMOptions.SpellsTooltip.HideCastsAbove = num
+        end)
+        HideCastsAboveEditBox:SetScript("OnEnterPressed", function()
+            this:ClearFocus()
+        end)
+        HideCastsAboveEditBox:SetScript("OnEditFocusLost", function()
+            this:SetText(tostring(HMOptions.SpellsTooltip.HideCastsAbove))
+        end)
+        ApplyTooltip(HideCastsAboveEditBox, "Hides the cast count for a spell if above this threshold")
+
+        local CriticalCastsLevelLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        CriticalCastsLevelLabel:SetPoint("LEFT", HideCastsAboveEditBox, "RIGHT", 20, 0)
+        CriticalCastsLevelLabel:SetText("Critical Casts Level")
+
+        local CriticalCastsLevelEditBox = CreateFrame("Editbox", "$parentCriticalCastsLevelEditBox", optionsFrame, "InputBoxTemplate")
+        CriticalCastsLevelEditBox:SetPoint("LEFT", CriticalCastsLevelLabel, "RIGHT", 10, 0)
+        CriticalCastsLevelEditBox:SetWidth(30)
+        CriticalCastsLevelEditBox:SetHeight(20)
+        CriticalCastsLevelEditBox:SetText(tostring(HMOptions.SpellsTooltip.CriticalCastsLevel))
+        CriticalCastsLevelEditBox:SetAutoFocus(false)
+        CriticalCastsLevelEditBox:SetScript("OnTextChanged" , function()
+            local num = tonumber(this:GetText())
+            if not num then
+                return
+            end
+            num = math.floor(num)
+            HMOptions.SpellsTooltip.CriticalCastsLevel = num
+        end)
+        CriticalCastsLevelEditBox:SetScript("OnEnterPressed", function()
+            this:ClearFocus()
+        end)
+        CriticalCastsLevelEditBox:SetScript("OnEditFocusLost", function()
+            this:SetText(tostring(HMOptions.SpellsTooltip.CriticalCastsLevel))
+        end)
+        ApplyTooltip(CriticalCastsLevelEditBox, "At how many casts to show yellow casts text")
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local AbbreviateKeysLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        AbbreviateKeysLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        AbbreviateKeysLabel:SetText("Shortened Keys")
+
+        local AbbreviateKeysCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        AbbreviateKeysCheckbox:SetPoint("LEFT", AbbreviateKeysLabel, "RIGHT", 5, yCheckboxOffset)
+        AbbreviateKeysCheckbox:SetWidth(20) -- width
+        AbbreviateKeysCheckbox:SetHeight(20) -- height
+        AbbreviateKeysCheckbox:SetChecked(HMOptions.SpellsTooltip.AbbreviatedKeys)
+        AbbreviateKeysCheckbox:SetScript("OnClick", function()
+            HMOptions.SpellsTooltip.AbbreviatedKeys = AbbreviateKeysCheckbox:GetChecked() == 1
+        end)
+        ApplyTooltip(AbbreviateKeysCheckbox, "Shortens keys to 1 letter")
+
+        local ColorKeysLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ColorKeysLabel:SetPoint("LEFT", AbbreviateKeysCheckbox, "RIGHT", 20, -yCheckboxOffset)
+        ColorKeysLabel:SetText("Colored Keys")
+
+        local ColorKeysCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        ColorKeysCheckbox:SetPoint("LEFT", ColorKeysLabel, "RIGHT", 5, yCheckboxOffset)
+        ColorKeysCheckbox:SetWidth(20) -- width
+        ColorKeysCheckbox:SetHeight(20) -- height
+        ColorKeysCheckbox:SetChecked(HMOptions.SpellsTooltip.ColoredKeys)
+        ColorKeysCheckbox:SetScript("OnClick", function()
+            HMOptions.SpellsTooltip.ColoredKeys = ColorKeysCheckbox:GetChecked() == 1
+        end)
+        ApplyTooltip(ColorKeysCheckbox, "Color code the keys as opposed to all being white")
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local showPowerAsDropdown = CreateFrame("Frame", "$parentShowPowerAsDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        showPowerAsDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        showPowerAsDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", showPowerAsDropdown, "RIGHT", -30, 5)
+        label:SetText("Show Power As")
+
+        local states = {"Power", "Power/Max Power", "Power %"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(showPowerAsDropdown, targetArg, false)
+                    HMOptions.SpellsTooltip.ShowPowerAs = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(showPowerAsDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(showPowerAsDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(showPowerAsDropdown, HMOptions.SpellsTooltip.ShowPowerAs, false)
+            end
+        end)
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local ShowPowerBarLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ShowPowerBarLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        ShowPowerBarLabel:SetText("Show Power Bar")
+
+        local ShowPowerBarCheckbox = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        ShowPowerBarCheckbox:SetPoint("LEFT", ShowPowerBarLabel, "RIGHT", 5, yCheckboxOffset)
+        ShowPowerBarCheckbox:SetWidth(20) -- width
+        ShowPowerBarCheckbox:SetHeight(20) -- height
+        ShowPowerBarCheckbox:SetChecked(HMOptions.SpellsTooltip.ShowPowerBar)
+        ShowPowerBarCheckbox:SetScript("OnClick", function()
+            HMOptions.SpellsTooltip.ShowPowerBar = ShowPowerBarCheckbox:GetChecked() == 1
+            if HMOptions.SpellsTooltip.ShowPowerBar then
+                HealersMate.SpellsTooltipPowerBar:Show()
+            else
+                HealersMate.SpellsTooltipPowerBar:Hide()
+            end
+        end)
+        ApplyTooltip(ShowPowerBarCheckbox, "Show a power bar in the spells tooltip")
+
+        -- Disable power bar now if it's disabled
+        if not HMOptions.SpellsTooltip.ShowPowerBar then
+            HealersMate.SpellsTooltipPowerBar:Hide()
+        end
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local OtherSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        OtherSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        OtherSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        OtherSettingsLabel:SetWidth(optionsFrame:GetWidth())
+        OtherSettingsLabel:SetJustifyH("CENTER")
+        OtherSettingsLabel:SetText("Other Settings")
+    end
+
+    yOffset = yOffset - 30
+
     do
         local castWhenDropdown = CreateFrame("Frame", "$parentCastWhenDropdown", optionsFrame, "UIDropDownMenuTemplate")
         castWhenDropdown:Show()
-        castWhenDropdown:SetPoint("TOP", -65, -100)
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        castWhenDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
 
         local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", castWhenDropdown, "RIGHT", -30, 5)
@@ -440,7 +799,7 @@ function InitSettings()
                 func = function(targetArg)
                     UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
                     HMOptions.CastWhen = targetArg
-                    for _, ui in pairs(HealersMate.HealUIs) do
+                    for _, ui in ipairs(HealersMate.AllUnitFrames) do
                         ui:RegisterClicks()
                     end
                 end
@@ -458,13 +817,15 @@ function InitSettings()
         end)
     end
 
+    yOffset = yOffset - 30
+
     do
         local CheckboxMoveAllLabel = optionsFrame:CreateFontString("$parentMoveAllLabel", "OVERLAY", "GameFontNormal")
-        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -140)
+        CheckboxMoveAllLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
         CheckboxMoveAllLabel:SetText("Drag All Frames")
 
         local CheckboxMoveAll = CreateFrame("CheckButton", "$parentMoveAll", optionsFrame, "UICheckButtonTemplate")
-        CheckboxMoveAll:SetPoint("LEFT", CheckboxMoveAllLabel, "RIGHT", 5, -2)
+        CheckboxMoveAll:SetPoint("LEFT", CheckboxMoveAllLabel, "RIGHT", 5, yCheckboxOffset)
         CheckboxMoveAll:SetWidth(20)
         CheckboxMoveAll:SetHeight(20)
         CheckboxMoveAll:SetChecked(HMOptions.FrameDrag.MoveAll)
@@ -477,7 +838,7 @@ function InitSettings()
 
         local inverseKeyDropdown = CreateFrame("Frame", "$parentMoveAllInverseKeyDropdown", optionsFrame, "UIDropDownMenuTemplate")
         inverseKeyDropdown:Show()
-        inverseKeyDropdown:SetPoint("TOP", 40, -130)
+        inverseKeyDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset + 110, yOffset + yDropdownOffset)
 
         local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", inverseKeyDropdown, "RIGHT", -30, 5)
@@ -508,47 +869,100 @@ function InitSettings()
         end)
     end
 
-    local superwow = util.IsSuperWowPresent()
-    do
-        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
-        SuperWoWLabel:SetPoint("CENTER", 0, -10)
-        SuperWoWLabel:SetText("SuperWoW Required Settings")
-
-        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
-        SuperWoWDetectedLabel:SetPoint("CENTER", 0, -25)
-        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
-        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
-            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
-    end
+    yOffset = yOffset - 30
 
     do
         local CheckboxHealPredictLabel = optionsFrame:CreateFontString("$parentHealPredictionsLabel", "OVERLAY", "GameFontNormal")
-        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -245)
+        CheckboxHealPredictLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
         CheckboxHealPredictLabel:SetText("Use Heal Predictions")
 
         local CheckboxHealPredict = CreateFrame("CheckButton", "$parentHealPredictions", optionsFrame, "UICheckButtonTemplate")
-        CheckboxHealPredict:SetPoint("LEFT", CheckboxHealPredictLabel, "RIGHT", 5, -2)
+        CheckboxHealPredict:SetPoint("LEFT", CheckboxHealPredictLabel, "RIGHT", 5, yCheckboxOffset)
         CheckboxHealPredict:SetWidth(20)
         CheckboxHealPredict:SetHeight(20)
         CheckboxHealPredict:SetChecked(HMOptions.UseHealPredictions)
-        if not superwow then
-            CheckboxHealPredict:Disable()
-        end
         CheckboxHealPredict:SetScript("OnClick", function()
             HMOptions.UseHealPredictions = CheckboxHealPredict:GetChecked() == 1
             HealersMate.UpdateAllIncomingHealing()
         end)
-        ApplyTooltip(CheckboxHealPredict, "Requires SuperWoW Mod To Work", 
-            "If enabled, you will see predictions on incoming healing")
+        ApplyTooltip(CheckboxHealPredict, "See predictions on incoming healing", 
+            "Improved predictions if using SuperWoW")
     end
+
+    yOffset = yOffset - 30
+
+    do
+        -- Label for the checkbox
+        local HidePartyFramesLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        HidePartyFramesLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        HidePartyFramesLabel:SetText("Hide Party Frames:")
+
+        -- Label for the "Friendly" checkbox
+        local InPartyLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        InPartyLabel:SetPoint("LEFT", HidePartyFramesLabel, "RIGHT", 20, 0)
+        InPartyLabel:SetText("In Party")
+
+        -- Create the "Friendly" checkbox
+        local CheckboxInParty = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        CheckboxInParty:SetPoint("LEFT", InPartyLabel, "RIGHT", 5, yCheckboxOffset)
+        CheckboxInParty:SetWidth(20) -- width
+        CheckboxInParty:SetHeight(20) -- height
+        CheckboxInParty:SetChecked(HMOptions.DisablePartyFrames.InParty)
+        CheckboxInParty:SetScript("OnClick", function()
+            HMOptions.DisablePartyFrames.InParty = CheckboxInParty:GetChecked() == 1
+            HealersMate.CheckPartyFramesEnabled()
+        end)
+        ApplyTooltip(CheckboxInParty, "Hide default party frames while in party", "This may cause issues with other addons")
+
+        -- Label for the "Enemy" checkbox
+        local InRaidLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        InRaidLabel:SetPoint("LEFT", CheckboxInParty, "RIGHT", 10, -yCheckboxOffset)
+        InRaidLabel:SetText("In Raid")
+
+        -- Create the "Enemy" checkbox
+        local CheckboxInRaid = CreateFrame("CheckButton", nil, optionsFrame, "UICheckButtonTemplate")
+        CheckboxInRaid:SetPoint("LEFT", InRaidLabel, "RIGHT", 5, yCheckboxOffset)
+        CheckboxInRaid:SetWidth(20) -- width
+        CheckboxInRaid:SetHeight(20) -- height
+        CheckboxInRaid:SetChecked(HMOptions.DisablePartyFrames.InRaid)
+        CheckboxInRaid:SetScript("OnClick", function()
+            HMOptions.DisablePartyFrames.InRaid = CheckboxInRaid:GetChecked() == 1
+            HealersMate.CheckPartyFramesEnabled()
+        end)
+        ApplyTooltip(CheckboxInRaid, "Hide default party frames while in raid", "This may cause issues with other addons")
+    end
+
+    yOffset = yOffset - 40
+
+    local superwow = util.IsSuperWowPresent()
+    do
+        local SuperWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        SuperWoWLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        SuperWoWLabel:SetWidth(optionsFrame:GetWidth())
+        SuperWoWLabel:SetJustifyH("CENTER")
+        SuperWoWLabel:SetText("SuperWoW Required Settings")
+
+        yOffset = yOffset - 20
+
+        local SuperWoWDetectedLabel = optionsFrame:CreateFontString("$parentSuperWoWDetectedLabel", "OVERLAY", "GameFontNormal")
+        SuperWoWDetectedLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        SuperWoWDetectedLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
+        SuperWoWDetectedLabel:SetWidth(optionsFrame:GetWidth())
+        SuperWoWDetectedLabel:SetJustifyH("CENTER")
+        SuperWoWDetectedLabel:SetText(superwow and util.Colorize("SuperWoW Detected", 0.5, 1, 0.5) or 
+            util.Colorize("SuperWoW Not Detected", 1, 0.6, 0.6))
+    end
+
+    yOffset = yOffset - 30
 
     do
         local CheckboxMouseoverLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
-        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", 50, -275)
+        CheckboxMouseoverLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
         CheckboxMouseoverLabel:SetText("Set Mouseover")
 
         local CheckboxMouseover = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")
-        CheckboxMouseover:SetPoint("LEFT", CheckboxMouseoverLabel, "RIGHT", 5, -2)
+        CheckboxMouseover:SetPoint("LEFT", CheckboxMouseoverLabel, "RIGHT", 5, yCheckboxOffset)
         CheckboxMouseover:SetWidth(20)
         CheckboxMouseover:SetHeight(20)
         CheckboxMouseover:SetChecked(HMOptions.SetMouseover)
@@ -564,35 +978,43 @@ function InitSettings()
 
 
     local customizeScrollFrame = CreateFrame("ScrollFrame", "$parentCustomizeScrollFrame", container, "UIPanelScrollFrameTemplate")
-    customizeScrollFrame:SetWidth(370) -- width
-    customizeScrollFrame:SetHeight(380) -- height
-    customizeScrollFrame:SetPoint("CENTER", container, "CENTER")
+    customizeScrollFrame:SetWidth(400) -- width
+    customizeScrollFrame:SetHeight(440) -- height
+    customizeScrollFrame:SetPoint("CENTER", container, "CENTER", -10, -20)
     customizeScrollFrame:Hide() -- Initially hidden
 
     local customizeFrame = CreateFrame("Frame", "$parentContent", customizeScrollFrame)
     addFrame("Customize", customizeScrollFrame)
-    customizeFrame:SetWidth(370 + 20) -- width
-    customizeFrame:SetHeight(360) -- height
+    customizeFrame:SetWidth(400) -- width
+    customizeFrame:SetHeight(440) -- height
     customizeFrame:SetPoint("CENTER", container, "CENTER")
 
     customizeScrollFrame:SetScrollChild(customizeFrame)
 
     local soonTM = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-    soonTM:SetPoint("CENTER", customizeFrame, "CENTER", 0, 0)
+    soonTM:SetPoint("TOP", 0, -190)
     soonTM:SetText("Fully customizable frames coming in future updates")
 
+    do
+        local frameStyle = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frameStyle:SetPoint("TOP", 0, 0)
+        frameStyle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        frameStyle:SetWidth(customizeFrame:GetWidth())
+        frameStyle:SetJustifyH("CENTER")
+        frameStyle:SetText("Choose Frame Style")
+    end
 
 
     do
         frameDropdown = CreateFrame("Frame", "$parentFrameDropdown", customizeFrame, "UIDropDownMenuTemplate")
         frameDropdown:Show()
-        frameDropdown:SetPoint("TOP", -60, 0)
+        frameDropdown:SetPoint("TOP", -60, -40)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", frameDropdown, "RIGHT", -40, 5)
         label:SetText("Select Frame")
 
-        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target"}
+        local targets = {"Party", "Pets", "Raid", "Raid Pets", "Target", "Focus"}
         local targetOptions = {}
 
         for _, target in ipairs(targets) do
@@ -625,7 +1047,7 @@ function InitSettings()
     do
         profileDropdown = CreateFrame("Frame", "$parentProfileDropdown", customizeFrame, "UIDropDownMenuTemplate")
         profileDropdown:Show()
-        profileDropdown:SetPoint("TOP", -60, -30)
+        profileDropdown:SetPoint("TOP", -60, -70)
 
         local label = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("RIGHT", profileDropdown, "RIGHT", -40, 5)
@@ -636,7 +1058,7 @@ function InitSettings()
         table.sort(targets, function(a, b)
             return (HMProfileManager.DefaultProfileOrder[a] or 1000) < (HMProfileManager.DefaultProfileOrder[b] or 1000)
         end)
-        profileOptions = {}
+        local profileOptions = {}
 
         for _, target in ipairs(targets) do
             table.insert(profileOptions, {
@@ -647,18 +1069,33 @@ function InitSettings()
                     local selectedFrame = UIDropDownMenu_GetSelectedName(frameDropdown)
                     HMOptions.ChosenProfiles[selectedFrame] = targetArg
 
+                    if selectedFrame == "Focus" and not util.IsSuperWowPresent() then
+                        return
+                    end
+
                     -- Here's some probably buggy profile hotswapping
-                    local group = HealersMate.HealUIGroups[selectedFrame]
+                    local group = HealersMate.UnitFrameGroups[selectedFrame]
                     group.profile = GetSelectedProfile(selectedFrame)
+                    local oldUIs = group.uis
                     group.uis = {}
-                    group.container:SetFrameLevel(0) -- Need to lower frame or the added UIs are somehow under it
-                    for _, unit in ipairs(group.units) do
-                        HealersMate.HealUIs[unit]:GetRootContainer():SetParent(nil)
+                    group:ResetFrameLevel() -- Need to lower frame or the added UIs are somehow under it
+                    for unit, ui in pairs(oldUIs) do
+                        --HealersMate.hmprint(unit)
+                        ui:GetRootContainer():SetParent(nil)
                         -- Forget about the old UI, and cause a fat memory leak why not
-                        HealersMate.HealUIs[unit]:GetRootContainer():Hide()
-                        local newUI = HealUI:New(unit)
-                        HealersMate.HealUIs[unit] = newUI
+                        ui:GetRootContainer():Hide()
+                        local newUI = HMUnitFrame:New(unit, ui.isCustomUnit)
+                        util.RemoveElement(HealersMate.AllUnitFrames, ui)
+                        table.insert(HealersMate.AllUnitFrames, newUI)
+                        local unitUIs = HealersMate.GetUnitFrames(unit)
+                        util.RemoveElement(unitUIs, ui)
+                        table.insert(unitUIs, newUI)
                         group:AddUI(newUI, true)
+                        if ui.guidUnit then
+                            newUI.guidUnit = ui.guidUnit
+                        elseif unit ~= "target" then
+                            newUI:Hide()
+                        end
                     end
                     HealersMate.CheckGroup()
                     group:UpdateUIPositions()
@@ -681,12 +1118,12 @@ function InitSettings()
 
     do
         local reloadNotify = customizeFrame:CreateFontString("$parentSoonTM", "OVERLAY", "GameFontNormal")
-        reloadNotify:SetPoint("TOP", 0, -80)
+        reloadNotify:SetPoint("TOP", 0, -120)
         reloadNotify:SetText("Reload is recommended after changing UI styles")
 
 
         local reloadUI = CreateFrame("Button", "$parentReloadUIButton", customizeFrame, "UIPanelButtonTemplate")
-        reloadUI:SetPoint("TOP", 0, -100)
+        reloadUI:SetPoint("TOP", 0, -140)
         reloadUI:SetWidth(125)
         reloadUI:SetHeight(20)
         reloadUI:SetText("Reload UI")
@@ -696,6 +1133,144 @@ function InitSettings()
         end)
     end
 
+    do
+        local advanced = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        advanced:SetPoint("TOP", 0, -240)
+        advanced:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        advanced:SetWidth(customizeFrame:GetWidth())
+        advanced:SetJustifyH("CENTER")
+        advanced:SetText("Advanced Options")
+    end
+
+    do
+        local explainer = customizeFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        explainer:SetPoint("TOP", 0, -260)
+        explainer:SetFont("Fonts\\FRIZQT__.TTF", 12)
+        explainer:SetWidth(customizeFrame:GetWidth() * 0.85)
+        explainer:SetJustifyH("CENTER")
+        explainer:SetText("The Load Script runs after profiles are initialized, but before UIs are created, "..
+            "making it good for editing profile attributes. GetProfile and CreateProfile are defined locals. "..
+            "The Postload Script runs after everything is initialized. Reload is required for changes to take effect.")
+    end
+
+    do
+        local editFrame = CreateFrame("Frame", "HMPreLoadScriptFrame", container)
+        editFrame:SetWidth(325)
+        editFrame:SetHeight(230)
+        editFrame:SetPoint("CENTER", 0, 0)
+        editFrame:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
+        editFrame:SetBackdropColor(0, 0, 0, 0.75)
+        editFrame:SetPoint("LEFT", container, "RIGHT", 20, 0)
+        editFrame:Hide()
+
+        editFrame:EnableMouse(true)
+
+        local scrollFrame = CreateFrame("ScrollFrame", "$parentCodeScrollFrame", editFrame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetWidth(300)
+        scrollFrame:SetHeight(200)
+        scrollFrame:SetPoint("TOPLEFT", 0, 0)
+
+        local editBox = CreateFrame("EditBox", "$parentContent", scrollFrame)
+        editBox:SetFontObject(ChatFontNormal)
+        editBox:SetMultiLine(true)
+        editBox:SetAutoFocus(false)
+        
+        editBox:SetWidth(300)
+        -- Stolen from SuperMacro
+        editBox:SetScript("OnTextChanged", function()
+            local scrollBar = getglobal(editBox:GetParent():GetName().."ScrollBar")
+            editBox:GetParent():UpdateScrollChildRect();
+
+            local _, max = scrollBar:GetMinMaxValues();
+            scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+            if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+                -- if scroll is down and add new line then move scroll
+                scrollBar:SetValue(max);
+            end
+            if max ~= scrollBar.prevMaxValue then
+                -- save max value
+                scrollBar.prevMaxValue = max
+            end
+        end)
+        editBox:SetScript("OnEscapePressed", function()
+            editFrame:Hide()
+        end)
+        editBox:SetScript("OnEditFocusGained", function()
+            this:SetText(HMOptions.Scripts[this.editScript])
+        end)
+        editBox:SetScript("OnEditFocusLost", function()
+            if not this.editScript then
+                return
+            end
+            HMOptions.Scripts[this.editScript] = this:GetText()
+            editFrame:Hide()
+        end)
+        
+        local editTargetLabel = editFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        editTargetLabel:SetPoint("TOP", 0, -207)
+        editTargetLabel:SetFont("Fonts\\FRIZQT__.TTF", 12)
+        editTargetLabel:SetWidth(editFrame:GetWidth())
+        editTargetLabel:SetJustifyH("CENTER")
+
+        editBox.SetEditScript = function(self, scriptName)
+            self.editScript = scriptName
+            editTargetLabel:SetText(scriptName)
+        end
+        scrollFrame:SetScrollChild(editBox)
+
+        do
+            local ok = CreateFrame("Button", nil, editFrame, "UIPanelButtonTemplate")
+            ok:SetPoint("TOP", -90, -205)
+            ok:SetWidth(100)
+            ok:SetHeight(20)
+            ok:SetText("Save")
+            ok:RegisterForClicks("LeftButtonUp")
+            ok:SetScript("OnClick", function()
+                editFrame:Hide()
+            end)
+
+            local cancel = CreateFrame("Button", nil, editFrame, "UIPanelButtonTemplate")
+            cancel:SetPoint("TOP", 90, -205)
+            cancel:SetWidth(100)
+            cancel:SetHeight(20)
+            cancel:SetText("Cancel")
+            cancel:RegisterForClicks("LeftButtonUp")
+            cancel:SetScript("OnClick", function()
+                editBox:SetEditScript(nil)
+                editFrame:Hide()
+            end)
+        end
+
+        do
+            local openPreLoadScript = CreateFrame("Button", nil, customizeFrame, "UIPanelButtonTemplate")
+            openPreLoadScript:SetPoint("TOP", 0, -340)
+            openPreLoadScript:SetWidth(150)
+            openPreLoadScript:SetHeight(20)
+            openPreLoadScript:SetText("Edit Load Script")
+            openPreLoadScript:RegisterForClicks("LeftButtonUp")
+            openPreLoadScript:SetScript("OnClick", function()
+                editBox:ClearFocus()
+                editBox:SetEditScript("OnLoad")
+                editFrame:Show()
+                editBox:SetFocus()
+            end)
+
+
+            local postLoadScriptButton = CreateFrame("Button", nil, customizeFrame, "UIPanelButtonTemplate")
+            postLoadScriptButton:SetPoint("TOP", 0, -365)
+            postLoadScriptButton:SetWidth(150)
+            postLoadScriptButton:SetHeight(20)
+            postLoadScriptButton:SetText("Edit Postload Script")
+            postLoadScriptButton:RegisterForClicks("LeftButtonUp")
+            postLoadScriptButton:SetScript("OnClick", function()
+                editBox:ClearFocus()
+                editBox:SetEditScript("OnPostLoad")
+                editFrame:Show()
+                editBox:SetFocus()
+            end)
+        end
+    end
 
 
 
@@ -863,7 +1438,7 @@ function InitSettings()
     end
 
     local spellApplyButton = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
-    spellApplyButton:SetPoint("BOTTOM", 0, 10)
+    spellApplyButton:SetPoint("TOP", 0, -230)
     spellApplyButton:SetWidth(125)
     spellApplyButton:SetHeight(20)
     spellApplyButton:SetText("Save & Close")
@@ -879,8 +1454,92 @@ function InitSettings()
                 end
             end
         end
+        PlaySound("GAMESPELLBUTTONMOUSEDOWN")
         closeButton:GetScript("OnClick")()
     end)
+
+    local spellApplyButtonNoClose = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
+    spellApplyButtonNoClose:SetPoint("TOP", 140, -230)
+    spellApplyButtonNoClose:SetWidth(125)
+    spellApplyButtonNoClose:SetHeight(20)
+    spellApplyButtonNoClose:SetText("Save Changes")
+    spellApplyButtonNoClose:RegisterForClicks("LeftButtonUp")
+    spellApplyButtonNoClose:SetScript("OnClick", function()
+        saveSpellEditBoxes()
+        for context, spells in pairs(EditedSpells) do
+            local Spells = HMSpells[context]
+            for modifier, buttons in pairs(spells) do
+                Spells[modifier] = {}
+                for button, spell in pairs(buttons) do
+                    Spells[modifier][button] = spell
+                end
+            end
+        end
+        PlaySound("GAMESPELLBUTTONMOUSEDOWN")
+    end)
+
+    do
+        local spellDiscardButton = CreateFrame("Button", "SpellApplyButton", spellsFrame, "UIPanelButtonTemplate")
+        spellDiscardButton:SetPoint("TOP", -140, -230)
+        spellDiscardButton:SetWidth(125)
+        spellDiscardButton:SetHeight(20)
+        spellDiscardButton:SetText("Discard Changes")
+        spellDiscardButton:RegisterForClicks("LeftButtonUp")
+        spellDiscardButton:SetScript("OnClick", function()
+            resetSpells()
+            populateSpellEditBoxes()
+            PlaySound("GAMESPELLBUTTONMOUSEDOWN")
+        end)
+    end
+
+    do
+        local helpScrollFrame = CreateFrame("ScrollFrame", "$parentHelpScrollFrame", spellsFrame, "UIPanelScrollFrameTemplate")
+        helpScrollFrame:SetWidth(400) -- width
+        helpScrollFrame:SetHeight(175) -- height
+        helpScrollFrame:SetPoint("TOPRIGHT", spellsFrame, "TOPRIGHT", -10, -260)
+
+        local helpFrame = CreateFrame("Frame", "$parentHelpFrame", helpScrollFrame)
+        helpFrame:SetWidth(400) -- width
+        helpFrame:SetHeight(175) -- height
+
+        helpScrollFrame:SetScrollChild(helpFrame)
+
+
+        do
+            local explainerHeader = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            explainerHeader:SetPoint("TOP", 0, 0)
+            explainerHeader:SetFont("Fonts\\FRIZQT__.TTF", 14)
+            explainerHeader:SetWidth(helpFrame:GetWidth() * 1)
+            explainerHeader:SetJustifyH("CENTER")
+            explainerHeader:SetText("Spell Binding Help & Info")
+
+            local explainer = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            explainer:SetPoint("TOP", 0, -20)
+            explainer:SetFont("Fonts\\FRIZQT__.TTF", 12)
+            explainer:SetWidth(helpFrame:GetWidth() * 0.9)
+            explainer:SetJustifyH("LEFT")
+            local colorize = util.Colorize
+            explainer:SetText(colorize("How to downrank: ", 1, 0.6, 0.6).."Input the name of the spell, suffixed by \"(Rank #)\""..
+                ". For example, "..colorize("Lesser Heal(Rank 2)", 0.6, 1, 0.6).."\n\n"..
+            colorize("Special Bindings:", 1, 0.6, 0.6).."\n"..
+            colorize("Target", 0.6, 0.6, 1).." - ".."Sets your target\n"..
+            colorize("Assist", 0.6, 0.6, 1).." - ".."Sets your target as the unit's target\n"..
+            colorize("Role", 0.6, 0.6, 1).." - ".."Choose the role of the player\n"..
+            colorize("Context", 0.6, 0.6, 1).." - ".."Open the right-click context menu\n"..
+            colorize("Follow", 0.6, 0.6, 1).." - ".."Follow a player\n"..
+            colorize("Focus", 0.6, 0.6, 1)..colorize(" (SuperWoW Required)", 1, 0.8, 0.8).." - ".."Add/remove a unit to your focus\n"..
+            colorize("Promote Focus", 0.6, 0.6, 1)..colorize(" (SuperWoW Required)", 1, 0.8, 0.8).." - "..
+                "Moves the focus to the top\n\n"..
+            colorize("Binding Items: ", 1, 0.6, 0.6).."Prefix \"Item: \" to indicate that you're binding an item in your bags."..
+                " For example, "..colorize("Item: Silk Bandage", 0.6, 1, 0.6).."\n\n"..
+            colorize("Binding Macros: ", 1, 0.6, 0.6).."Prefix \"Macro: \" to indicate that you're binding a macro. For example, "..
+                colorize("Macro: Summon", 0.6, 1, 0.6).."\n\n"..
+            colorize("Information on Macros: ", 1, 0.6, 0.6).."When clicking on a unit with macro binds, you will automatically"..
+                " target them for a split second, allowing you to use the \"target\" unit in your macros. Additionally, the "..
+                "global \"HM_MacroTarget\" is exposed, allowing you to see the actual unit that was clicked, such as "..
+                "\"party1\". Beware that clicking on a focus will produce fake units, such as \"focus1\".")
+        end
+    end
 
     local lastTab
     for tabIndex, name in ipairs(frameNames) do
@@ -913,6 +1572,4 @@ function InitSettings()
         ShowFrame("Spells")
         oldContainerShow(self)
     end
-
-    container:Hide()
 end

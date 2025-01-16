@@ -25,6 +25,12 @@ function HMUIProfile.CreatePositionedObject()
     obj.OffsetY = 0
     obj.Anchor = "Health Bar" -- Health Bar, Power Bar, Button, Container
     obj.Opacity = 100
+    obj.GetWidth = function(self, ui)
+        return (self.Width ~= "Anchor" and self.Width or self:GetAnchorComponent(ui):GetWidth()) + (self.Width2 or 0)
+    end
+    obj.GetHeight = function(self, ui)
+        return (self.Height ~= "Anchor" and self.Height or self:GetAnchorComponent(ui):GetHeight()) + (self.Height2 or 0)
+    end
     obj.GetOffsetX = function(self)
         if self.AlignmentH == "LEFT" then
             return self.PaddingH + self.OffsetX
@@ -139,6 +145,7 @@ function HMUIProfile.SetDefaults()
         ["AlignmentH"] = "RIGHT",
         ["Anchor"] = "Health Bar",
         ["Color"] = {0.5, 1, 0.5},
+        ["IndirectColor"] = {0.3, 0.8, 0.3},
         ["Outline"] = true
     })
 
@@ -186,7 +193,18 @@ function HMUIProfile.SetDefaults()
         ["PaddingH"] = 1,
         ["PaddingV"] = 1,
         ["Anchor"] = "Container",
-        ["Opacity"] = 85
+        ["Opacity"] = 100
+    })
+
+    profile.RaidMarkIcon = createSizedObject({
+        ["Width"] = 12,
+        ["Height"] = 12,
+        ["AlignmentH"] = "RIGHT",
+        ["AlignmentV"] = "TOP",
+        ["PaddingH"] = 1,
+        ["PaddingV"] = 1,
+        ["Anchor"] = "Container",
+        ["Opacity"] = 100
     })
 
     profile.TrackAuras = true
@@ -201,6 +219,23 @@ function HMUIProfile.SetDefaults()
     })
     profile.TrackedAurasSpacing = 2
     profile.TrackedAurasAlignment = "TOP"
+
+    profile.TargetOutline = createSizedObject({
+        ["Height"] = "Anchor",
+        ["Width"] = "Anchor",
+        ["Height2"] = 2,
+        ["Width2"] = 2,
+        ["Anchor"] = "Button",
+        ["Thickness"] = 2
+    })
+
+    profile.Flash = createSizedObject({
+        ["Height"] = "Anchor",
+        ["Width"] = "Anchor",
+        ["Anchor"] = "Health Bar"
+    })
+    profile.FlashThreshold = 25
+    profile.FlashOpacity = 70
 
     profile.MaxUnitsInAxis = 5
     profile.Orientation = "Vertical" --"Vertical", "Horizontal"

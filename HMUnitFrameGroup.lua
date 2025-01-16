@@ -1,38 +1,57 @@
-HealUIGroup = {}
+HMUnitFrameGroup = {}
 
-HealUIGroup.name = "???"
+HMUnitFrameGroup.name = "???"
 
-HealUIGroup.profile = nil
+HMUnitFrameGroup.profile = nil
 
-HealUIGroup.container = nil
-HealUIGroup.borderFrame = nil
-HealUIGroup.header = nil
-HealUIGroup.label = nil
-HealUIGroup.uis = nil
-HealUIGroup.units = nil
+HMUnitFrameGroup.container = nil
+HMUnitFrameGroup.borderFrame = nil
+HMUnitFrameGroup.header = nil
+HMUnitFrameGroup.label = nil
+HMUnitFrameGroup.uis = nil
+HMUnitFrameGroup.units = nil
 
-HealUIGroup.petGroup = false
-HealUIGroup.environment = "all" -- party, raid, or all
+HMUnitFrameGroup.petGroup = false
+HMUnitFrameGroup.environment = "all" -- party, raid, or all
+HMUnitFrameGroup.sortByRole = true
 
-HealUIGroup.moveContainer = CreateFrame("Frame", "HealUIGroupBulkMoveContainer", UIParent)
-HealUIGroup.moveContainer:EnableMouse(true)
-HealUIGroup.moveContainer:SetMovable(true)
+HMUnitFrameGroup.moveContainer = CreateFrame("Frame", "HMUnitFrameGroupBulkMoveContainer", UIParent)
+HMUnitFrameGroup.moveContainer:EnableMouse(true)
+HMUnitFrameGroup.moveContainer:SetMovable(true)
+
+local _G = getfenv(0)
+if HMUtil.IsSuperWowPresent() then
+    setmetatable(HMUnitProxy, {__index = getfenv(1)})
+    setfenv(1, HMUnitProxy)
+end
 
 -- Singleton references, assigned in constructor
 local HM
 local util
 
-function HealUIGroup:New(name, environment, units, petGroup, profile)
+function HMUnitFrameGroup:New(name, environment, units, petGroup, profile, sortByRole)
     HM = HealersMate -- Need to do this in the constructor or else it doesn't exist yet
     util = HMUtil
     local obj = {name = name, environment = environment, uis = {}, units = units, petGroup = petGroup, profile = profile}
+    if sortByRole ~= nil then
+        obj.sortByRole = sortByRole
+    end
     setmetatable(obj, self)
     self.__index = self
     obj:Initialize()
     return obj
 end
 
-function HealUIGroup:ShowCondition()
+function HMUnitFrameGroup:EvaluateShown()
+    if self:CanShowInEnvironment(HealersMate.CurrentlyInRaid and "raid" or "party") and self:ShowCondition() then
+        self:Show()
+        self:UpdateUIPositions()
+    else
+        self:Hide()
+    end
+end
+
+function HMUnitFrameGroup:ShowCondition()
     if HMOptions.Hidden then
         return false
     end
@@ -45,7 +64,7 @@ function HealUIGroup:ShowCondition()
     return false
  end
 
-function HealUIGroup:AddUI(ui, noUpdate)
+function HMUnitFrameGroup:AddUI(ui, noUpdate)
     self.uis[ui:GetUnit()] = ui
     ui:SetOwningGroup(self)
     if not noUpdate then
@@ -53,31 +72,36 @@ function HealUIGroup:AddUI(ui, noUpdate)
     end
 end
 
-function HealUIGroup:GetContainer()
+function HMUnitFrameGroup:GetContainer()
     return self.container
 end
 
-function HealUIGroup:GetEnvironment()
+function HMUnitFrameGroup:ResetFrameLevel()
+    self.container:SetFrameLevel(0)
+    self.borderFrame:SetFrameLevel(1)
+end
+
+function HMUnitFrameGroup:GetEnvironment()
     return self.environment
 end
 
-function HealUIGroup:CanShowInEnvironment(environment)
+function HMUnitFrameGroup:CanShowInEnvironment(environment)
     return self.environment == "all" or self.environment == environment
 end
 
-function HealUIGroup:Show()
+function HMUnitFrameGroup:Show()
     self.container:Show()
     for _, ui in pairs(self.uis) do
         ui:UpdateAll()
     end
 end
 
-function HealUIGroup:Hide()
+function HMUnitFrameGroup:Hide()
     self.container:Hide()
 end
 
-function HealUIGroup:Initialize()
-    local container = CreateFrame("Frame", self.name.."HealUIGroupContainer", UIParent) --type, name, parent
+function HMUnitFrameGroup:Initialize()
+    local container = CreateFrame("Frame", self.name.."HMUnitFrameGroupContainer", UIParent) --type, name, parent
     self.container = container
     container:SetToplevel(true)
     if container:GetNumPoints() == 0 then
@@ -104,13 +128,13 @@ function HealUIGroup:Initialize()
 
         container.bulkMovement = true
 
-        local moveContainer = HealUIGroup.moveContainer
+        local moveContainer = HMUnitFrameGroup.moveContainer
         moveContainer:ClearAllPoints()
         moveContainer:SetPoint("TOPLEFT", 0, 0)
         -- If the container doesn't have a size, it doesn't move
         moveContainer:SetWidth(1)
         moveContainer:SetHeight(1)
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
             local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
             gc:ClearAllPoints()
@@ -135,9 +159,9 @@ function HealUIGroup:Initialize()
 
         container.bulkMovement = false
 
-        local moveContainer = HealUIGroup.moveContainer
+        local moveContainer = HMUnitFrameGroup.moveContainer
         moveContainer:StopMovingOrSizing()
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
             local mcpoint, mcrelativeTo, mcrelativePoint, mcxofs, mcyofs = moveContainer:GetPoint(1)
             local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
@@ -159,13 +183,13 @@ function HealUIGroup:Initialize()
         arg1 = prevArg
     end)
 
-    local header = CreateFrame("Frame", self.name.."HealUIGroupContainerHeader", container) --type, name, parent
+    local header = CreateFrame("Frame", self.name.."HMUnitFrameGroupContainerHeader", container) --type, name, parent
     self.header = header
     header:SetPoint("TOPLEFT", container, 0, 0)
     header:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background"})
     header:SetBackdropColor(0, 0, 0, 0.5)
 
-    local borderFrame = CreateFrame("Frame", self.name.."HealUIGroupContainerBorder", container)
+    local borderFrame = CreateFrame("Frame", self.name.."HMUnitFrameGroupContainerBorder", container)
     self.borderFrame = borderFrame
     borderFrame:SetPoint("CENTER", container, 0, 0)
 
@@ -179,22 +203,22 @@ function HealUIGroup:Initialize()
     self:UpdateUIPositions()
 end
 
-function HealUIGroup:ApplyProfile()
+function HMUnitFrameGroup:ApplyProfile()
     local profile = self:GetProfile()
     
     local borderFrame = self.borderFrame
     if profile.BorderStyle == "Tooltip" then
-        borderFrame:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 16, 
-            insets = { left = 6, right = 6, top = 6, bottom = 6 }, tile = true, tileSize = 16})
+        borderFrame:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 17, 
+            tile = true, tileSize = 17})
     elseif profile.BorderStyle == "Dialog Box" then
         borderFrame:SetBackdrop({edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 24, 
-            insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 24})
+            tile = true, tileSize = 24})
     else
         borderFrame:SetBackdrop({})
     end
 end
 
-function HealUIGroup:UpdateUIPositions()
+function HMUnitFrameGroup:UpdateUIPositions()
     local profile = self:GetProfile()
     local profileWidth = profile.Width
     local profileHeight = profile:GetHeight()
@@ -239,7 +263,12 @@ function HealUIGroup:UpdateUIPositions()
 
     local largestRow = table.getn(splitSortedUIs)
 
+    
+    --largestRow = math.max(largestRow, 1)
+    --largestColumn = math.max(largestColumn, 1)
+
     local width = orientation == "Vertical" and (profileWidth * largestRow + (xSpacing * (largestRow - 1))) or (profileWidth * largestColumn + (xSpacing * (largestColumn - 1)))
+    width = math.max(width, profileWidth) -- Prevent width from being 0
     local height = orientation == "Vertical" and (profileHeight * largestColumn + (ySpacing * (largestColumn - 1))) or (profileHeight * largestRow + (ySpacing * (largestRow - 1)))
     height = height + 20
     self.container:SetWidth(width)
@@ -263,7 +292,7 @@ function HealUIGroup:UpdateUIPositions()
 end
 
 -- Returns an array with the index being the group number, and the value being an array of units
-function HealUIGroup:GetSortedUIs()
+function HMUnitFrameGroup:GetSortedUIs()
     local profile = self:GetProfile()
     local uis = self.uis
     local groups = {}
@@ -361,19 +390,25 @@ function HealUIGroup:GetSortedUIs()
             end
         end
     end
+    local sortByRole = self.sortByRole
     for _, group in ipairs(sortedGroups) do
-        local rolePriority = {
-            ["Tank"] = 1,
-            ["Healer"] = 2,
-            ["Damage"] = 3
-        }
-        local groupCopy = util.CloneTable(group)
-        local roleSorter = function(a, b)
-            local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
-            local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
-            return aRank < bRank
+        if sortByRole then
+            local rolePriority = {
+                ["Tank"] = 1,
+                ["Healer"] = 2,
+                ["Damage"] = 3
+            }
+            local groupCopy = util.CloneTable(group)
+            local roleSorter = function(a, b)
+                if not a or not b then
+                    return false
+                end
+                local aRank = ((rolePriority[a:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, a)
+                local bRank = ((rolePriority[b:GetRole()] or 4) * 100) + util.IndexOf(groupCopy, b)
+                return aRank < bRank
+            end
+            table.sort(group, roleSorter)
         end
-        table.sort(group, roleSorter)
         for _, ui in ipairs(group) do
             ui:UpdateRole()
         end
@@ -381,6 +416,6 @@ function HealUIGroup:GetSortedUIs()
     return sortedGroups
 end
 
-function HealUIGroup:GetProfile()
+function HMUnitFrameGroup:GetProfile()
     return self.profile
 end

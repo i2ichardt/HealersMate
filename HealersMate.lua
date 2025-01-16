@@ -2,7 +2,7 @@ SLASH_HEALERSMATE1 = "/healersmate"
 SLASH_HEALERSMATE2 = "/hm"
 SlashCmdList["HEALERSMATE"] = function(args)
     if args == "reset" then
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
             gc:ClearAllPoints()
             gc:SetPoint(HMUtil.GetCenterScreenPoint(gc:GetWidth(), gc:GetHeight()))
@@ -13,11 +13,11 @@ SlashCmdList["HEALERSMATE"] = function(args)
     elseif args == "check" then
         HealersMate.CheckGroup()
     elseif args == "update" then
-        for _, ui in pairs(HealersMate.HealUIs) do
+        for _, ui in pairs(HealersMate.AllUnitFrames) do
             ui:SizeElements()
             ui:UpdateAll()
         end
-        for _, group in pairs(HealersMate.HealUIGroups) do
+        for _, group in pairs(HealersMate.UnitFrameGroups) do
             group:ApplyProfile()
             group:UpdateUIPositions()
         end
@@ -25,12 +25,17 @@ SlashCmdList["HEALERSMATE"] = function(args)
         HMOptions.TestUI = not HMOptions.TestUI
         HealersMate.TestUI = HMOptions.TestUI
         if HMOptions.TestUI then
-            for _, ui in pairs(HealersMate.HealUIs) do
+            for _, ui in pairs(HealersMate.AllUnitFrames) do
                 ui.fakeStats = ui.GenerateFakeStats()
                 ui:Show()
             end
         end
         HealersMate.CheckGroup()
+        if not HMOptions.TestUI and HMUnitProxy then
+            for _, type in ipairs(HMUnitProxy.CustomUnitTypes) do
+                HMUnitProxy.UpdateUnitTypeFrames(type)
+            end
+        end
         DEFAULT_CHAT_FRAME:AddMessage("UI Testing is now "..(not HMOptions.TestUI and 
             HMUtil.Colorize("off", 1, 0.6, 0.6) or HMUtil.Colorize("on", 0.6, 1, 0.6))..".")
     elseif args == "toggle" then
@@ -77,14 +82,19 @@ SlashCmdList["HEALERSMATE"] = function(args)
     end
 end
 
+HealersMateLib = AceLibrary("AceAddon-2.0"):new("AceEvent-2.0")
 HealersMate = {}
 local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha4.2"
+VERSION = "2.0.0-alpha5"
 
 TestUI = false
+
+Banzai = AceLibrary("Banzai-1.0")
+HealComm = AceLibrary("HealComm-1.0")
+GuidRoster = HMGuidRoster -- Will be nil if SuperWoW isn't present
 
 local util = HMUtil
 local colorize = util.Colorize
@@ -92,6 +102,8 @@ local GetKeyModifier = util.GetKeyModifier
 local GetClass = util.GetClass
 local GetPowerType = util.GetPowerType
 local GetColoredRoleText = util.GetColoredRoleText
+local UseItem = util.UseItem
+local GetItemCount = util.GetItemCount
 
 PartyUnits = util.PartyUnits
 PetUnits = util.PetUnits
@@ -99,6 +111,13 @@ TargetUnits = util.TargetUnits
 RaidUnits = util.RaidUnits
 RaidPetUnits = util.RaidPetUnits
 AllUnits = util.AllUnits
+AllUnitsSet = util.AllUnitsSet
+AllCustomUnits = util.CustomUnits
+AllCustomUnitsSet = util.CustomUnitsSet
+
+if HMUnitProxy then
+    HMUnitProxy.ImportFunctions(HealersMate)
+end
 
 -- TODO: Actually use this
 UIGroupInfo = {}
@@ -158,12 +177,6 @@ ResurrectionSpells = {
     ["DRUID"] = "Rebirth"
 }
 
-GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
-
-CurrentlyHeldButton = nil
-SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
-SpellsTooltipOwner = nil
-
 local hmBarsPath = util.GetAssetsPath().."textures\\bars\\"
 BarStyles = {
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
@@ -174,14 +187,122 @@ BarStyles = {
     ["HealersMate Shineless Borderless"] = hmBarsPath.."HealersMate-Shineless-Borderless"
 }
 
--- Contains all individual player healing UIs
-HealUIs = {}
--- Contains all the healing UI groups
-HealUIGroups = {}
+GameTooltip = CreateFrame("GameTooltip", "HMGameTooltip", UIParent, "GameTooltipTemplate")
+
+CurrentlyHeldButton = nil
+SpellsTooltip = CreateFrame("GameTooltip", "HMSpellsTooltip", UIParent, "GameTooltipTemplate")
+SpellsTooltipOwner = nil
+SpellsTooltipPowerBar = nil
+do
+    local manaBar = CreateFrame("StatusBar", "HMSpellsTooltipManaBar", SpellsTooltip)
+    SpellsTooltipPowerBar = manaBar
+    manaBar:SetStatusBarTexture(BarStyles["HealersMate"])
+    manaBar:SetMinMaxValues(0, 1)
+    manaBar:SetWidth(100)
+    manaBar:SetHeight(12)
+    manaBar:SetPoint("TOPRIGHT", SpellsTooltip, "TOPRIGHT", -10, -12)
+
+    local bg = manaBar:CreateTexture(nil, "BACKGROUND")
+    manaBar.background = bg
+    bg:SetAllPoints(true)
+    bg:SetTexture(0.3, 0.3, 0.3, 0.8)
+
+    local text = manaBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    manaBar.text = text
+    text:SetWidth(manaBar:GetWidth())
+    text:SetHeight(manaBar:GetHeight())
+    text:SetPoint("CENTER", manaBar, "CENTER")
+    text:SetFont("Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
+    text:SetShadowOffset(0, 0)
+    text:SetJustifyH("CENTER")
+    text:SetJustifyV("CENTER")
+end
+
+-- An unmapped array of all unit frames
+AllUnitFrames = {}
+-- A map of units to an array of unit frames associated with the unit
+HMUnitFrames = {}
+
+-- Key: Unit frame group name | Value: The group
+UnitFrameGroups = {}
+
+CustomUnitGUIDMap = HMUnitProxy and HMUnitProxy.CustomUnitGUIDMap or {}
+GUIDCustomUnitMap = HMUnitProxy and HMUnitProxy.GUIDCustomUnitMap or {}
+
 
 CurrentlyInRaid = false
 
 AssignedRoles = nil
+
+-- Returns the array of unit frames of the unit
+function GetUnitFrames(unit)
+    return HMUnitFrames[unit]
+end
+
+-- A temporary dummy function while the addon initializes. See below for the real iterator.
+function UnitFrames(unit)
+    return function() end
+end
+
+local function OpenUnitFramesIterator()
+    -- UnitFrames function definition.
+    -- Returns an iterator for the unit frames of the unit.
+    -- These iterators have a serious problem in that they do not support concurrent iteration.
+    if util.IsSuperWowPresent() then
+        local EMPTY_UIS = {}
+        local HMUnitFrames = HMUnitFrames
+        local GuidUnitMap = HMGuidRoster.GuidUnitMap
+        local iterTable = {} -- The table reused for iteration over GUID units
+        local uis
+        local i = 0
+        local len = 0
+        local iterFunc = function()
+            i = i + 1
+            if i <= len then
+                return uis[i]
+            end
+        end
+        function UnitFrames(unit)
+            if i < len then
+                hmprint("Collision: "..i.."/"..len)
+            end
+            if GuidUnitMap[unit] then -- If a GUID is provided, ALL UIs associated with that GUID will be iterated
+                uis = iterTable
+                for i = 1, table.getn(uis) do
+                    uis[i] = nil
+                end
+                table.setn(uis, 0)
+                for _, unit in pairs(GuidUnitMap[unit]) do
+                    for _, frame in ipairs(HMUnitFrames[unit]) do
+                        table.insert(uis, frame)
+                    end
+                end
+            else
+                uis = HMUnitFrames[unit] or EMPTY_UIS
+            end
+            len = table.getn(uis)
+            i = 0
+            return iterFunc
+        end
+    else -- Optimized version for vanilla
+        local HMUnitFrames = HMUnitFrames
+        local uis
+        local i = 0
+        local len = 0
+        local iterFunc = function()
+            i = i + 1
+            if i <= len then
+                return uis[i]
+            end
+        end
+        function UnitFrames(unit)
+            i = 0
+            uis = HMUnitFrames[unit]
+            len = table.getn(uis)
+            return iterFunc
+        end
+    end
+end
 
 
 --This is just to respond to events "EventHandlerFrame" never appears on the screen
@@ -199,8 +320,10 @@ EventHandlerFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 EventHandlerFrame:RegisterEvent("UNIT_PET")
 EventHandlerFrame:RegisterEvent("PLAYER_PET_CHANGED")
 EventHandlerFrame:RegisterEvent("SPELLS_CHANGED")
+EventHandlerFrame:RegisterEvent("RAID_TARGET_UPDATE")
 
 EventHandlerFrame:RegisterEvent("UNIT_MANA")
+EventHandlerFrame:RegisterEvent("UNIT_DISPLAYPOWER")
 EventHandlerFrame:RegisterEvent("UNIT_RAGE")
 EventHandlerFrame:RegisterEvent("UNIT_ENERGY")
 EventHandlerFrame:RegisterEvent("UNIT_FOCUS")
@@ -217,62 +340,6 @@ EventHandlerFrame:SetScript("OnUpdate", function()
     end
 end)
 
-do
-    local almostAllUnits = util.CloneTable(AllUnits) -- Everything except the player
-    table.remove(almostAllUnits, util.IndexOf(almostAllUnits, "player"))
-
-    local distanceTrackedUnits = util.CloneTable(almostAllUnits) -- Initially scan all units
-    local sightTrackedUnits = util.CloneTable(almostAllUnits)
-    local preciseDistance = util.CanClientGetPreciseDistance()
-    local sightTrackingEnabled = util.CanClientSightCheck()
-    local nextTrackingUpdate = GetTime() + 0.5
-    local nextUpdate = GetTime() + 0.6
-    if not preciseDistance and not sightTrackingEnabled then
-        nextUpdate = nextUpdate + 99999999 -- Effectively disable updates
-    end
-    local distanceCheckerFrame = CreateFrame("Frame", "HMDistanceCheckerFrame", UIParent)
-    distanceCheckerFrame:SetScript("OnUpdate", function()
-        local time = GetTime()
-        if time > nextTrackingUpdate then
-            nextTrackingUpdate = time + math.random(0.5, 2)
-    
-            distanceTrackedUnits = {}
-            local prevSightTrackedUnits = sightTrackedUnits
-            sightTrackedUnits = {}
-            for _, unit in ipairs(almostAllUnits) do
-                local dist = util.GetDistanceTo(unit)
-                HealUIs[unit]:CheckRange(dist)
-                if dist < 60 and dist > 20 then -- Only closely track units that are close to the range threshold
-                    table.insert(distanceTrackedUnits, unit)
-                end
-                if dist < 80 and sightTrackingEnabled then
-                    table.insert(sightTrackedUnits, unit)
-                end
-            end
-
-            -- Check sight on previously tracked units in case they got removed
-            for _, unit in ipairs(prevSightTrackedUnits) do
-                HealUIs[unit]:CheckSight()
-            end
-        end
-    
-        if time > nextUpdate then
-            nextUpdate = time + 0.1
-            for _, unit in ipairs(distanceTrackedUnits) do
-                HealUIs[unit]:CheckRange()
-            end
-            for _, unit in ipairs(sightTrackedUnits) do
-                HealUIs[unit]:CheckSight()
-            end
-        end
-    end)
-end
-
--- If SuperWoW is present, then a GUID map will be populated
-if util.IsSuperWowPresent() then
-    GUIDUnitMap = {} -- Key: GUID, Value: Array of units associated with GUID
-end
-
 function Debug(msg)
     DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
@@ -285,8 +352,8 @@ function GetHostileSpells()
     return HMSpells["Hostile"]
 end
 
-function UpdateHealUIGroups()
-    for _, group in pairs(HealUIGroups) do
+function UpdateUnitFrameGroups()
+    for _, group in pairs(UnitFrameGroups) do
         group:UpdateUIPositions()
     end
 end
@@ -389,7 +456,18 @@ end
 function GetResourceCost(spellName)
     ScanningTooltip:SetOwner(UIParent, "ANCHOR_NONE");
 
-    local spellID = GetSpellID(spellName)
+    local spellID, bookType
+    if GetSpellSlotTypeIdForName then -- Nampower 2.6.0 function
+        spellID, bookType = GetSpellSlotTypeIdForName(spellName)
+        if bookType == "unknown" then
+            return "unknown"
+        end
+        if bookType ~= "spell" then
+            return 0
+        end
+    else
+        spellID = GetSpellID(spellName)
+    end
     if not spellID then
         return "unknown"
     end
@@ -420,7 +498,7 @@ function GetAuraInfo(unit, type, index)
 end
 
 function ApplySpellsTooltip(attachTo, unit)
-    if not HMOptions.ShowSpellsTooltip then
+    if not HMOptions.SpellsTooltip.Enabled then
         return
     end
 
@@ -437,10 +515,13 @@ function ApplySpellsTooltip(attachTo, unit)
         HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
 
     for _, btn in ipairs(settings.CustomButtonOrder) do
-        if canResurrect then -- Show all spells as the resurrection spell
+        if canResurrect then -- Show all spells (except special binds) as the resurrection spell
             local kv = {}
             local readableButton = settings.CustomButtonNames[btn] or ReadableButtonMap[btn]
             kv[readableButton] = canReviveChampion and "Revive Champion" or ResurrectionSpells[selfClass]
+            if SpecialBinds[string.upper(spells[modifier][btn] or "")] then
+                kv[readableButton] = spells[modifier][btn]
+            end
             table.insert(spellList, kv)
         else
             if spells[modifier][btn] or (settings.ShowEmptySpells and not settings.IgnoredEmptySpells[btn]) then
@@ -454,8 +535,37 @@ function ApplySpellsTooltip(attachTo, unit)
     ShowSpellsTooltip(attachTo, spellList, attachTo)
 end
 
+function IsValidMacro(name)
+    return GetMacroIndexByName(name) ~= 0
+end
+
+function RunMacro(name, target)
+    if not IsValidMacro(name) then
+        return
+    end
+    if target then
+        _G.HM_MacroTarget = target
+    end
+    local _, _, body = GetMacroInfo(GetMacroIndexByName(name))
+    local commands = util.SplitString(body, "\n")
+    for i = 1, table.getn(commands) do
+        ChatFrameEditBox:SetText(commands[i])
+        ChatEdit_SendText(ChatFrameEditBox)
+    end
+    if target then
+        _G.HM_MacroTarget = nil
+    end
+end
+
+local ITEM_PREFIX = "Item: "
+local MACRO_PREFIX = "Macro: "
+local lowToHighColors = {
+    {1, 0, 0}, 
+    {1, 0.9, 0}, 
+    {0.35, 1, 0.35}
+}
 local tooltipPowerColors = {
-    ["mana"] = {0.4, 0.4, 1}, -- Not the accurate color, but more readable
+    ["mana"] = {0.5, 0.7, 1}, -- Not the accurate color, but more readable
     ["rage"] = {1, 0, 0},
     ["energy"] = {1, 1, 0}
 }
@@ -463,12 +573,33 @@ function ShowSpellsTooltip(attachTo, spells, owner)
     SpellsTooltipOwner = owner
     SpellsTooltip:SetOwner(attachTo, "ANCHOR_RIGHT")
     SpellsTooltip:SetPoint("RIGHT", attachTo, "LEFT", 0, 0)
-    local modifier = GetKeyModifier()
+    local options = HMOptions.SpellsTooltip
     local currentPower = UnitMana("player")
     local maxPower = UnitManaMax("player")
     local powerType = GetPowerType("player")
     local powerColor = tooltipPowerColors[powerType]
-    SpellsTooltip:AddDoubleLine("Key: "..modifier, colorize(currentPower.."/"..maxPower, powerColor), 1, 1, 1)
+    local powerText = ""
+    local showPowerBar = options.ShowPowerBar
+    if options.ShowPowerAs == "Power" then
+        powerText = tostring(currentPower)
+    elseif options.ShowPowerAs == "Power/Max Power" then
+        powerText = currentPower.."/"..maxPower
+    elseif options.ShowPowerAs == "Power %" then
+        powerText = util.RoundNumber((currentPower / maxPower) * 100).."%"
+    end
+
+    if showPowerBar then
+        local color = util.InterpolateColors(lowToHighColors, (currentPower / maxPower))
+        powerText = colorize(powerText, color)
+        SpellsTooltipPowerBar:SetStatusBarColor(powerColor[1], powerColor[2], powerColor[3])
+        SpellsTooltipPowerBar:SetValue(currentPower / maxPower)
+        SpellsTooltipPowerBar.text:SetText(powerText)
+    else
+        powerText = colorize(powerText, powerColor)
+    end
+
+    local modifier = util.GetKeyModifierTypeByID(1 + (options.AbbreviatedKeys and 2 or 0) + (options.ColoredKeys and 1 or 0))
+    SpellsTooltip:AddDoubleLine(modifier, showPowerBar and "                 " or powerText, 1, 1, 1)
 
     for _, kv in ipairs(spells) do
         for button, spell in pairs(kv) do
@@ -477,6 +608,23 @@ function ShowSpellsTooltip(attachTo, spells, owner)
             if spell == "Unbound" then
                 leftText = colorize(button, 0.6, 0.6, 0.6)
                 rightText = colorize("Unbound", 0.6, 0.6, 0.6)
+            elseif util.StartsWith(spell, ITEM_PREFIX) then
+                local item = string.sub(spell, string.len(ITEM_PREFIX) + 1)
+                local itemCount = GetItemCount(item)
+                local castsColor = {0.6, 1, 0.6}
+                if itemCount == 0 then
+                    castsColor = {1, 0.5, 0.5}
+                elseif itemCount == 1 then
+                    castsColor = {1, 1, 0}
+                end
+                rightText = colorize(item, 1, 1, 1)..colorize(" ("..itemCount..")", castsColor)
+            elseif util.StartsWith(spell, MACRO_PREFIX) then
+                local macro = string.sub(spell, string.len(MACRO_PREFIX) + 1)
+                if IsValidMacro(macro) then
+                    rightText = colorize(macro, 1, 0.6, 1)
+                else
+                    rightText = colorize(macro.." (Invalid Macro)", 1, 0.4, 0.4)
+                end
             elseif SpecialBinds[string.upper(spell)] then
                 rightText = spell
             else -- There is a bound spell
@@ -492,14 +640,33 @@ function ShowSpellsTooltip(attachTo, spells, owner)
                     if resource ~= powerType then -- A druid can't cast a spell that requires a different power type
                         casts = 0
                     end
-                    local castsColor = {0.6, 1, 0.6}
+                    local r, g, b = 0.6, 1, 0.6
                     if casts == 0 then
-                        castsColor = {1, 0.5, 0.5}
-                    elseif casts == 1 then
-                        castsColor = {1, 1, 0}
+                        r, g, b = 1, 0.5, 0.5
+                    elseif casts <= options.CriticalCastsLevel then
+                        r, g, b = 1, 1, 0
                     end
-                    rightText = spell.." "..colorize(cost, resourceColor)
-                        ..colorize(" ("..casts..")", castsColor)
+                    local costText
+                    if powerType == "mana" and resource == powerType then
+                        if options.ShowManaCost then
+                            costText = cost
+                        end
+                        if options.ShowManaPercentCost then
+                            costText = (costText and (costText.." ") or "")..util.RoundNumber((cost / maxPower) * 100, 1).."%"
+                        end
+                    else
+                        costText = cost
+                    end
+                    rightText = spell
+                    if casts == 0 then
+                        rightText = colorize(util.StripColors(rightText), 0.5, 0.5, 0.5)
+                    end
+                    if costText then
+                        rightText = rightText.." "..colorize(costText, resourceColor)
+                    end
+                    if casts <= options.HideCastsAbove then
+                        rightText = rightText..colorize(" ("..casts..")", r, g, b)
+                    end
                 end
             end
             -- Gray out spells that are not held down
@@ -536,45 +703,73 @@ function ReapplySpellsTooltip()
 end
 
 function UpdateAllIncomingHealing()
-    if not HMHealPredict then
-        return
-    end
-    for _, ui in pairs(HealUIs) do
-        if HMOptions.UseHealPredictions then
-            local _, guid = UnitExists(ui:GetUnit())
-            ui.incomingHealing = HMHealPredict.GetIncomingHealing(guid)
-        else
-            ui.incomingHealing = 0
+    if HMHealPredict then
+        for _, ui in ipairs(AllUnitFrames) do
+            if HMOptions.UseHealPredictions then
+                local _, guid = UnitExists(ui:GetUnit())
+                ui:SetIncomingHealing(HMHealPredict.GetIncomingHealing(guid))
+            else
+                ui:SetIncomingHealing(0)
+            end
         end
-        ui:UpdateHealth()
+    else
+        for _, ui in ipairs(AllUnitFrames) do
+            if HMOptions.UseHealPredictions then
+                ui:UpdateIncomingHealing()
+            else
+                ui:SetIncomingHealing(0)
+            end
+        end
     end
 end
 
-local function createUIGroup(groupName, environment, units, petGroup, profile)
-    local uiGroup = HealUIGroup:New(groupName, environment, units, petGroup, profile)
+function UpdateAllOutlines()
+    for _, ui in ipairs(AllUnitFrames) do
+        ui:UpdateOutline()
+    end
+end
+
+function CreateUnitFrameGroup(groupName, environment, units, petGroup, profile, sortByRole)
+    if UnitFrameGroups[groupName] then
+        error("[HealersMate] Tried to create a unit frame group using existing name! \""..groupName.."\"")
+        return
+    end
+    local uiGroup = HMUnitFrameGroup:New(groupName, environment, units, petGroup, profile, sortByRole)
     for _, unit in ipairs(units) do
-        local ui = HealUI:New(unit)
-        HealUIs[unit] = ui
+        local ui = HMUnitFrame:New(unit, AllCustomUnitsSet[unit] ~= nil)
+        if not HMUnitFrames[unit] then
+            HMUnitFrames[unit] = {}
+        end
+        table.insert(HMUnitFrames[unit], ui)
+        table.insert(AllUnitFrames, ui)
         uiGroup:AddUI(ui)
         if unit ~= "target" then
             ui:Hide()
         end
     end
+    UnitFrameGroups[groupName] = uiGroup
     return uiGroup
 end
 
-local function initUIs()
+local function initUnitFrames()
     local getSelectedProfile = HealersMateSettings.GetSelectedProfile
-    HealUIGroups["Party"] = createUIGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
-    HealUIGroups["Pets"] = createUIGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
-    HealUIGroups["Raid"] = createUIGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
-    HealUIGroups["Raid Pets"] = createUIGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
-    HealUIGroups["Target"] = createUIGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
-
-    HealUIGroups["Target"].ShowCondition = function(self)
-        return UnitExists("target") and not HMOptions.Hidden
+    CreateUnitFrameGroup("Party", "party", PartyUnits, false, getSelectedProfile("Party"))
+    CreateUnitFrameGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
+    CreateUnitFrameGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
+    CreateUnitFrameGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
+    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    if util.IsSuperWowPresent() then
+        CreateUnitFrameGroup("Focus", "all", HMUnitProxy.CustomUnitsMap["focus"], false, getSelectedProfile("Focus"), false)
     end
-    HealUIGroups["Target"]:Hide()
+
+    UnitFrameGroups["Target"].ShowCondition = function(self)
+        local friendly = not UnitCanAttack("player", "target")
+        return (HMOptions.AlwaysShowTargetFrame or (UnitExists("target") and 
+            (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile))) 
+            and not HMOptions.Hidden
+    end
+
+    OpenUnitFramesIterator()
 end
 
 function EventAddonLoaded()
@@ -595,6 +790,21 @@ function EventAddonLoaded()
         end
     end
 
+    if util.IsSuperWowPresent() then
+        -- In case other addons override unit functions, we want to make sure we're using their functions
+        HMUnitProxy.CreateUnitProxies()
+
+        -- Do it again after all addons have loaded
+        local frame = CreateFrame("Frame")
+        local reapply = GetTime() + 0.1
+        frame:SetScript("OnUpdate", function()
+            if GetTime() > reapply then
+                HMUnitProxy.CreateUnitProxies()
+                frame:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+
     if not _G.HMRoleCache then
         _G.HMRoleCache = {}
     end
@@ -604,24 +814,95 @@ function EventAddonLoaded()
     AssignedRoles = _G.HMRoleCache[GetRealmName()]
     PruneAssignedRoles()
 
-    HMUnit.CreateCaches(AllUnits)
+    if util.IsSuperWowPresent() then
+        HMUnit.UpdateGuidCaches()
+
+        -- SuperWoW currently does not currently allow us to receive events for units that aren't part of normal units, so
+        -- we're manually updating
+        local customUnitUpdater = CreateFrame("Frame", "HMCustomUnitUpdater")
+        local nextUpdate = GetTime() + 0.25
+        customUnitUpdater:SetScript("OnUpdate", function()
+            if GetTime() > nextUpdate then
+                nextUpdate = GetTime() + 0.25
+
+                for unit, guid in pairs(CustomUnitGUIDMap) do
+                    HMUnit.Get(unit):UpdateAuras()
+                    for ui in UnitFrames(unit) do
+                        ui:UpdateHealth()
+                        ui:UpdatePower()
+                        ui:UpdateAuras()
+                    end
+                end
+            end
+        end)
+    else
+        HMUnit.CreateCaches()
+    end
     HealersMateSettings.UpdateTrackedDebuffTypes()
     HMProfileManager.InitializeDefaultProfiles()
     HealersMateSettings.SetDefaults()
+
+    do
+        if HMOptions.Scripts.OnLoad then
+            local scriptString = "local GetProfile = HMProfileManager.GetProfile "..
+                "local CreateProfile = HMProfileManager.CreateProfile "..HMOptions.Scripts.OnLoad
+            local script = loadstring(scriptString)
+            local ok, result = pcall(script)
+            if not ok then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("ERROR: ", 1, 0.2, 0.2)
+                    ..colorize("The Load Script produced an error! If this causes HealersMate to fail to load, "..
+                        "you will need to manually edit the script in your game files.", 1, 0.4, 0.4))
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("OnLoad Script Error: "..tostring(result), 1, 0, 0))
+            end
+        end
+    end
     HealersMateSettings.InitSettings()
     if HMHealPredict then
         HMHealPredict.OnLoad()
 
-        HMHealPredict.HookUpdates(function(guid, incomingHealing)
+        HMHealPredict.HookUpdates(function(guid, incomingHealing, incomingDirectHealing)
             if not HMOptions.UseHealPredictions then
                 return
             end
-            if not GUIDUnitMap[guid] then
+            local units = GuidRoster.GetUnits(guid)
+            if not units then
                 return
             end
-            for _, unit in ipairs(GUIDUnitMap[guid]) do
-                HealUIs[unit].incomingHealing = incomingHealing
-                HealUIs[unit]:UpdateHealth()
+            for _, unit in ipairs(units) do
+                for ui in UnitFrames(unit) do
+                    ui:SetIncomingHealing(incomingHealing, incomingDirectHealing)
+                end
+            end
+        end)
+    else
+        local roster = AceLibrary("RosterLib-2.0")
+        HealersMateLib:RegisterEvent("HealComm_Healupdate", function(name)
+            if not HMOptions.UseHealPredictions then
+                return
+            end
+            local unit = roster:GetUnitIDFromName(name)
+            if unit then
+                for ui in UnitFrames(unit) do
+                    ui:UpdateIncomingHealing()
+                end
+            end
+            if UnitName("target") == name then
+                for ui in UnitFrames("target") do
+                    ui:UpdateIncomingHealing()
+                end
+            end
+        end)
+        HealersMateLib:RegisterEvent("HealComm_Ressupdate", function(name)
+            local unit = roster:GetUnitIDFromName(name)
+            if unit then
+                for ui in UnitFrames(unit) do
+                    ui:UpdateHealth()
+                end
+            end
+            if UnitName("target") == name then
+                for ui in UnitFrames("target") do
+                    ui:UpdateHealth()
+                end
             end
         end)
     end
@@ -632,34 +913,123 @@ function EventAddonLoaded()
         DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] UI Testing is enabled. Use /hm testui to disable.", 1, 0.6, 0.6))
     end
 
-    initUIs()
+    initUnitFrames()
+    StartDistanceScanner()
+
+    HealersMateLib:RegisterEvent("Banzai_UnitGainedAggro", function(unit)
+        if HMGuidRoster then
+            unit = HMGuidRoster.GetUnitGuid(unit)
+        end
+        for ui in UnitFrames(unit) do
+            ui:UpdateOutline()
+        end
+    end)
+	HealersMateLib:RegisterEvent("Banzai_UnitLostAggro", function(unit)
+        if HMGuidRoster then
+            unit = HMGuidRoster.GetUnitGuid(unit)
+        end
+        for ui in UnitFrames(unit) do
+            ui:UpdateOutline()
+        end
+    end)
 
     if HMOnLoadInfoDisabled == nil then
         HMOnLoadInfoDisabled = false
     end
 
-    if not HMOnLoadInfoDisabled then
-        DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
-            ..colorize(" to see commands.", 0.5, 1, 0.5))
+    do
+        local INFO_SEND_TIME = GetTime() + 0.5
+        local infoFrame = CreateFrame("Frame")
+        infoFrame:SetScript("OnUpdate", function()
+            if GetTime() < INFO_SEND_TIME then
+                return
+            end
+            infoFrame:SetScript("OnUpdate", nil)
+            if not HMOnLoadInfoDisabled then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] Use ", 0.5, 1, 0.5)..colorize("/hm help", 0, 1, 0)
+                    ..colorize(" to see commands.", 0.5, 1, 0.5))
+            end
+    
+            if not util.IsSuperWowPresent() and util.IsNampowerPresent() then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("WARNING: ", 1, 0.2, 0.2)
+                    ..colorize("You are using Nampower without SuperWoW, which will cause heal predictions to be wildly inaccurate "..
+                    "for you and your raid members! It is highly recommended to install SuperWoW.", 1, 0.4, 0.4))
+            end
+
+            if util.IsSuperWowPresent() and not HealComm:IsEventRegistered("UNIT_CASTEVENT") then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("WARNING: ", 1, 0.2, 0.2)
+                    ..colorize("You have another addon that uses a HealComm version that is incompatible with SuperWoW! "..
+                    "This will cause wildly inaccurate heal predictions to be shown to your raid members. It is "..
+                    "recommended to either unload the offending addon or copy HealersMate's HealComm "..
+                    "into the other addon.", 1, 0.4, 0.4))
+            end
+        end)
     end
 
-    --##START## Create Default Values for Settings if Addon has never ran before.
-    --TODO: Only Druid, Priest, Paladin currently have some spells set by default on first time use. Haven't gotten to others.
+    -- Create default bindings for new characters
     if freshInstall then
         local class = GetClass("player")
         local spells = GetSpells()
+        local hostileSpells = GetHostileSpells()
         if class == "PRIEST" then
             spells["None"]["LeftButton"] = "Power Word: Shield"
             spells["None"]["MiddleButton"] = "Renew"
             spells["None"]["RightButton"] = "Lesser Heal"
+            spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Dispel Magic"
+
+            hostileSpells["None"]["RightButton"] = "Dispel Magic"
         elseif class == "DRUID" then
             spells["None"]["LeftButton"] = "Rejuvenation"
             spells["None"]["RightButton"] = "Healing Touch"
+            spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Remove Curse"
         elseif class == "PALADIN" then
             spells["None"]["LeftButton"] = "Flash of Light"
             spells["None"]["RightButton"] = "Holy Light"
+            spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Cleanse"
+        elseif class == "SHAMAN" then
+            spells["None"]["LeftButton"] = "Healing Wave"
+            spells["None"]["RightButton"] = "Lesser Healing Wave"
+            spells["Shift"]["LeftButton"] = "Target"
+            spells["Shift"]["MiddleButton"] = "Role"
+            spells["Shift"]["RightButton"] = "Context"
+            spells["Control"]["RightButton"] = "Cure Disease"
+        else
+            -- Non-healer classes can use this addon like traditional raid frames
+            spells["None"]["LeftButton"] = "Target"
+            spells["None"]["MiddleButton"] = "Role"
+            spells["None"]["RightButton"] = "Context"
+        end
+        hostileSpells["None"]["LeftButton"] = "Target"
+    end
+
+
+    do
+        if HMOptions.Scripts.OnPostLoad then
+            local scriptString = HMOptions.Scripts.OnPostLoad
+            local script = loadstring(scriptString)
+            local ok, result = pcall(script)
+            if not ok then
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("[HealersMate] ", 1, 0.4, 0.4)..colorize("ERROR: ", 1, 0.2, 0.2)
+                    ..colorize("The Postload Script produced an error! If this causes HealersMate to fail to operate, "..
+                        "you may need to manually edit the script in your game files.", 1, 0.4, 0.4))
+                DEFAULT_CHAT_FRAME:AddMessage(colorize("OnPostLoad Script Error: "..tostring(result), 1, 0, 0))
+            end
         end
     end
+end
+
+function CheckPartyFramesEnabled()
+    local shouldBeDisabled = (CurrentlyInRaid and HMOptions.DisablePartyFrames.InRaid) or 
+        (not CurrentlyInRaid and HMOptions.DisablePartyFrames.InParty)
+    SetPartyFramesEnabled(not shouldBeDisabled)
 end
 
 function SetPartyFramesEnabled(enabled)
@@ -682,7 +1052,7 @@ function SetPartyFramesEnabled(enabled)
     else
         for i = 1, MAX_PARTY_MEMBERS do
             local frame = getglobal("PartyMemberFrame"..i)
-            if frame then
+            if frame and not frame.HMRealShow then
                 frame:UnregisterAllEvents()
                 frame.HMRealShow = frame.Show
                 frame.Show = function() end
@@ -749,13 +1119,13 @@ local function setUnassignedRoles(role)
             SetAssignedRole(UnitName(ui:GetUnit()), role)
         end
     end
-    UpdateHealUIGroups()
+    UpdateUnitFrameGroups()
     ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
 end
 
 local function applyTargetRole(role)
     SetAssignedRole(roleTarget, role)
-    UpdateHealUIGroups()
+    UpdateUnitFrameGroups()
 end
 
 do
@@ -826,7 +1196,7 @@ do
                         SetAssignedRole(UnitName(ui:GetUnit()), nil)
                     end
                 end
-                UpdateHealUIGroups()
+                UpdateUnitFrameGroups()
                 ToggleDropDownMenu(1, nil, _G["HMRoleDropdown"])
             end
         }
@@ -859,7 +1229,7 @@ end
 
 local function setUnitRoleAndUpdate(unit, role)
     if not SetUnitAssignedRole(unit, role) then
-        UpdateHealUIGroups()
+        UpdateUnitFrameGroups()
     end
 end
 
@@ -874,16 +1244,37 @@ SpecialBinds = {
         FollowUnit(unit)
     end,
     ["context"] = function(unit, ui)
-        -- Trying to figure out how to get raid context menus still
-        local map = {
-            ["party1"] = 1,
-            ["party2"] = 2,
-            ["party3"] = 3,
-            ["party4"] = 4
+        -- Resolve focus to a proper unit if possible
+        if AllCustomUnitsSet[unit] then
+            unit = HMUnitProxy.ResolveCustomUnit(unit)
+            if not unit then
+                return
+            end
+        end
+
+        local dropdown
+
+        local specialContexts = {
+            ["player"] = _G["PlayerFrameDropDown"],
+            ["target"] = _G["TargetFrameDropDown"],
+            ["pet"] = _G["PetFrameDropDown"]
         }
-        if map[unit] then
+        if specialContexts[unit] then
+            dropdown = specialContexts[unit]
+        elseif util.StartsWith(unit, "raid") and not util.StartsWith(unit, "raidpet") then
+            FriendsDropDown.displayMode = "MENU"
+            FriendsDropDown.initialize = function()
+                UnitPopup_ShowMenu(_G[UIDROPDOWNMENU_OPEN_MENU], "PARTY", unit, nil, string.sub(unit, 5))
+            end
+            dropdown = FriendsDropDown
+        elseif util.StartsWith(unit, "party") and not util.StartsWith(unit, "partypet") then
+            dropdown = _G["PartyMemberFrame"..string.sub(unit, 6).."DropDown"]
+        end
+
+
+        if dropdown then
             local frame = ui:GetRootContainer()
-            ToggleDropDownMenu(1, nil, _G["PartyMemberFrame"..map[unit].."DropDown"], frame:GetName(), frame:GetWidth(), 0)
+            ToggleDropDownMenu(1, nil, dropdown, frame:GetName(), frame:GetWidth(), 0)
         end
     end,
     ["Role: Tank"] = function(unit)
@@ -912,6 +1303,31 @@ SpecialBinds = {
         end
         ToggleDropDownMenu(1, nil, dropdown, frame:GetName(), frame:GetWidth(), frame:GetHeight())
         PlaySound("igMainMenuOpen")
+    end,
+    ["Focus"] = function(unit)
+        if not util.IsSuperWowPresent() then
+            DEFAULT_CHAT_FRAME:AddMessage(colorize("You need SuperWoW to focus targets.", 1, 0.5, 0.5))
+            return
+        end
+
+        HM_ToggleFocusUnit(unit)
+    end,
+    ["Promote Focus"] = function(unit)
+        if not util.IsSuperWowPresent() then
+            DEFAULT_CHAT_FRAME:AddMessage(colorize("You need SuperWoW to focus targets.", 1, 0.5, 0.5))
+            return
+        end
+
+        HM_PromoteFocus(unit)
+    end,
+    ["Demote Focus"] = function(unit)
+        if not util.IsSuperWowPresent() then
+            DEFAULT_CHAT_FRAME:AddMessage(colorize("You need SuperWoW to focus targets.", 1, 0.5, 0.5))
+            return
+        end
+
+        HM_UnfocusUnit(unit)
+        HM_FocusUnit(unit)
     end
 }
 
@@ -927,12 +1343,58 @@ do
     SpecialBinds = upperSpecialBinds
 end
 
+function _G.HM_ToggleFocusUnit(unit)
+    if HMUnitProxy.IsUnitUnitType(unit, "focus") then
+        if not HMUnitProxy.CustomUnitsSetMap["focus"][unit] then
+            return -- Do not toggle focus if user is clicking on a UI that isn't the focus UI
+        end
+        HM_UnfocusUnit(unit)
+    else
+        HM_FocusUnit(unit)
+    end
+end
+
+function _G.HM_FocusUnit(unit)
+    local guid = HMGuidRoster.ResolveUnitGuid(unit)
+    if not guid or HMUnitProxy.IsGuidUnitType(guid, "focus") then
+        return
+    end
+
+    HMUnitProxy.SetGuidUnitType(guid, "focus")
+    PlaySound("GAMETARGETHOSTILEUNIT")
+end
+
+function _G.HM_UnfocusUnit(unit)
+    local guid = HMGuidRoster.ResolveUnitGuid(unit)
+    if not guid then
+        return
+    end
+    local focusUnit = HMUnitProxy.GetCurrentUnitOfType(guid, "focus")
+    if not focusUnit then
+        return
+    end
+    HMUnitProxy.SetCustomUnitGuid(focusUnit, nil)
+    PlaySound("INTERFACESOUND_LOSTTARGETUNIT")
+end
+
+function _G.HM_PromoteFocus(unit)
+    local guid = HMGuidRoster.ResolveUnitGuid(unit)
+    if not guid then
+        return
+    end
+    HMUnitProxy.PromoteGuidUnitType(guid, "focus")
+end
+
+function CycleFocus(onlyAttackable)
+    HMUnitProxy.CycleUnitType("focus", onlyAttackable)
+end
+
+local Sound_Disabled = function() end
+
 function ClickHandler(buttonType, unit, ui)
     local currentTargetEnemy = UnitCanAttack("player", "target")
-    
     local spells = UnitCanAttack("player", unit) and GetHostileSpells() or GetSpells()
     local spell = spells[GetKeyModifier()][buttonType]
-
     if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
         if spell and SpecialBinds[string.upper(spell)] then
             SpecialBinds[string.upper(spell)](unit, ui)
@@ -940,6 +1402,10 @@ function ClickHandler(buttonType, unit, ui)
         return
     end
     if util.IsDeadFriend(unit) then
+        if spell and SpecialBinds[string.upper(spell)] then
+            SpecialBinds[string.upper(spell)](unit, ui)
+            return
+        end
         if HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and GetSpellID("Revive Champion") 
             and UnitAffectingCombat("player") then
                 spell = "Revive Champion"
@@ -957,6 +1423,10 @@ function ClickHandler(buttonType, unit, ui)
         return
     end
 
+    local isItem = util.StartsWith(spell, ITEM_PREFIX)
+    local isMacro = util.StartsWith(spell, MACRO_PREFIX)
+    local isNonSpell = isItem or isMacro
+
     -- Auto targeting requires no special logic to cast spells
     if HMOptions.AutoTarget then
         if not UnitIsUnit("target", unit) then
@@ -967,7 +1437,7 @@ function ClickHandler(buttonType, unit, ui)
     end
 
     -- Not a special bind
-    if util.IsSuperWowPresent() then -- No target changing shenanigans required with SuperWoW
+    if util.IsSuperWowPresent() and not isNonSpell then -- No target changing shenanigans required with SuperWoW
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -975,17 +1445,29 @@ function ClickHandler(buttonType, unit, ui)
         -- Check if target is not already targeted
         if not UnitIsUnit("target", unit) then
             -- Set target as target
+            local Sound_Enabled = PlaySound
+            _G.PlaySound = Sound_Disabled
             TargetUnit(unit)
+            _G.PlaySound = Sound_Enabled
             targetChanged = true
         end
-        
-        CastSpellByName(spell)
+
+        if isItem then
+            UseItem(string.sub(spell, string.len(ITEM_PREFIX) + 1))
+        elseif isMacro then
+            RunMacro(string.sub(spell, string.len(MACRO_PREFIX) + 1), unit)
+        else
+            CastSpellByName(spell)
+        end
 
         --Put Target of player back to whatever it was before casting spell
         if targetChanged then
             if currentTarget == nil then
                 --Player wasn't targeting anything before casting spell
+                local Sound_Enabled = PlaySound
+                _G.PlaySound = Sound_Disabled
                 ClearTarget()
+                _G.PlaySound = Sound_Enabled
             else
                 --Set Target back to whatever it was before casting the spell
                 if currentTargetEnemy then
@@ -1001,9 +1483,7 @@ end
 
 -- Reevaluates what UI frames should be shown
 function CheckGroup()
-    local environment = "party"
     if GetNumRaidMembers() > 0 then
-        environment = "raid"
         if not CurrentlyInRaid then
             CurrentlyInRaid = true
             SetPartyFramesEnabled(not HMOptions.DisablePartyFrames.InRaid)
@@ -1016,46 +1496,72 @@ function CheckGroup()
     end
     local superwow = util.IsSuperWowPresent()
     if superwow then
-        GUIDUnitMap = {}
+        GuidRoster.ResetRoster()
+        GuidRoster.PopulateRoster()
+        HMUnit.UpdateGuidCaches()
     end
-    for unit, ui in pairs(HealUIs) do
+    for _, unit in ipairs(util.AllRealUnits) do
         local exists, guid = UnitExists(unit)
         if unit ~= "target" then
             if exists then
-                ui:Show()
-                ui:UpdateAuras()
+                for ui in UnitFrames(unit) do
+                    ui:Show()
+                end
             else
-                ui:Hide()
+                for ui in UnitFrames(unit) do
+                    ui:Hide()
+                end
             end
         end
-        if guid then -- If the guid isn't nil, then SuperWoW is present
-            if not GUIDUnitMap[guid] then
-                GUIDUnitMap[guid] = {}
-            end
-            table.insert(GUIDUnitMap[guid], unit)
-        end
     end
-    for _, group in pairs(HealUIGroups) do
-        if group:CanShowInEnvironment(environment) and group:ShowCondition() then
-            group:Show()
-            group:UpdateUIPositions()
-        else
-            group:Hide()
-        end
+    for _, group in pairs(UnitFrameGroups) do
+        group:EvaluateShown()
     end
-    HMUnit.UpdateAllUnits()
-    for _, ui in pairs(HealUIs) do
-        ui:UpdateAuras()
+    if not superwow then -- If SuperWoW isn't present, the units may have shifted and thus require a full scan
+        HMUnit.UpdateAllUnits()
+    end
+    for _, ui in pairs(AllUnitFrames) do
+        if ui:IsShown() then
+            ui:UpdateRange()
+            ui:UpdateAuras()
+            ui:UpdateIncomingHealing()
+            ui:UpdateOutline()
+        end
     end
     if superwow then
-        HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
+        HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
     end
+    RunTrackingScan()
+end
+
+function CheckTarget()
+    local exists, guid = UnitExists("target")
+    if exists then
+        local friendly = not UnitCanAttack("player", "target")
+        if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
+            for ui in UnitFrames("target") do
+                ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+                ui:UpdateRange()
+                ui:UpdateSight()
+                ui:UpdateRole()
+                ui:UpdateIncomingHealing()
+            end
+        end
+    else
+        for ui in UnitFrames("target") do
+            ui.lastHealthPercent = (ui:GetCurrentHealth() / ui:GetMaxHealth()) * 100
+            ui:UpdateAll()
+            ui:UpdateRole()
+            ui:UpdateIncomingHealing()
+        end
+    end
+    UnitFrameGroups["Target"]:EvaluateShown()
 end
 
 
 function IsRelevantUnit(unit)
     --return not string.find(unit, "0x")
-    return HealUIs[unit] ~= nil
+    return AllUnitsSet[unit] ~= nil or GUIDCustomUnitMap[unit]
 end
 
 function EventHandler()
@@ -1084,15 +1590,19 @@ function EventHandler()
         if not IsRelevantUnit(unit) then
             return
         end
-        HealUIs[unit]:UpdateHealth()
+        for ui in UnitFrames(unit) do
+            ui:UpdateHealth()
+        end
     elseif event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY" or 
-            event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" then
+            event == "UNIT_FOCUS" or event == "UNIT_MAXMANA" or event == "UNIT_DISPLAYPOWER" then
         local unit = arg1
         if not IsRelevantUnit(unit) then
             return
         end
-        
-        HealUIs[unit]:UpdatePower()
+
+        for ui in UnitFrames(unit) do
+            ui:UpdatePower()
+        end
         
         if unit == "player" then
             ReapplySpellsTooltip()
@@ -1104,8 +1614,10 @@ function EventHandler()
             return
         end
         HMUnit.Get(unit):UpdateAuras()
-        HealUIs[unit]:UpdateAuras()
-        HealUIs[unit]:UpdateHealth() -- Update health because there may be an aura that changes health bar color
+        for ui in UnitFrames(unit) do
+            ui:UpdateAuras()
+            ui:UpdateHealth() -- Update health because there may be an aura that changes health bar color
+        end
 
     elseif event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" then
         CheckGroup()
@@ -1115,45 +1627,35 @@ function EventHandler()
             CheckGroup()
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
+        for _, ui in ipairs(AllUnitFrames) do
+            ui:EvaluateTarget()
+        end
+        local exists, guid = UnitExists("target")
+        if guid then
+            HMUnit.UpdateGuidCaches()
+        end
+        
+        HMUnit.Get("target"):UpdateAll()
+        if guid then
+            GuidRoster.SetUnitGuid("target", guid)
+            HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
+        end
+
+        if exists then
+            EvaluateTracking("target", true)
+        end
+
         if HMOptions.Hidden then
             return
         end
-        HMUnit.Get("target"):UpdateAll()
-        local exists, guid = UnitExists("target")
-        if exists then
-            HealUIGroups["Target"]:Hide()
-            local friendly = not UnitCanAttack("player", "target")
-            if (friendly and HMOptions.ShowTargets.Friendly) or (not friendly and HMOptions.ShowTargets.Hostile) then
-                HealUIGroups["Target"]:Show()
-                HealUIs["target"]:CheckRange()
-                HealUIs["target"]:CheckSight()
 
-                if guid then -- If the guid isn't nil, then SuperWoW is present
-                    for guidInMap, units in pairs(GUIDUnitMap) do
-                        if util.ArrayContains(units, "target") then
-                            util.RemoveElement(units, "target")
-                            if table.getn(units) == 0 then
-                                GUIDUnitMap[guidInMap] = nil
-                            end
-                            break
-                        end
-                    end
-                
-                    if not GUIDUnitMap[guid] then
-                        GUIDUnitMap[guid] = {}
-                    end
-                    table.insert(GUIDUnitMap[guid], "target")
-                    HMHealPredict.SetRelevantGUIDs(util.ToArray(GUIDUnitMap))
-                    HealUIs["target"].incomingHealing = HMHealPredict.GetIncomingHealing(guid)
-                    HealUIs["target"]:UpdateHealth()
-                    HealUIs["target"]:UpdateRole()
-                end
-            end
-        else
-            HealUIGroups["Target"]:Hide()
-        end
+        CheckTarget()
     elseif event == "SPELLS_CHANGED" then
         HealersMateSettings.UpdateTrackedDebuffTypes()
+    elseif event == "RAID_TARGET_UPDATE" then
+        for _, ui in ipairs(AllUnitFrames) do
+            ui:UpdateRaidMark()
+        end
     end
 end
 

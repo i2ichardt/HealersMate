@@ -1,20 +1,41 @@
 ## Interface: 11200
-## Version: 2.0.0-alpha4.2
+## Version: 2.0.0-alpha5
 ## Title: HealersMate
 ## Notes: Healing Addon for WoW Client version 1.12
 ## Author: Richard Truax(i2ichardt), OldManAlpha
 ## SavedVariables: HMOnLoadInfoDisabled, HMHealCache, HMPlayerHealCache, HMRoleCache
 ## SavedVariablesPerCharacter: HMSpells, HMOptions
 
+libs\ace\AceLibrary\AceLibrary.lua
+libs\ace\AceLocale-2.2\AceLocale-2.2.lua
+libs\ace\AceOO-2.0\AceOO-2.0.lua
+libs\ace\AceDebug-2.0\AceDebug-2.0.lua
+libs\ace\AceAddon-2.0\AceAddon-2.0.lua
+libs\ace\AceConsole-2.0\AceConsole-2.0.lua
+libs\ace\AceEvent-2.0\AceEvent-2.0.lua
+libs\ace\AceHook-2.1\AceHook-2.1.lua
+libs\ace\Compost-2.0\Compost-2.0.lua
+libs\ace\Gratuity-2.0\Gratuity-2.0.lua
+libs\ace\RosterLib-2.0\RosterLib-2.0.lua
+libs\ace\Deformat-2.0\Deformat-2.0.lua
+libs\ace\ItemBonusLib-1.0\Locales\enUS.lua
+libs\ace\ItemBonusLib-1.0\ItemBonusLib-1.0.lua
+libs\ace\Banzai-1.0\Banzai-1.0.lua
+libs\ace\HealComm-1.0\HealComm-1.0.lua
+
+libs\UnitProxy.lua
 HMUtil.lua
-HealUI.lua
-HealUIGroup.lua
+Settings.lua
+HMUnitFrame.lua
+HMUnitFrameGroup.lua
 Profile.lua
 ProfileManager.lua
-Settings.lua
 
+libs\GuidRoster.lua
+libs\AuraTracker.lua
 libs\HMUnit.lua
 libs\ShaguUtil.lua
 libs\HealPredict.lua
 
 HealersMate.lua
+DistanceScanner.lua
