@@ -653,6 +653,7 @@ function HMUnitFrame:AllocateAura()
     -- Duration display, only used when SuperWoW is present
     if util.IsSuperWowPresent() then
         local duration = CreateFrame("Model", nil, frame, "CooldownFrameTemplate")
+        duration.noCooldownCount = true
         duration:SetAlpha(0.8)
         local durationOverlayFrame = CreateFrame("Frame", nil, frame)
         durationOverlayFrame:SetFrameLevel(durationOverlayFrame:GetFrameLevel() + 1)
