@@ -65,7 +65,7 @@ function HealersMateSettings.SetDefaults()
     
     local OPTIONS_VERSION = 2
     local isHealer = util.IsHealerClass("player")
-    local isManaUser = util.ClassPowerTypes[util.GetClass("player")]
+    local isManaUser = util.ClassPowerTypes[util.GetClass("player")] == "mana"
     do
         local defaults = {
             ["ShowTargets"] = {
