@@ -1638,7 +1638,7 @@ function EventHandler()
         end
         
         HMUnit.Get("target"):UpdateAll()
-        if guid then
+        if util.IsSuperWowPresent() then
             GuidRoster.SetUnitGuid("target", guid)
             HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
         end
