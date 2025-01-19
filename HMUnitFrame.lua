@@ -437,7 +437,7 @@ function HMUnitFrame:UpdateHealth()
         if self.isCustomUnit or self.unit == "target" then
             self.healthText:SetText(util.Colorize(self.unit ~= "target" and "Too Far" or "", 0.7, 0.7, 0.7))
             self.missingHealthText:SetText("")
-            self.healthBar:SetValue(0)
+            self:SetHealthBarValue(0)
             self.powerBar:SetValue(0)
             self:UpdateOpacity()
             self:AdjustHealthPosition()
@@ -464,7 +464,7 @@ function HMUnitFrame:UpdateHealth()
         self.nameText:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
         self.healthText:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
         self.missingHealthText:SetText("")
-        self.healthBar:SetValue(0)
+        self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
         self:UpdateOpacity()
         self:AdjustHealthPosition()
@@ -509,7 +509,7 @@ function HMUnitFrame:UpdateHealth()
 
         healthText:SetText(text)
         missingHealthText:SetText("")
-        self.healthBar:SetValue(0)
+        self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
         if self.lastHealthPercent > 0 and not self:IsEnemy() then
             if not feign then
@@ -520,7 +520,7 @@ function HMUnitFrame:UpdateHealth()
     elseif UnitIsGhost(unit) then
         healthText:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
         missingHealthText:SetText("")
-        self.healthBar:SetValue(0)
+        self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
     else -- Unit Not Dead
         local text = ""
@@ -559,7 +559,7 @@ function HMUnitFrame:UpdateHealth()
         healthText:SetText(text)
         missingHealthText:SetText(missingText)
 
-        self.healthBar:SetValue(currentHealth / maxHealth)
+        self:SetHealthBarValue(currentHealth / maxHealth)
 
         local healthPercent = (currentHealth / maxHealth) * 100
         if healthPercent < self.lastHealthPercent - profile.FlashThreshold and not self:IsEnemy() then
@@ -574,6 +574,115 @@ function HMUnitFrame:UpdateHealth()
 
     self:UpdateOpacity()
     self:AdjustHealthPosition()
+end
+
+local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
+function HMUnitFrame:SetHealthBarValue(value)
+    local unit = self.unit
+    local healthBar = self.healthBar
+    local incomingHealthBar = self.incomingHealthBar
+    local incomingDirectHealthBar = self.incomingDirectHealthBar
+    local incomingHealText = self.incomingHealText
+    local incomingHealing = self.incomingHealing
+    local incomingDirectHealing = self.incomingDirectHealing
+    local profile = self:GetProfile()
+
+    healthBar:SetValue(value)
+
+    local healthIncMaxRatio = 0
+    local healthIncDirectMaxRatio = 0
+
+    if incomingHealing > 0 then
+        healthIncMaxRatio = value + (incomingHealing / self:GetMaxHealth())
+        healthIncDirectMaxRatio = value + (incomingDirectHealing / self:GetMaxHealth())
+        incomingHealthBar:SetValue(healthIncMaxRatio)
+        incomingDirectHealthBar:SetValue(healthIncDirectMaxRatio)
+        if profile.IncomingHealDisplay == "Overheal" then
+            if healthIncMaxRatio > 1 then
+                incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + incomingHealing - self:GetMaxHealth()))
+                local rgb = incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                    profile.IncomingHealText.IndirectColor
+                if incomingDirectHealing > 0 then
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                else
+                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+                end
+            else
+                incomingHealText:SetText("")
+            end
+        elseif profile.IncomingHealDisplay == "Heal" then
+            incomingHealText:SetText("+"..self.incomingHealing)
+            local rgb = incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
+                    profile.IncomingHealText.IndirectColor
+            if incomingDirectHealing > 0 then
+                incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+            else
+                incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
+            end
+        else
+            incomingHealText:SetText("")
+        end
+    else -- No incoming healing
+        incomingHealthBar:SetValue(0)
+        incomingDirectHealthBar:SetValue(0)
+        incomingHealText:SetText("")
+    end
+    incomingHealthBar:SetAlpha(0.35)
+    incomingDirectHealthBar:SetAlpha(0.4)
+
+    local r, g, b
+
+    local enemy = self:IsEnemy()
+    if not enemy then -- Do not display debuff colors for enemies
+        for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
+            if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
+                local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
+                break
+            end
+        end
+    end
+
+    local fake = self:IsFake()
+    if fake and self.fakeStats.debuffType then
+        local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+        r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
+    end
+    
+    if r == nil then -- If there's no debuff color, proceed to normal colors
+        local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
+        if hbc == "Class" then
+            local class = util.GetClass(unit)
+            if class == nil then
+                class = self.fakeStats.class
+            end
+            r, g, b = util.GetClassColor(class)
+        elseif hbc == "Green" then
+            r, g, b = 0, 0.8, 0
+        elseif hbc == "Green To Red" then
+            r, g, b = util.InterpolateColorsNoTable(greenToRedColors, value)
+        end
+
+        if healthIncMaxRatio > 1 then
+            local brightenFactor = math.min(((healthIncMaxRatio - 1) / 4) + 1, 1.25)
+            r = math.min(r * brightenFactor, 1)
+            g = math.min(g * brightenFactor, 1)
+            b = math.min(b * brightenFactor, 1)
+        end
+    end
+    healthBar:SetStatusBarColor(r, g, b)
+    incomingHealthBar:SetStatusBarColor(0, 0.8, 0)
+    incomingDirectHealthBar:SetStatusBarColor(0, 0.8, 0)
+
+    local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
+    local bg = healthBar.background
+    if value == 0 and not feign then
+        bg:SetTexture(0.5, 0.5, 0.5, 0.5)
+    elseif value < 0.3 and not enemy and not feign then
+        bg:SetTexture(1, 0.4, 0.4, 0.25)
+    else
+        bg:SetTexture(0.5, 0.5, 0.5, 0.25)
+    end
 end
 
 function HMUnitFrame:UpdatePower()
@@ -973,10 +1082,6 @@ function HMUnitFrame:CreateAura(aura, name, index, texturePath, stacks, xOffset,
     end
 end
 
-function HMUnitFrame:SetHealth(health)
-    self.healthBar:SetValue(health)
-end
-
 function HMUnitFrame:Initialize()
     local unit = self.unit
 
@@ -1064,106 +1169,6 @@ function HMUnitFrame:Initialize()
     -- Incoming Text
     local incomingHealText = overlayContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     self.incomingHealText = incomingHealText
-
-    local origSetValue = healthBar.SetValue
-    local greenToRedColors = {{1, 0, 0}, {1, 0.3, 0}, {1, 1, 0}, {0.6, 0.92, 0}, {0, 0.8, 0}}
-    healthBar.SetValue = function(healthBarSelf, value)
-        local unit = self.unit
-        origSetValue(healthBarSelf, value)
-        local profile = self:GetProfile()
-        local healthIncMaxRatio = 0
-        local healthIncDirectMaxRatio = 0
-        if self.incomingHealing > 0 then
-            healthIncMaxRatio = value + (self.incomingHealing / self:GetMaxHealth())
-            healthIncDirectMaxRatio = value + (self.incomingDirectHealing / self:GetMaxHealth())
-            incomingHealthBar:SetValue(healthIncMaxRatio)
-            incomingDirectHealthBar:SetValue(healthIncDirectMaxRatio)
-            if profile.IncomingHealDisplay == "Overheal" then
-                if healthIncMaxRatio > 1 then
-                    incomingHealText:SetText("+"..math.ceil(self:GetCurrentHealth() + self.incomingHealing - self:GetMaxHealth()))
-                    local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
-                        profile.IncomingHealText.IndirectColor
-                    if self.incomingDirectHealing > 0 then
-                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
-                    else
-                        incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
-                    end
-                else
-                    incomingHealText:SetText("")
-                end
-            elseif profile.IncomingHealDisplay == "Heal" then
-                incomingHealText:SetText("+"..self.incomingHealing)
-                local rgb = self.incomingDirectHealing > 0 and profile.IncomingHealText.Color or 
-                        profile.IncomingHealText.IndirectColor
-                if self.incomingDirectHealing > 0 then
-                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
-                else
-                    incomingHealText:SetTextColor(rgb[1], rgb[2], rgb[3])
-                end
-            else
-                incomingHealText:SetText("")
-            end
-        else
-            incomingHealthBar:SetValue(0)
-            incomingDirectHealthBar:SetValue(0)
-            incomingHealText:SetText("")
-        end
-        incomingHealthBar:SetAlpha(0.35)
-        incomingDirectHealthBar:SetAlpha(0.4)
-        local r, g, b
-
-        local enemy = self:IsEnemy()
-        if not enemy then -- Do not display debuff colors for enemies
-            for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
-                if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
-                    local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
-                    r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
-                    break
-                end
-            end
-        end
-
-        local fake = self:IsFake()
-        if fake and self.fakeStats.debuffType then
-            local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
-            r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
-        end
-        
-        if r == nil then -- If there's no debuff color, proceed to normal colors
-            local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
-            if hbc == "Class" then
-                local class = util.GetClass(unit)
-                if class == nil then
-                    class = self.fakeStats.class
-                end
-                r, g, b = util.GetClassColor(class)
-            elseif hbc == "Green" then
-                r, g, b = 0, 0.8, 0
-            elseif hbc == "Green To Red" then
-                r, g, b = util.InterpolateColorsNoTable(greenToRedColors, value)
-            end
-
-            if healthIncMaxRatio > 1 then
-                local brightenFactor = math.min(((healthIncMaxRatio - 1) / 4) + 1, 1.25)
-                r = math.min(r * brightenFactor, 1)
-                g = math.min(g * brightenFactor, 1)
-                b = math.min(b * brightenFactor, 1)
-            end
-        end
-        healthBar:SetStatusBarColor(r, g, b)
-        incomingHealthBar:SetStatusBarColor(0, 0.8, 0)
-        incomingDirectHealthBar:SetStatusBarColor(0, 0.8, 0)
-
-        local feign = self:GetCache():HasBuffIDOrName(5384, "Feign Death")
-        if value == 0 and not feign then
-            bg:SetTexture(0.5, 0.5, 0.5, 0.5)
-        elseif value < 0.3 and not enemy and not feign then
-            bg:SetTexture(1, 0.4, 0.4, 0.25)
-        else
-            bg:SetTexture(0.5, 0.5, 0.5, 0.25)
-        end
-    end
-    healthBar:SetValue(1)
 
     -- Missing Health Text
 
@@ -1281,6 +1286,7 @@ function HMUnitFrame:Initialize()
     scrollingHealFrame:SetFrameLevel(100) -- Set the frame level to a high value to ensure it's on top
     ]]
 
+    self:SetHealthBarValue(0)
     self:SizeElements()
 end
 
