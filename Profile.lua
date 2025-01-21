@@ -220,6 +220,8 @@ function HMUIProfile.SetDefaults()
     profile.TrackedAurasSpacing = 2
     profile.TrackedAurasAlignment = "TOP"
 
+    profile.ShowDebuffColorsOn = "Health Bar" -- "Health Bar", "Name", "Health", "Hidden"
+
     profile.TargetOutline = createSizedObject({
         ["Height"] = "Anchor",
         ["Width"] = "Anchor",

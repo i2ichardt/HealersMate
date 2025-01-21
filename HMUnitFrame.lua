@@ -414,21 +414,19 @@ function HMUnitFrame:ShouldShowMissingHealth()
                 and not UnitIsGhost(self.unit) and (UnitIsConnected(self.unit) or self:IsFake())
 end
 
-function HMUnitFrame.GetColorizedText(color, class, theText)
-    local text = ""
+-- Used for custom colors in profiles.
+-- Valid Colors:
+-- "Class" - Uses the unit's class color
+-- "Default" - Does not color the text
+-- Array RGB - Colors the text as the RGB values
+function HMUnitFrame:ColorizeText(inputText, color)
     if color == "Class" then
-        local r, g, b = util.GetClassColor(class)
-        if r then
-            text = text..util.Colorize(theText, r, g, b)
-        else
-            text = text..theText
-        end
-    elseif color == "Default" then
-        text = text..theText
+        local r, g, b = util.GetClassColor(self:GetClass())
+        return util.Colorize(inputText, r, g, b)
     elseif type(color) == "table" then
-        text = text..util.Colorize(theText, color)
+        return util.Colorize(inputText, color)
     end
-    return text
+    return inputText
 end
 
 function HMUnitFrame:UpdateHealth()
@@ -455,13 +453,12 @@ function HMUnitFrame:UpdateHealth()
     local currentHealth = self:GetCurrentHealth()
     local maxHealth = self:GetMaxHealth()
     
-    local unitName = fake and self.fakeStats.name or UnitName(unit)
-    local class = fake and self.fakeStats.class or util.GetClass(unit)
+    local unitName = self:GetName()
 
     self:UpdateOpacity() -- May be changed further down
 
     if not UnitIsConnected(unit) and (not fake or not fakeOnline) then
-        self.nameText:SetText(self.GetColorizedText(profile.NameText.Color, class, unitName))
+        self.nameText:SetText(self:ColorizeText(unitName, profile.NameText.Color))
         self.healthText:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
         self.missingHealthText:SetText("")
         self:SetHealthBarValue(0)
@@ -471,15 +468,33 @@ function HMUnitFrame:UpdateHealth()
         return
     end
 
+    local enemy = self:IsEnemy()
+
     -- Set Name and its colors
     local nameText
-    if UnitIsPlayer(unit) or fake then
-        nameText = self.GetColorizedText(profile.NameText.Color, class, unitName)
+    if self:IsPlayer() or fake then
+        local r, g, b
+        if profile.ShowDebuffColorsOn == "Name" and not enemy then
+            r, g, b = self:GetDebuffColor()
+        end
+        if r then
+            nameText = util.Colorize(unitName, r, g, b)
+        else
+            nameText = self:ColorizeText(unitName, profile.NameText.Color)
+        end
     else -- Unit is not a player
-        if UnitIsEnemy("player", unit) then
+        if enemy then
             nameText = util.Colorize(unitName, 1, 0.3, 0.3)
         else -- Unit is not an enemy
-            nameText = unitName
+            local r, g, b
+            if profile.ShowDebuffColorsOn == "Name" then
+                r, g, b = self:GetDebuffColor()
+            end
+            if r then
+                nameText = util.Colorize(unitName, r, g, b)
+            else
+                nameText = unitName
+            end
         end
     end
     self.nameText:SetText(nameText)
@@ -533,6 +548,12 @@ function HMUnitFrame:UpdateHealth()
             text = math.floor((currentHealth / maxHealth) * 100).."%"
         end
         
+        if profile.ShowDebuffColorsOn == "Health" then
+            local r, g, b = self:GetDebuffColor()
+            if r then
+                text = util.Colorize(text, r, g, b)
+            end
+        end
         if self.hovered then
             text = util.Colorize(text, 1, 1, 1)
         end
@@ -549,10 +570,10 @@ function HMUnitFrame:UpdateHealth()
 
             if profile.MissingHealthInline then
                 if text ~= "" then
-                    text = text..self.GetColorizedText(profile.HealthTexts.Missing.Color, nil, " ("..missingHealthStr..")")
+                    text = text..self:ColorizeText(" ("..missingHealthStr..")", profile.HealthTexts.Missing.Color)
                 end
             else
-                missingText = self.GetColorizedText(profile.HealthTexts.Missing.Color, nil, missingHealthStr)
+                missingText = self:ColorizeText(missingHealthStr, profile.HealthTexts.Missing.Color)
             end
         end
 
@@ -586,6 +607,7 @@ function HMUnitFrame:SetHealthBarValue(value)
     local incomingHealing = self.incomingHealing
     local incomingDirectHealing = self.incomingDirectHealing
     local profile = self:GetProfile()
+    local enemy = self:IsEnemy()
 
     healthBar:SetValue(value)
 
@@ -631,22 +653,9 @@ function HMUnitFrame:SetHealthBarValue(value)
     incomingDirectHealthBar:SetAlpha(0.4)
 
     local r, g, b
-
-    local enemy = self:IsEnemy()
-    if not enemy then -- Do not display debuff colors for enemies
-        for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
-            if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
-                local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
-                r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
-                break
-            end
-        end
-    end
-
-    local fake = self:IsFake()
-    if fake and self.fakeStats.debuffType then
-        local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
-        r, g, b = debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
+    
+    if profile.ShowDebuffColorsOn == "Health Bar" then
+        r, g, b = self:GetDebuffColor()
     end
     
     if r == nil then -- If there's no debuff color, proceed to normal colors
@@ -682,6 +691,25 @@ function HMUnitFrame:SetHealthBarValue(value)
         bg:SetTexture(1, 0.4, 0.4, 0.25)
     else
         bg:SetTexture(0.5, 0.5, 0.5, 0.25)
+    end
+end
+
+-- Returns the r, g, b of the current dispellable debuff color, or nil if none
+function HMUnitFrame:GetDebuffColor()
+    local enemy = self:IsEnemy()
+    if not enemy then -- Do not display debuff colors for enemies
+        for _, trackedDebuffType in ipairs(HealersMateSettings.TrackedDebuffTypes) do
+            if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
+                local debuffTypeColor = HealersMateSettings.DebuffTypeColors[trackedDebuffType]
+                return debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
+            end
+        end
+    end
+
+    local fake = self:IsFake()
+    if fake and self.fakeStats.debuffType then
+        local debuffTypeColor = HealersMateSettings.DebuffTypeColors[self.fakeStats.debuffType]
+        return debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
     end
 end
 
@@ -1446,6 +1474,20 @@ end
 
 function HMUnitFrame:GetHeight()
     return self:GetProfile():GetHeight()
+end
+
+function HMUnitFrame:GetName()
+    if self:IsFake() then
+        return self.fakeStats.name
+    end
+    return UnitName(self.unit)
+end
+
+function HMUnitFrame:GetClass()
+    if self:IsFake() then
+        return self.fakeStats.class
+    end
+    return util.GetClass(self.unit)
 end
 
 function HMUnitFrame:IsPlayer()
