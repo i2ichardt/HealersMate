@@ -99,6 +99,7 @@ function HealersMateSettings.SetDefaults()
                 ["Long"] = 60 * 2 -- >2 min
             },
             ["CastWhen"] = "Mouse Up", -- Mouse Up, Mouse Down
+            ["AutoResurrect"] = HealersMate.ResurrectionSpells[util.GetClass("player")] ~= nil,
             ["UseHealPredictions"] = true,
             ["SetMouseover"] = true,
             ["TestUI"] = false,
@@ -555,6 +556,76 @@ function InitSettings()
     yOffset = yOffset - 30
 
     do
+        local CastingSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        CastingSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+        CastingSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+        CastingSettingsLabel:SetWidth(optionsFrame:GetWidth())
+        CastingSettingsLabel:SetJustifyH("CENTER")
+        CastingSettingsLabel:SetText("Casting Settings")
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local AutoResurrectLabel = optionsFrame:CreateFontString("CheckboxShowSpellsTooltipLabel", "OVERLAY", "GameFontNormal")
+        AutoResurrectLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+        AutoResurrectLabel:SetText("Auto Resurrect")
+
+        local AutoResurrectCheckbox = CreateFrame("CheckButton", "$parentShowSpellsTooltip", optionsFrame, "UICheckButtonTemplate")
+        AutoResurrectCheckbox:SetPoint("LEFT", AutoResurrectLabel, "RIGHT", 5, yCheckboxOffset)
+        AutoResurrectCheckbox:SetWidth(20) -- width
+        AutoResurrectCheckbox:SetHeight(20) -- height
+        AutoResurrectCheckbox:SetChecked(HMOptions.AutoResurrect)
+        AutoResurrectCheckbox:SetScript("OnClick", function()
+            HMOptions.AutoResurrect = AutoResurrectCheckbox:GetChecked() == 1
+        end)
+        ApplyTooltip(AutoResurrectCheckbox, "Cast your resurrection spell when clicking on a dead target instead of bound spells",
+            "Special binds, such as \"Target\", can still be used")
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local castWhenDropdown = CreateFrame("Frame", "$parentCastWhenDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        castWhenDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        castWhenDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", castWhenDropdown, "RIGHT", -30, 5)
+        label:SetText("Cast When")
+
+        local states = {"Mouse Up", "Mouse Down"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
+                    HMOptions.CastWhen = targetArg
+                    for _, ui in ipairs(HealersMate.AllUnitFrames) do
+                        ui:RegisterClicks()
+                    end
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(castWhenDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(castWhenDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(castWhenDropdown, HMOptions.CastWhen, false)
+            end
+        end)
+    end
+
+    yOffset = yOffset - 30
+
+    do
         local SpellsTooltipSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         SpellsTooltipSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
         SpellsTooltipSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
@@ -775,46 +846,6 @@ function InitSettings()
         OtherSettingsLabel:SetWidth(optionsFrame:GetWidth())
         OtherSettingsLabel:SetJustifyH("CENTER")
         OtherSettingsLabel:SetText("Other Settings")
-    end
-
-    yOffset = yOffset - 30
-
-    do
-        local castWhenDropdown = CreateFrame("Frame", "$parentCastWhenDropdown", optionsFrame, "UIDropDownMenuTemplate")
-        castWhenDropdown:Show()
-        --castWhenDropdown:SetPoint("TOP", -65, -100)
-        castWhenDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
-
-        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("RIGHT", castWhenDropdown, "RIGHT", -30, 5)
-        label:SetText("Cast When")
-
-        local states = {"Mouse Up", "Mouse Down"}
-        local options = {}
-
-        for _, key in ipairs(states) do
-            table.insert(options, {
-                text = key,
-                arg1 = key,
-                func = function(targetArg)
-                    UIDropDownMenu_SetSelectedName(castWhenDropdown, targetArg, false)
-                    HMOptions.CastWhen = targetArg
-                    for _, ui in ipairs(HealersMate.AllUnitFrames) do
-                        ui:RegisterClicks()
-                    end
-                end
-            })
-        end
-
-        UIDropDownMenu_Initialize(castWhenDropdown, function(self, level)
-            for _, targetOption in ipairs(options) do
-                targetOption.checked = false
-                UIDropDownMenu_AddButton(targetOption)
-            end
-            if UIDropDownMenu_GetSelectedName(castWhenDropdown) == nil then
-                UIDropDownMenu_SetSelectedName(castWhenDropdown, HMOptions.CastWhen, false)
-            end
-        end)
     end
 
     yOffset = yOffset - 30

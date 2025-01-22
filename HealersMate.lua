@@ -511,7 +511,7 @@ function ApplySpellsTooltip(attachTo, unit)
 
     local deadFriend = util.IsDeadFriend(unit)
     local selfClass = GetClass("player")
-    local canResurrect = deadFriend and ResurrectionSpells[selfClass]
+    local canResurrect = HMOptions.AutoResurrect and deadFriend and ResurrectionSpells[selfClass]
     -- Holy Champion Texture: Interface\\Icons\\Spell_Holy_ProclaimChampion_02
     local canReviveChampion = canResurrect and GetSpellID("Revive Champion") and 
         HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
@@ -1403,7 +1403,7 @@ function ClickHandler(buttonType, unit, ui)
         end
         return
     end
-    if util.IsDeadFriend(unit) then
+    if HMOptions.AutoResurrect and util.IsDeadFriend(unit) then
         if spell and SpecialBinds[string.upper(spell)] then
             SpecialBinds[string.upper(spell)](unit, ui)
             return
@@ -1412,7 +1412,7 @@ function ClickHandler(buttonType, unit, ui)
             and UnitAffectingCombat("player") then
                 spell = "Revive Champion"
         else
-            spell = ResurrectionSpells[GetClass("player")]
+            spell = ResurrectionSpells[GetClass("player")] or spell
         end
     end
     
