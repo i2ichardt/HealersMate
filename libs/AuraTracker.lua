@@ -75,6 +75,7 @@ local trackedCastedAuras = {
     ["Unending Breath"] = 10 * 60,
     ["Demon Skin"] = 30 * 60,
     ["Demon Armor"] = 30 * 60,
+    ["Fire Shield"] = 3 * 60,
     -- Warlock: Offsensive
     ["Corruption"] = 18,
     ["Immolate"] = 15,

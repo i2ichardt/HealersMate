@@ -759,7 +759,7 @@ local function initUnitFrames()
     CreateUnitFrameGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
     CreateUnitFrameGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
     CreateUnitFrameGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
-    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"), false)
     if util.IsSuperWowPresent() then
         CreateUnitFrameGroup("Focus", "all", HMUnitProxy.CustomUnitsMap["focus"], false, getSelectedProfile("Focus"), false)
     end
@@ -1011,7 +1011,6 @@ function EventAddonLoaded()
         end
         hostileSpells["None"]["LeftButton"] = "Target"
     end
-
 
     do
         if HMOptions.Scripts.OnPostLoad then

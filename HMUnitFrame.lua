@@ -338,19 +338,17 @@ function HMUnitFrame:Flash()
     end
 end
 
-do
-    function HMUnitFrame.Flash_OnUpdate()
-        local frame = this
-        local self = frame.unitFrame
-        local FLASH_TIME = frame.flashTime
-        local START_OPACITY = frame.startOpacity
-        self.flashTime = self.flashTime - arg1
-        frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
+function HMUnitFrame.Flash_OnUpdate()
+    local frame = this
+    local self = frame.unitFrame
+    local FLASH_TIME = frame.flashTime
+    local START_OPACITY = frame.startOpacity
+    self.flashTime = self.flashTime - arg1
+    frame:SetAlpha(START_OPACITY - (((FLASH_TIME - self.flashTime) / FLASH_TIME) * START_OPACITY))
 
-        if self.flashTime <= 0 then
-            frame:Hide()
-            frame:SetScript("OnUpdate", nil)
-        end
+    if self.flashTime <= 0 then
+        frame:Hide()
+        frame:SetScript("OnUpdate", nil)
     end
 end
 
