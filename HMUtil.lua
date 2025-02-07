@@ -191,10 +191,20 @@ end
 -- Courtesy of ChatGPT
 function SplitString(str, delimiter)
     local result = {}
-    local pattern = "([^" .. delimiter .. "]+)"  -- The pattern to match substrings excluding the delimiter
-    for part in string.gmatch(str, pattern) do
-        table.insert(result, part)
+    local start_pos = 1
+    
+    while true do
+        local end_pos = string.find(str, delimiter, start_pos)
+        
+        if not end_pos then
+            table.insert(result, string.sub(str, start_pos))
+            break
+        end
+        
+        table.insert(result, string.sub(str, start_pos, end_pos - 1))
+        start_pos = end_pos + string.len(delimiter)
     end
+    
     return result
 end
 

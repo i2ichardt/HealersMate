@@ -1,10 +1,10 @@
 -- Caches important information about units and makes the data easily readable at any time.
 -- If using SuperWoW, the cache map will have GUIDs as the key instead of unit IDs.
 
-local USE_GUIDS = HMUtil.IsSuperWowPresent()
-local AllUnits = HMUtil.AllUnits
-local AllUnitsSet = HMUtil.AllUnitsSet
 local util = HMUtil
+local AllUnits = util.AllUnits
+local AllUnitsSet = util.AllUnitsSet
+local superwow = util.IsSuperWowPresent()
 
 local compost = AceLibrary("Compost-2.0")
 
@@ -20,8 +20,10 @@ HMUnit.AurasPopulated = false
 -- Buff/debuff entry contents: {"name", "stacks", "texture", "index", "type", "id"(SuperWoW only)}
 HMUnit.Buffs = {} -- Array of all buffs
 HMUnit.BuffsMap = {} -- Key: Name | Value: Array of buffs with key's name
+HMUnit.BuffsIDSet = {} -- Set of currently applied buff IDs
 HMUnit.Debuffs = {} -- Array of all debuffs
 HMUnit.DebuffsMap = {} -- Key: Name | Value: Array of debuffs with key's name
+HMUnit.DebuffsIDSet = {} -- Set of currently applied debuff IDs
 HMUnit.TypedDebuffs = {} -- Key: Type | Value: Array of debuffs that are the type
 HMUnit.AfflictedDebuffTypes = {} -- Set of the afflicted debuff types
 
@@ -42,7 +44,7 @@ end
 
 -- Non-GUID function
 function HMUnit.CreateCaches()
-    if USE_GUIDS then
+    if superwow then
         HealersMate.hmprint("Tried to create non-SuperWoW caches while using SuperWoW!")
         return
     end
@@ -90,7 +92,7 @@ end
 
 -- Get the HMUnit by unit ID. If using SuperWoW, GUID or unit ID is accepted.
 function HMUnit.Get(unit)
-    if USE_GUIDS and AllUnitsSet[unit] then
+    if superwow and AllUnitsSet[unit] then
         return HMUnit.Cached[HMGuidRoster.GetUnitGuid(unit)] or HMUnit
     end
     return HMUnit.Cached[unit]
@@ -108,7 +110,7 @@ function HMUnit:New(unit)
     obj:AllocateAuras()
     obj.AurasPopulated = true -- To force aura fields to generate
     obj.IsNew = true
-    if USE_GUIDS then
+    if superwow then
         obj.AuraTimes = compost:GetTable()
     end
     obj:UpdateAll()
@@ -118,8 +120,10 @@ end
 function HMUnit:Dispose()
     compost:Reclaim(self.Buffs, 1)
     compost:Reclaim(self.BuffsMap, 1)
+    compost:Reclaim(self.BuffsIDSet)
     compost:Reclaim(self.Debuffs, 1)
     compost:Reclaim(self.DebuffsMap, 1)
+    compost:Reclaim(self.DebuffsIDSet)
     compost:Reclaim(self.TypedDebuffs)
     compost:Reclaim(self.AfflictedDebuffTypes)
     compost:Reclaim(self.AuraTimes)
@@ -183,8 +187,10 @@ end
 function HMUnit:AllocateAuras()
     self.Buffs = compost:GetTable()
     self.BuffsMap = compost:GetTable()
+    self.BuffsIDSet = compost:GetTable()
     self.Debuffs = compost:GetTable()
     self.DebuffsMap = compost:GetTable()
+    self.DebuffsIDSet = compost:GetTable()
     self.TypedDebuffs = compost:GetTable()
     self.AfflictedDebuffTypes = compost:GetTable()
 end
@@ -195,14 +201,18 @@ function HMUnit:ClearAuras()
     end
     compost:Reclaim(self.Buffs, 1)
     compost:Reclaim(self.BuffsMap, 1)
+    compost:Reclaim(self.BuffsIDSet)
     compost:Reclaim(self.Debuffs, 1)
     compost:Reclaim(self.DebuffsMap, 1)
+    compost:Reclaim(self.DebuffsIDSet)
     compost:Reclaim(self.TypedDebuffs)
     compost:Reclaim(self.AfflictedDebuffTypes)
     self.Buffs = compost:GetTable()
     self.BuffsMap = compost:GetTable()
+    self.BuffsIDSet = compost:GetTable()
     self.Debuffs = compost:GetTable()
     self.DebuffsMap = compost:GetTable()
+    self.DebuffsIDSet = compost:GetTable()
     self.TypedDebuffs = compost:GetTable()
     self.AfflictedDebuffTypes = compost:GetTable()
     self.HasHealingModifier = false
@@ -223,6 +233,7 @@ function HMUnit:UpdateAuras()
     -- Track player buffs
     local buffs = self.Buffs
     local buffsMap = self.BuffsMap
+    local buffsIDSet = self.BuffsIDSet
     for index = 1, 32 do
         local texture, stacks, id = UnitBuff(unit, index)
         if not texture then
@@ -236,6 +247,9 @@ function HMUnit:UpdateAuras()
         if not buffsMap[name] then
             buffsMap[name] = compost:GetTable()
         end
+        if id ~= nil then
+            buffsIDSet[id] = true
+        end
         table.insert(buffsMap[name], buff)
         table.insert(buffs, buff)
     end
@@ -244,6 +258,7 @@ function HMUnit:UpdateAuras()
     -- Track player debuffs
     local debuffs = self.Debuffs
     local debuffsMap = self.DebuffsMap
+    local debuffsIDSet = self.DebuffsIDSet
     local typedDebuffs = self.TypedDebuffs -- Dispellable debuffs
     for index = 1, 16 do
         local texture, stacks, type, id = UnitDebuff(unit, index)
@@ -258,6 +273,9 @@ function HMUnit:UpdateAuras()
         local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
         if not debuffsMap[name] then
             debuffsMap[name] = compost:GetTable()
+        end
+        if id ~= nil then
+            debuffsIDSet[id] = true
         end
         table.insert(debuffsMap[name], debuff)
         if type ~= "" then
@@ -278,17 +296,12 @@ end
 
 -- SuperWoW only
 function HMUnit:HasBuffID(id)
-    for _, buff in ipairs(self.Buffs) do
-        if buff.id == id then
-            return true
-        end
-    end
-    return false
+    return self.BuffsIDSet[id] ~= nil
 end
 
 -- Looks for ID if SuperWoW is present, otherwise searches by name
 function HMUnit:HasBuffIDOrName(id, name)
-    if HMUtil.IsSuperWowPresent() then
+    if superwow then
         return self:HasBuffID(id)
     end
     return self:HasBuff(name)
@@ -300,17 +313,12 @@ end
 
 -- SuperWoW only
 function HMUnit:HasDebuffID(id)
-    for _, debuff in ipairs(self.Debuffs) do
-        if debuff.id == id then
-            return true
-        end
-    end
-    return false
+    return self.DebuffsIDSet[id] ~= nil
 end
 
 -- Looks for ID if SuperWoW is present, otherwise searches by name
 function HMUnit:HasDebuffIDOrName(id, name)
-    if HMUtil.IsSuperWowPresent() then
+    if superwow then
         return self:HasDebuffID(id)
     end
     return self:HasDebuff(name)

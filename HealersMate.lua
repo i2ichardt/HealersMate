@@ -88,7 +88,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha5"
+VERSION = "2.0.0-alpha5.1"
 
 TestUI = false
 
@@ -180,7 +180,9 @@ ResurrectionSpells = {
 local hmBarsPath = util.GetAssetsPath().."textures\\bars\\"
 BarStyles = {
     ["Blizzard"] = "Interface\\TargetingFrame\\UI-StatusBar",
+    ["Blizzard Smooth"] = hmBarsPath.."Blizzard-Smooth",
     ["Blizzard Raid"] = hmBarsPath.."Blizzard-Raid",
+    ["Blizzard Raid Sideless"] = hmBarsPath.."Blizzard-Raid-Sideless",
     ["HealersMate"] = hmBarsPath.."HealersMate",
     ["HealersMate Borderless"] = hmBarsPath.."HealersMate-Borderless",
     ["HealersMate Shineless"] = hmBarsPath.."HealersMate-Shineless",
@@ -509,7 +511,7 @@ function ApplySpellsTooltip(attachTo, unit)
 
     local deadFriend = util.IsDeadFriend(unit)
     local selfClass = GetClass("player")
-    local canResurrect = deadFriend and ResurrectionSpells[selfClass]
+    local canResurrect = HMOptions.AutoResurrect and deadFriend and ResurrectionSpells[selfClass]
     -- Holy Champion Texture: Interface\\Icons\\Spell_Holy_ProclaimChampion_02
     local canReviveChampion = canResurrect and GetSpellID("Revive Champion") and 
         HMUnit.Get(unit):HasBuffIDOrName(45568, "Holy Champion") and UnitAffectingCombat("player")
@@ -757,7 +759,7 @@ local function initUnitFrames()
     CreateUnitFrameGroup("Pets", "party", PetUnits, true, getSelectedProfile("Pets"))
     CreateUnitFrameGroup("Raid", "raid", RaidUnits, false, getSelectedProfile("Raid"))
     CreateUnitFrameGroup("Raid Pets", "raid", RaidPetUnits, true, getSelectedProfile("Raid Pets"))
-    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"))
+    CreateUnitFrameGroup("Target", "all", TargetUnits, false, getSelectedProfile("Target"), false)
     if util.IsSuperWowPresent() then
         CreateUnitFrameGroup("Focus", "all", HMUnitProxy.CustomUnitsMap["focus"], false, getSelectedProfile("Focus"), false)
     end
@@ -1009,7 +1011,6 @@ function EventAddonLoaded()
         end
         hostileSpells["None"]["LeftButton"] = "Target"
     end
-
 
     do
         if HMOptions.Scripts.OnPostLoad then
@@ -1401,7 +1402,7 @@ function ClickHandler(buttonType, unit, ui)
         end
         return
     end
-    if util.IsDeadFriend(unit) then
+    if HMOptions.AutoResurrect and util.IsDeadFriend(unit) then
         if spell and SpecialBinds[string.upper(spell)] then
             SpecialBinds[string.upper(spell)](unit, ui)
             return
@@ -1410,7 +1411,7 @@ function ClickHandler(buttonType, unit, ui)
             and UnitAffectingCombat("player") then
                 spell = "Revive Champion"
         else
-            spell = ResurrectionSpells[GetClass("player")]
+            spell = ResurrectionSpells[GetClass("player")] or spell
         end
     end
     
@@ -1636,7 +1637,7 @@ function EventHandler()
         end
         
         HMUnit.Get("target"):UpdateAll()
-        if guid then
+        if util.IsSuperWowPresent() then
             GuidRoster.SetUnitGuid("target", guid)
             HMHealPredict.SetRelevantGUIDs(GuidRoster.GetTrackedGuids())
         end
