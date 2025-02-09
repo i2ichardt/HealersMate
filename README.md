@@ -15,10 +15,10 @@ HealersMate is a unit frames addon for World of Warcraft Vanilla 1.12 tailored f
 - Shows when members have aggro on mobs
 - Assign roles to players
 - Choose from a variety of preset frame styles, eventually to be fully customizable
-- See the distance between you and other players (**[SuperWoW or UnitXP SP3 Required](https://github.com/OldManAlpha/HealersMate?tab=readme-ov-file#client-mods-that-enhance-healersmate)**, otherwise only can check 28 yds)
-- See when players/enemies are out of your line-of-sight (**[UnitXP SP3 Required](https://github.com/OldManAlpha/HealersMate?tab=readme-ov-file#client-mods-that-enhance-healersmate)**)
-- See the remaining duration of buffs and HoTs on other players (**[SuperWoW Required](https://github.com/OldManAlpha/HealersMate?tab=readme-ov-file#client-mods-that-enhance-healersmate)**)
-- Add players/enemies to a separate Focus group, even if they're not in your party or raid (**[SuperWoW Required](https://github.com/OldManAlpha/HealersMate?tab=readme-ov-file#client-mods-that-enhance-healersmate)**)
+- See the distance between you and other players (**[SuperWoW or UnitXP SP3 Required](#client-mods-that-enhance-healersmate)**, otherwise only can check 28 yds)
+- See when players/enemies are out of your line-of-sight (**[UnitXP SP3 Required](#client-mods-that-enhance-healersmate)**)
+- See the remaining duration of buffs and HoTs on other players (**[SuperWoW Required](#client-mods-that-enhance-healersmate)**)
+- Add players/enemies to a separate Focus group, even if they're not in your party or raid (**[SuperWoW Required](#client-mods-that-enhance-healersmate)**)
 
 ### Customizable Key Bindings
 Bind key+mouse button combinations to specific spells, allowing you to cast on any player with one click.<br>
