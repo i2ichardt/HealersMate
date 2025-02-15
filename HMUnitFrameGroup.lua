@@ -136,9 +136,10 @@ function HMUnitFrameGroup:Initialize()
         moveContainer:SetHeight(1)
         for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
-            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            local xOffset = gc:GetLeft()
+            local yOffset = gc:GetTop() - GetScreenHeight()
             gc:ClearAllPoints()
-            gc:SetPoint("TOPLEFT", moveContainer, relativePoint, xofs, yofs)
+            gc:SetPoint("TOPLEFT", moveContainer, "TOPLEFT", xOffset, yOffset)
         end
         moveContainer:StartMoving()
     end)
@@ -163,10 +164,10 @@ function HMUnitFrameGroup:Initialize()
         moveContainer:StopMovingOrSizing()
         for _, group in pairs(HealersMate.UnitFrameGroups) do
             local gc = group:GetContainer()
-            local mcpoint, mcrelativeTo, mcrelativePoint, mcxofs, mcyofs = moveContainer:GetPoint(1)
-            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            local xOffset = gc:GetLeft()
+            local yOffset = gc:GetTop() - GetScreenHeight()
             gc:ClearAllPoints()
-            gc:SetPoint("TOPLEFT", UIParent, mcrelativePoint, mcxofs + xofs, mcyofs + yofs)
+            gc:SetPoint("TOPLEFT", UIParent, "TOPLEFT", xOffset, yOffset)
         end
         -- Prevent container from potentially blocking mouse by setting it back to 0 size
         moveContainer:SetWidth(0)
