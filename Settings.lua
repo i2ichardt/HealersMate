@@ -102,6 +102,7 @@ function HealersMateSettings.SetDefaults()
             ["AutoResurrect"] = HealersMate.ResurrectionSpells[util.GetClass("player")] ~= nil,
             ["UseHealPredictions"] = true,
             ["SetMouseover"] = true,
+            ["LFTAutoRole"] = true, -- Turtle WoW
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
@@ -961,6 +962,39 @@ function InitSettings()
             HealersMate.CheckPartyFramesEnabled()
         end)
         ApplyTooltip(CheckboxInRaid, "Hide default party frames while in raid", "This may cause issues with other addons")
+    end
+
+    if util.IsTurtleWow() then
+        yOffset = yOffset - 40
+
+        do
+            local TurtleWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+            TurtleWoWLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+            TurtleWoWLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+            TurtleWoWLabel:SetWidth(optionsFrame:GetWidth())
+            TurtleWoWLabel:SetJustifyH("CENTER")
+            TurtleWoWLabel:SetText("Turtle WoW Settings")
+        end
+
+        yOffset = yOffset - 30
+
+        do
+            local LFTAutoRoleLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
+            LFTAutoRoleLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+            LFTAutoRoleLabel:SetText("LFT Auto Role")
+
+            local CheckboxLFTAutoRole = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")
+            CheckboxLFTAutoRole:SetPoint("LEFT", LFTAutoRoleLabel, "RIGHT", 5, yCheckboxOffset)
+            CheckboxLFTAutoRole:SetWidth(20)
+            CheckboxLFTAutoRole:SetHeight(20)
+            CheckboxLFTAutoRole:SetChecked(HMOptions.LFTAutoRole)
+            CheckboxLFTAutoRole:SetScript("OnClick", function()
+                HMOptions.LFTAutoRole = CheckboxLFTAutoRole:GetChecked() == 1
+                HealersMate.SetLFTAutoRoleEnabled(HMOptions.LFTAutoRole)
+            end)
+            ApplyTooltip(CheckboxLFTAutoRole, "Automatically assign roles when joining LFT groups", 
+                "This functionality was created for 1.17.2 and may break in future updates")
+        end
     end
 
     yOffset = yOffset - 40

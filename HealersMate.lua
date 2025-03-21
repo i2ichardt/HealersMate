@@ -908,6 +908,8 @@ function EventAddonLoaded()
             end
         end)
     end
+    
+    SetLFTAutoRoleEnabled(HMOptions.LFTAutoRole)
 
     TestUI = HMOptions.TestUI
 
@@ -1061,6 +1063,76 @@ function SetPartyFramesEnabled(enabled)
             end
         end
     end
+end
+
+LFTAutoRoleFrame = CreateFrame("Frame", "HM_LFTAutoRoleFrame")
+function SetLFTAutoRoleEnabled(enabled)
+    if not LFT_ADDON_PREFIX then -- Must not be Turtle WoW, or LFT has changed
+        return
+    end
+
+    if not enabled then
+        LFTAutoRoleFrame:SetScript("OnEvent", nil)
+        LFTAutoRoleFrame:SetScript("OnUpdate", nil)
+        LFTAutoRoleFrame:UnregisterAllEvents()
+        return
+    end
+
+    if LFTAutoRoleFrame:GetScript("OnEvent") ~= nil then -- Already enabled
+        return
+    end
+    
+    local roleMap = {
+        ["t"] = "Tank",
+        ["h"] = "Healer",
+        ["d"] = "Damage"
+    }
+    local offerCompleteTime = -1 -- The time the offer is completed, used to verify rolecheck info is valid
+    local alreadyAssigned = {} -- The Tank & Healer names
+    local scanDPSTime = -1
+    local AutoRoleFrame_OnUpdate = function()
+        if scanDPSTime > GetTime() then
+            return
+        end
+
+        for _, unit in ipairs(PartyUnits) do
+            local name = UnitName(unit)
+            if name ~= "Unknown" and not util.ArrayContains(alreadyAssigned, name) then
+                hmprint("Assuming "..name.." is Damage")
+                SetAssignedRole(name, "Damage")
+            end
+        end
+        UpdateUnitFrameGroups()
+        LFTAutoRoleFrame:SetScript("OnUpdate", nil)
+    end
+    LFTAutoRoleFrame:RegisterEvent("CHAT_MSG_ADDON")
+    LFTAutoRoleFrame:SetScript("OnEvent", function()
+        if arg1 == LFT_ADDON_PREFIX then
+            -- After an offer is complete, it is immediately followed by rolecheck info for the tank and healer
+            if strfind(arg2, "S2C_ROLECHECK_INFO") then
+                if GetNumPartyMembers() == 4 then
+                    local params = util.SplitString(arg2, LFT_ADDON_FIELD_DELIMITER)
+                    local member = params[2]
+                    params = util.SplitString(params[3], ":") -- get confirmed roles
+                    if offerCompleteTime + 0.5 > GetTime() and table.getn(params) == 1 then
+                        local role = roleMap[params[1]]
+                        table.insert(alreadyAssigned, member)
+                        SetAssignedRole(member, role) -- Tank & Healer is sent after the offer is complete
+                        hmprint("Assigning "..member.." to "..role)
+                        if table.getn(alreadyAssigned) == 2 then -- Set rest as Damage after Tank & Healer is sent
+                            -- Delay scanning party members because their names might not be loaded yet
+                            scanDPSTime = GetTime() + 1.5
+                            LFTAutoRoleFrame:SetScript("OnUpdate", AutoRoleFrame_OnUpdate)
+                        end
+                        UpdateUnitFrameGroups()
+                    end
+                end
+            elseif strfind(arg2, "S2C_OFFER_COMPLETE") then
+                alreadyAssigned = {}
+                offerCompleteTime = GetTime()
+            end
+        end
+    end)
 end
 
 function GetAssignedRole(name)
