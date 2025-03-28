@@ -1249,7 +1249,17 @@ function HMUnitFrame:Initialize()
         self:AdjustHealthPosition()
     end)
     button:SetScript("OnEnter", function()
-        HM.ApplySpellsTooltip(button, unit)
+        local attachTooltipTo
+        if HMOptions.SpellsTooltip.AttachTo == "Frame" then
+            attachTooltipTo = self.rootContainer
+        elseif HMOptions.SpellsTooltip.AttachTo == "Group" then
+            attachTooltipTo = self.owningGroup:GetContainer()
+        elseif HMOptions.SpellsTooltip.AttachTo == "Screen" then
+            attachTooltipTo = UIParent
+        else
+            attachTooltipTo = self.button
+        end
+        HM.ApplySpellsTooltip(attachTooltipTo, unit, self.button)
         self.hovered = true
         self:UpdateHealth()
         if HMOptions.SetMouseover and util.IsSuperWowPresent() then

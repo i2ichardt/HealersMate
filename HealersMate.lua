@@ -499,7 +499,7 @@ function GetAuraInfo(unit, type, index)
     return leftText:GetText() or "", rightText:GetText() or ""
 end
 
-function ApplySpellsTooltip(attachTo, unit)
+function ApplySpellsTooltip(attachTo, unit, owner)
     if not HMOptions.SpellsTooltip.Enabled then
         return
     end
@@ -534,7 +534,7 @@ function ApplySpellsTooltip(attachTo, unit)
             end
         end
     end
-    ShowSpellsTooltip(attachTo, spellList, attachTo)
+    ShowSpellsTooltip(attachTo, spellList, owner)
 end
 
 function IsValidMacro(name)
@@ -571,10 +571,12 @@ local tooltipPowerColors = {
     ["rage"] = {1, 0, 0},
     ["energy"] = {1, 1, 0}
 }
+local tooltipAnchorMap = {["Top Left"] = "ANCHOR_LEFT", ["Top Right"] = "ANCHOR_RIGHT", 
+    ["Bottom Left"] = "ANCHOR_BOTTOMLEFT", ["Bottom Right"] = "ANCHOR_BOTTOMRIGHT"}
 function ShowSpellsTooltip(attachTo, spells, owner)
     SpellsTooltipOwner = owner
-    SpellsTooltip:SetOwner(attachTo, "ANCHOR_RIGHT")
-    SpellsTooltip:SetPoint("RIGHT", attachTo, "LEFT", 0, 0)
+    SpellsTooltip:SetOwner(attachTo, tooltipAnchorMap[HMOptions.SpellsTooltip.Anchor], 
+        HMOptions.SpellsTooltip.OffsetX, HMOptions.SpellsTooltip.OffsetY)
     local options = HMOptions.SpellsTooltip
     local currentPower = UnitMana("player")
     local maxPower = UnitManaMax("player")

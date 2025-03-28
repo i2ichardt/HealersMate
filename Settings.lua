@@ -84,6 +84,10 @@ function HealersMateSettings.SetDefaults()
             },
             ["SpellsTooltip"] = {
                 ["Enabled"] = isHealer,
+                ["AttachTo"] = "Button", -- "Button", "Frame", "Group", "Screen"
+                ["OffsetX"] = 0,
+                ["OffsetY"] = 0,
+                ["Anchor"] = "Top Right", -- "Top Left", "Top Right", "Bottom Left", "Bottom Right"
                 ["ShowManaCost"] = false,
                 ["ShowManaPercentCost"] = true,
                 ["HideCastsAbove"] = 3,
@@ -836,6 +840,80 @@ function InitSettings()
         if not HMOptions.SpellsTooltip.ShowPowerBar then
             HealersMate.SpellsTooltipPowerBar:Hide()
         end
+    end
+
+    yOffset = yOffset - 30
+
+    do
+        local attachToDropdown = CreateFrame("Frame", "$parentAttachToDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        attachToDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        attachToDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", attachToDropdown, "RIGHT", -30, 5)
+        label:SetText("Attach To")
+
+        local states = {"Button", "Frame", "Group", "Screen"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(attachToDropdown, targetArg, false)
+                    HMOptions.SpellsTooltip.AttachTo = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(attachToDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(attachToDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(attachToDropdown, HMOptions.SpellsTooltip.AttachTo, false)
+            end
+        end)
+    end
+
+    yOffset = yOffset - 25
+
+    do
+        local anchorDropdown = CreateFrame("Frame", "$parentAnchorDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        anchorDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        anchorDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", anchorDropdown, "RIGHT", -30, 5)
+        label:SetText("Anchor")
+
+        local states = {"Top Left", "Top Right", "Bottom Left", "Bottom Right"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(anchorDropdown, targetArg, false)
+                    HMOptions.SpellsTooltip.Anchor = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(anchorDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(anchorDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(anchorDropdown, HMOptions.SpellsTooltip.Anchor, false)
+            end
+        end)
     end
 
     yOffset = yOffset - 30
