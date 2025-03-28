@@ -1500,17 +1500,11 @@ function ClickHandler(buttonType, unit, ui)
     local isMacro = util.StartsWith(spell, MACRO_PREFIX)
     local isNonSpell = isItem or isMacro
 
-    -- Auto targeting requires no special logic to cast spells
-    if HMOptions.AutoTarget then
-        if not UnitIsUnit("target", unit) then
-            TargetUnit(unit)
-        end
-        CastSpellByName(spell)
-        return
-    end
-
     -- Not a special bind
     if util.IsSuperWowPresent() and not isNonSpell then -- No target changing shenanigans required with SuperWoW
+        if HMOptions.AutoTarget and not UnitIsUnit("target", unit) then
+            TargetUnit(unit)
+        end
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -1534,7 +1528,7 @@ function ClickHandler(buttonType, unit, ui)
         end
 
         --Put Target of player back to whatever it was before casting spell
-        if targetChanged then
+        if targetChanged and not HMOptions.AutoTarget then
             if currentTarget == nil then
                 --Player wasn't targeting anything before casting spell
                 local Sound_Enabled = PlaySound
