@@ -100,10 +100,21 @@ function HMUnitFrameGroup:Hide()
     self.container:Hide()
 end
 
+-- Used while moving frames to avoid the lag while moving over other toplevel frames
+function HMUnitFrameGroup:RemoveToplevel()
+    self.container:SetToplevel(false)
+    self.container:SetFrameStrata("HIGH")
+end
+
+function HMUnitFrameGroup:ApplyToplevel()
+    self.container:SetToplevel(true)
+    self.container:SetFrameStrata("MEDIUM")
+end
+
 function HMUnitFrameGroup:Initialize()
     local container = CreateFrame("Frame", self.name.."HMUnitFrameGroupContainer", UIParent) --type, name, parent
     self.container = container
-    container:SetToplevel(true)
+    self:ApplyToplevel()
     if container:GetNumPoints() == 0 then
         container:SetPoint(util.GetCenterScreenPoint(0, 0))
     end
@@ -123,6 +134,7 @@ function HMUnitFrameGroup:Initialize()
 
         if (util.GetKeyModifier() == HMOptions.FrameDrag.AltMoveKey) == HMOptions.FrameDrag.MoveAll then
             container:StartMoving()
+            self:RemoveToplevel()
             return
         end
 
@@ -135,6 +147,7 @@ function HMUnitFrameGroup:Initialize()
         moveContainer:SetWidth(1)
         moveContainer:SetHeight(1)
         for _, group in pairs(HealersMate.UnitFrameGroups) do
+            group:RemoveToplevel()
             local gc = group:GetContainer()
             local xOffset = gc:GetLeft()
             local yOffset = gc:GetTop() - GetScreenHeight()
@@ -155,6 +168,7 @@ function HMUnitFrameGroup:Initialize()
 
         if not container.bulkMovement then
             container:StopMovingOrSizing()
+            self:ApplyToplevel()
             return
         end
 
@@ -163,6 +177,7 @@ function HMUnitFrameGroup:Initialize()
         local moveContainer = HMUnitFrameGroup.moveContainer
         moveContainer:StopMovingOrSizing()
         for _, group in pairs(HealersMate.UnitFrameGroups) do
+            group:ApplyToplevel()
             local gc = group:GetContainer()
             local xOffset = gc:GetLeft()
             local yOffset = gc:GetTop() - GetScreenHeight()
