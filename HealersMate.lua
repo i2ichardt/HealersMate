@@ -821,20 +821,24 @@ function EventAddonLoaded()
     if util.IsSuperWowPresent() then
         HMUnit.UpdateGuidCaches()
 
-        -- SuperWoW currently does not currently allow us to receive events for units that aren't part of normal units, so
-        -- we're manually updating
         local customUnitUpdater = CreateFrame("Frame", "HMCustomUnitUpdater")
         local nextUpdate = GetTime() + 0.25
+        -- Older versions of SuperWoW had an issue where units that aren't part of normal units wouldn't receive events,
+        -- so updates are done manually
+        local needsManualUpdates = util.SuperWoWFeatureLevel < util.SuperWoW_v1_4
         customUnitUpdater:SetScript("OnUpdate", function()
             if GetTime() > nextUpdate then
                 nextUpdate = GetTime() + 0.25
 
                 for unit, guid in pairs(CustomUnitGUIDMap) do
-                    HMUnit.Get(unit):UpdateAuras()
-                    for ui in UnitFrames(unit) do
-                        ui:UpdateHealth()
-                        ui:UpdatePower()
-                        ui:UpdateAuras()
+                    if needsManualUpdates or not UnitExists(guid) then
+                        HMUnit.Get(unit):UpdateAuras()
+                        for ui in UnitFrames(unit) do
+                            ui:UpdateHealth()
+                            ui:UpdatePower()
+                            ui:UpdateAuras()
+                            ui:UpdateIncomingHealing()
+                        end
                     end
                 end
             end

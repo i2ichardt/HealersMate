@@ -15,6 +15,19 @@ if UnitXPSP3 and pcall(UnitXP, "version", "coffTimeDateStamp") then
     UnitXPSP3_Version = UnitXP("version", "coffTimeDateStamp") or -1
 end
 SuperWoW = SpellInfo ~= nil
+SuperWoWFeatureLevel = 0
+SuperWoW_v1_2 = 1
+SuperWoW_v1_3 = 2
+SuperWoW_v1_4 = 3
+if SUPERWOW_VERSION then
+    if SUPERWOW_VERSION == "1.2" then
+        SuperWoWFeatureLevel = SuperWoW_v1_2
+    elseif SUPERWOW_VERSION == "1.3" then
+        SuperWoWFeatureLevel = SuperWoW_v1_3
+    else -- Anything newer than 1.3 is considered as 1.4 feature set
+        SuperWoWFeatureLevel = SuperWoW_v1_4
+    end
+end
 Nampower = QueueSpellByName ~= nil
 
 TurtleWow = true
