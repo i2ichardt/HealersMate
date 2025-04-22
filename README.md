@@ -11,8 +11,8 @@ HealersMate is a unit frames addon for World of Warcraft Vanilla 1.12 tailored f
 - Colors the bars of players you can dispel
 - Bind click-casting spells for both friendly and hostile targets
 - See your bound spells, their cost, and available mana while hovering over frames
-- Shows incoming healing (Improved by SuperWoW)
-- Shows when members have aggro on mobs
+- Shows incoming healing
+- Shows when players have aggro on mobs
 - Assign roles to players
 - Choose from a variety of preset frame styles, eventually to be fully customizable
 - See the distance between you and other players (**[SuperWoW or UnitXP SP3 Required](#client-mods-that-enhance-healersmate)**, otherwise only can check 28 yds)
@@ -58,28 +58,39 @@ While HealersMate is made with a healers-first mentality, it can be a viable opt
 
 ### Still In Development
 
-Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certain features lacking. Namely, a way to customize the UI. Under the hood, a lot of things are in place, but a user-friendly configuration is in the works. If you're feeling bold and know how to mess around with Lua, you can edit Profile.lua and ProfileManager.lua to finely customize your UI or define your own scripts under Customize>Advanced Options.
+Currently, 2.0.0 is in Alpha, which means there may be bugs and there are certain features lacking. Namely, a way to customize the UI. Under the hood, a lot of things are in place, but a user-friendly configuration is in the works. If you're feeling bold and know how to mess around with Lua, you can edit Profile.lua and ProfileManager.lua to finely customize your UI or define your own scripts under Customize>Advanced Options. See [this wiki page](https://github.com/i2ichardt/HealersMate/wiki/Load-Script) for more info.
 
 ### Client Mods That Enhance HealersMate
 
-While not required, the mods listed below will massively improve your experience with HealersMate, and likely the game in general. Note that some vanilla servers may not allow these mods and you should check with your server to see if they do. Turtle WoW does not seem to have a problem with any of these. See [this page](https://turtle-wow.fandom.com/wiki/Client_Fixes_and_Tweaks) for information about how to install mods.
+While not required, the mods listed below will massively improve your experience with HealersMate, and likely the game in general. Note that some vanilla servers may not allow these mods and you should check with your server to see if they do. Turtle WoW does not seem to have a problem with any of these. See [this page](https://github.com/RetroCro/TurtleWoW-Mods) for information about how to install mods.
 
 | Mod | Enhancement |
 | - | - |
-| SuperWoW ([GitHub](https://github.com/balakethelock/SuperWoW)) | - Shows more accurate incoming healing, and shows incoming healing from players that do not have HealComm<br>- Allows casting on players without doing split-second target switching<br>- Lets you see accurate distance to friendly players/NPCs<br>- Lets you set units you're hovering over as your mouseover target |
+| SuperWoW ([GitHub](https://github.com/balakethelock/SuperWoW)) | - Shows more accurate incoming healing, and shows incoming healing from players that do not have HealComm<br>- Track the remaining duration of many buffs and HoTs on other players<br>- Allows casting on players without doing split-second target switching<br>- Lets you see accurate distance to friendly players/NPCs<br>- Lets you set units you're hovering over as your mouseover target |
 | UnitXP SP3 ([GitHub](https://github.com/allfoxwy/UnitXP_SP3)) | Allows HealersMate to show very accurate distance to both friendly players and enemies, and show if they're out of line-of-sight |
-| Nampower ([Original](https://github.com/namreeb/nampower) / [Pepopo's Improved Fork](https://github.com/pepopo978/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
+| Nampower ([Pepopo's Fork](https://github.com/pepopo978/nampower) - Recommended / [Original](https://github.com/namreeb/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
 
 ### Planned Features
 
-For 2.0.0 Release:
-- [ ] Customizable player frames
+- [ ] Customizable unit frames
+- [ ] Customizable buff/debuff tracking
+- [ ] Ability to lock frames in place
 - [ ] Support MMO mouse buttons
 - [ ] Custom mouse button names and ordering
-- [X] ~~Bind spells to hostile targets~~
-- [X] ~~Basic heal predictions without you or others needing to use HealComm (SuperWoW required)~~
-- [X] ~~Assign roles to players~~
-- [X] ~~Track Buff and HoT times~~ (SuperWoW Required)
+- [ ] Localization
+
+### FAQ & Known Issues
+
+<details>
+  <summary>Click To View</summary>
+
+| Question/Issue | Answer |
+| - | - |
+| **I can't see any buffs or HoTs on players** | If you're using a non-English WoW client, they are currently not supported by HealersMate. See these issues for more information: https://github.com/i2ichardt/HealersMate/issues/22 https://github.com/i2ichardt/HealersMate/issues/24 |
+| **Casting on other players doesn't work** | If you are using the CallOfElements addon, there is an issue with that addon that prevents HealersMate from casting properly. To fix it, install [this version of CallOfElements](https://github.com/laytya/CallOfElements) and make sure to download the code, **not** the release! |
+| **How can I make health bars be class colored?** | Customizable frames are still in development. That said, if you'd like class-colored bars now, it is possible to edit the load script to make it happen. See [this wiki page](https://github.com/i2ichardt/HealersMate/wiki/Load-Script#class-colored-health-bars). |
+| **Can I use mouseover macros?** | Currently, the SuperWoW mod is required to be able to use mouseover macros with HealersMate. This requirement will be lifted in a future update. |
+</details>
 
 ---
 Feel free to contribute, report issues, or suggest improvements. Your feedback is valuable in making HealersMate a powerful and user-friendly healing solution for the Vanilla WoW community.
