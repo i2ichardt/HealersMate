@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Version: 2.0.0-alpha5.1
+## Version: 2.0.0-alpha5.1-postdev
 ## Title: HealersMate
 ## Notes: Healing Addon for WoW Client version 1.12
 ## Author: Richard Truax(i2ichardt), OldManAlpha
