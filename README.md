@@ -87,7 +87,7 @@ While not required, the mods listed below will massively improve your experience
 | Question/Issue | Answer |
 | - | - |
 | **I can't see any buffs or HoTs on players** | If you're using a non-English WoW client, they are currently not supported by HealersMate. See these issues for more information: https://github.com/i2ichardt/HealersMate/issues/22 https://github.com/i2ichardt/HealersMate/issues/24 |
-| **Casting on other players doesn't work** | If you are using the CallOfElements addon, there is an issue with that addon that prevents HealersMate from casting properly. To fix it, install [this version of CallOfElements](https://github.com/laytya/CallOfElements) and make sure to download the code, **not** the release! |
+| **Casting on other players doesn't work** | If you are using the CallOfElements addon, there is an issue with that addon that prevents HealersMate from casting properly. To fix it, install [this version of CallOfElements](https://github.com/laytya/CallOfElements). |
 | **How can I make health bars be class colored?** | Customizable frames are still in development. That said, if you'd like class-colored bars now, it is possible to edit the load script to make it happen. See [this wiki page](https://github.com/i2ichardt/HealersMate/wiki/Load-Script#class-colored-health-bars). |
 | **Can I use mouseover macros?** | Currently, the SuperWoW mod is required to be able to use mouseover macros with HealersMate. This requirement will be lifted in a future update. |
 </details>
