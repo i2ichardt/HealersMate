@@ -655,6 +655,10 @@ function HMUnitFrame:SetHealthBarValue(value)
     if profile.ShowDebuffColorsOn == "Health Bar" then
         r, g, b = self:GetDebuffColor()
     end
+
+    if UnitIsCharmed(unit) and enemy then
+        r, g, b = 0.25, 0.25, 0.25
+    end
     
     if r == nil then -- If there's no debuff color, proceed to normal colors
         local hbc = enemy and profile.EnemyHealthBarColor or profile.HealthBarColor
