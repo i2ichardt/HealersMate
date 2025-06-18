@@ -261,7 +261,7 @@ function HMUnitFrameGroup:UpdateUIPositions()
     end
 
     -- IMPORTANT: "Column" does not necessarily mean vertical!
-    local largestColumn = 0
+    local largestColumn = orientation == "Vertical" and profile.MinUnitsY or profile.MinUnitsX
     for _, column in ipairs(splitSortedUIs) do
         largestColumn = math.max(largestColumn, table.getn(column))
     end
@@ -277,7 +277,7 @@ function HMUnitFrameGroup:UpdateUIPositions()
         end
     end
 
-    local largestRow = table.getn(splitSortedUIs)
+    local largestRow = math.max(table.getn(splitSortedUIs), orientation == "Vertical" and profile.MinUnitsX or profile.MinUnitsY)
 
     
     --largestRow = math.max(largestRow, 1)

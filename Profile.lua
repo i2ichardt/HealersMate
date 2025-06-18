@@ -170,6 +170,9 @@ function HMUIProfile.SetDefaults()
     profile.NameDisplay = "Name" -- Unimplemented
     -- "Name", "Name (Class)"
 
+    profile.ShowDistanceThreshold = {Friendly = 30, Hostile = 30}
+    profile.OutOfRangeThreshold = {Friendly = 41, Hostile = 41}
+
     profile.OutOfRangeOpacity = 50
     profile.RangeText = createTextObject({
         ["FontSize"] = 9,
@@ -239,6 +242,8 @@ function HMUIProfile.SetDefaults()
     profile.FlashThreshold = 25
     profile.FlashOpacity = 70
 
+    profile.MinUnitsX = 0
+    profile.MinUnitsY = 0
     profile.MaxUnitsInAxis = 5
     profile.Orientation = "Vertical" --"Vertical", "Horizontal"
     profile.HorizontalSpacing = 1
