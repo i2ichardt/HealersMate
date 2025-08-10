@@ -88,7 +88,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha5.1-postdev"
+VERSION = GetAddOnMetadata("HealersMate", "version")
 
 TestUI = false
 
@@ -419,11 +419,11 @@ function ExtractResourceCost(costText)
         -- Convert the substring to a number
         local number = tonumber(number_str)
         -- Print the result
-        return number, resource
+        return number or 0, resource
     else
         -- If no non-digit character is found, the entire string is a number
         local number = tonumber(costText)
-        return number, resource
+        return number or 0, resource
     end
 end
 
@@ -1032,6 +1032,72 @@ function EventAddonLoaded()
                 DEFAULT_CHAT_FRAME:AddMessage(colorize("OnPostLoad Script Error: "..tostring(result), 1, 0, 0))
             end
         end
+    end
+end
+
+function PuppeteerNotify()
+    if not IsAddOnLoaded("Puppeteer") and not HMNoPuppeteerNotify then
+        local dialog = CreateFrame("Frame", "HMPuppeteerNotify")
+        dialog:SetWidth(400)
+        dialog:SetHeight(250)
+        dialog:SetPoint("CENTER", UIParent, "CENTER")
+        dialog:SetFrameStrata("HIGH")
+
+        dialog:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", 
+            edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, 
+            insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
+
+        dialog.titleHeader = dialog:CreateTexture(nil, "MEDIUM")
+        dialog.titleHeader:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
+        dialog.titleHeader:SetPoint("LEFT", dialog, "TOPLEFT", -10, -20)
+        dialog.titleHeader:SetPoint("RIGHT", dialog, "TOPRIGHT", 10, -20)
+        dialog.titleHeader:SetHeight(64)
+
+
+        dialog.titleText = dialog:CreateFontString(nil, "HIGH", "GameFontNormal")
+        dialog.titleText:SetText("HealersMate Name Changed")
+        dialog.titleText:SetPoint("TOP", 0, -2)
+
+        local text = dialog:CreateFontString(nil, "MEDIUM", "GameFontNormal")
+        text:SetText("HealersMate has been succeeded by Puppeteer and no longer receives updates. Follow the link to download.\n\n"..
+            "Your settings from HealersMate will carry over to Puppeteer. Make sure to have both addons loaded and you'll "..
+            "be prompted to import your settings. After logging in on each character to import, you can remove HealersMate.")
+        text:SetPoint("TOP", dialog.titleHeader, "BOTTOM", 0, 20)
+        text:SetWidth(350)
+
+        local editbox = CreateFrame("Editbox", "$parentLink", dialog, "InputBoxTemplate")
+        editbox:SetPoint("TOP", text, "BOTTOM", 0, -10)
+        editbox:SetWidth(300)
+        editbox:SetHeight(20)
+        editbox:SetText("https://github.com/OldManAlpha/Puppeteer")
+        editbox:SetJustifyH("CENTER")
+        editbox:SetAutoFocus(false)
+        editbox:SetScript("OnTextChanged", function()
+            this:SetText("https://github.com/OldManAlpha/Puppeteer")
+        end)
+
+        local dontRemindCheckbox
+
+        local okay = CreateFrame("Button", "$parentOkayButton", dialog, "UIPanelButtonTemplate")
+        okay:SetPoint("BOTTOM", dialog, "BOTTOM", 0, 25)
+        okay:SetWidth(200)
+        okay:SetHeight(20)
+        okay:SetText("Okay")
+        okay:SetScript("OnClick", function()
+            if dontRemindCheckbox:GetChecked() == 1 then
+                _G.HMNoPuppeteerNotify = true
+            end
+            dialog:Hide()
+        end)
+
+        local dontRemindText = dialog:CreateFontString(nil, "MEDIUM", "GameFontNormal")
+        dontRemindText:SetPoint("BOTTOMLEFT", okay, "TOPLEFT", 0, 15)
+        dontRemindText:SetText("Don't Show This Again")
+
+        dontRemindCheckbox = CreateFrame("CheckButton", "$parentCheckbox", dialog, "UICheckButtonTemplate")
+        dontRemindCheckbox:SetPoint("LEFT", dontRemindText, "RIGHT", 5, 0)
+        dontRemindCheckbox:SetWidth(30)
+        dontRemindCheckbox:SetHeight(30)
     end
 end
 
@@ -1654,6 +1720,8 @@ function EventHandler()
         if HMOptions.DisablePartyFrames.InParty then
             SetPartyFramesEnabled(false)
         end
+
+        PuppeteerNotify()
         
     elseif event == "PLAYER_LOGOUT" or event == "PLAYER_QUITING" then
         
@@ -1704,7 +1772,7 @@ function EventHandler()
             ui:EvaluateTarget()
         end
         local exists, guid = UnitExists("target")
-        if guid then
+        if util.IsSuperWowPresent() then
             HMUnit.UpdateGuidCaches()
         end
         
