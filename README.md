@@ -1,3 +1,5 @@
+# HealersMate has been succeeded by [Puppeteer](https://github.com/OldManAlpha/Puppeteer) and no longer receives updates. It is recommended to use Puppeteer for all the latest features and bug fixes.
+
 # HealersMate
 
 HealersMate is a unit frames addon for World of Warcraft Vanilla 1.12 tailored for healers, striving to be an alternative to modern WoW's VuhDo, Cell, or Healbot.
