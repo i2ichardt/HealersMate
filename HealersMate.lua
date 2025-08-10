@@ -88,7 +88,7 @@ local _G = getfenv(0)
 setmetatable(HealersMate, {__index = getfenv(1)})
 setfenv(1, HealersMate)
 
-VERSION = "2.0.0-alpha5.1"
+VERSION = GetAddOnMetadata("HealersMate", "version")
 
 TestUI = false
 
@@ -419,11 +419,11 @@ function ExtractResourceCost(costText)
         -- Convert the substring to a number
         local number = tonumber(number_str)
         -- Print the result
-        return number, resource
+        return number or 0, resource
     else
         -- If no non-digit character is found, the entire string is a number
         local number = tonumber(costText)
-        return number, resource
+        return number or 0, resource
     end
 end
 
@@ -499,7 +499,7 @@ function GetAuraInfo(unit, type, index)
     return leftText:GetText() or "", rightText:GetText() or ""
 end
 
-function ApplySpellsTooltip(attachTo, unit)
+function ApplySpellsTooltip(attachTo, unit, owner)
     if not HMOptions.SpellsTooltip.Enabled then
         return
     end
@@ -534,7 +534,7 @@ function ApplySpellsTooltip(attachTo, unit)
             end
         end
     end
-    ShowSpellsTooltip(attachTo, spellList, attachTo)
+    ShowSpellsTooltip(attachTo, spellList, owner)
 end
 
 function IsValidMacro(name)
@@ -571,10 +571,12 @@ local tooltipPowerColors = {
     ["rage"] = {1, 0, 0},
     ["energy"] = {1, 1, 0}
 }
+local tooltipAnchorMap = {["Top Left"] = "ANCHOR_LEFT", ["Top Right"] = "ANCHOR_RIGHT", 
+    ["Bottom Left"] = "ANCHOR_BOTTOMLEFT", ["Bottom Right"] = "ANCHOR_BOTTOMRIGHT"}
 function ShowSpellsTooltip(attachTo, spells, owner)
     SpellsTooltipOwner = owner
-    SpellsTooltip:SetOwner(attachTo, "ANCHOR_RIGHT")
-    SpellsTooltip:SetPoint("RIGHT", attachTo, "LEFT", 0, 0)
+    SpellsTooltip:SetOwner(attachTo, tooltipAnchorMap[HMOptions.SpellsTooltip.Anchor], 
+        HMOptions.SpellsTooltip.OffsetX, HMOptions.SpellsTooltip.OffsetY)
     local options = HMOptions.SpellsTooltip
     local currentPower = UnitMana("player")
     local maxPower = UnitManaMax("player")
@@ -819,20 +821,24 @@ function EventAddonLoaded()
     if util.IsSuperWowPresent() then
         HMUnit.UpdateGuidCaches()
 
-        -- SuperWoW currently does not currently allow us to receive events for units that aren't part of normal units, so
-        -- we're manually updating
         local customUnitUpdater = CreateFrame("Frame", "HMCustomUnitUpdater")
         local nextUpdate = GetTime() + 0.25
+        -- Older versions of SuperWoW had an issue where units that aren't part of normal units wouldn't receive events,
+        -- so updates are done manually
+        local needsManualUpdates = util.SuperWoWFeatureLevel < util.SuperWoW_v1_4
         customUnitUpdater:SetScript("OnUpdate", function()
             if GetTime() > nextUpdate then
                 nextUpdate = GetTime() + 0.25
 
                 for unit, guid in pairs(CustomUnitGUIDMap) do
-                    HMUnit.Get(unit):UpdateAuras()
-                    for ui in UnitFrames(unit) do
-                        ui:UpdateHealth()
-                        ui:UpdatePower()
-                        ui:UpdateAuras()
+                    if needsManualUpdates or not UnitExists(guid) then
+                        HMUnit.Get(unit):UpdateAuras()
+                        for ui in UnitFrames(unit) do
+                            ui:UpdateHealth()
+                            ui:UpdatePower()
+                            ui:UpdateAuras()
+                            ui:UpdateIncomingHealing()
+                        end
                     end
                 end
             end
@@ -908,6 +914,8 @@ function EventAddonLoaded()
             end
         end)
     end
+    
+    SetLFTAutoRoleEnabled(HMOptions.LFTAutoRole)
 
     TestUI = HMOptions.TestUI
 
@@ -1027,6 +1035,72 @@ function EventAddonLoaded()
     end
 end
 
+function PuppeteerNotify()
+    if not IsAddOnLoaded("Puppeteer") and not HMNoPuppeteerNotify then
+        local dialog = CreateFrame("Frame", "HMPuppeteerNotify")
+        dialog:SetWidth(400)
+        dialog:SetHeight(250)
+        dialog:SetPoint("CENTER", UIParent, "CENTER")
+        dialog:SetFrameStrata("HIGH")
+
+        dialog:SetBackdrop({bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", 
+            edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32, 
+            insets = { left = 8, right = 8, top = 8, bottom = 8 }, tile = true, tileSize = 32})
+
+        dialog.titleHeader = dialog:CreateTexture(nil, "MEDIUM")
+        dialog.titleHeader:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
+        dialog.titleHeader:SetPoint("LEFT", dialog, "TOPLEFT", -10, -20)
+        dialog.titleHeader:SetPoint("RIGHT", dialog, "TOPRIGHT", 10, -20)
+        dialog.titleHeader:SetHeight(64)
+
+
+        dialog.titleText = dialog:CreateFontString(nil, "HIGH", "GameFontNormal")
+        dialog.titleText:SetText("HealersMate Name Changed")
+        dialog.titleText:SetPoint("TOP", 0, -2)
+
+        local text = dialog:CreateFontString(nil, "MEDIUM", "GameFontNormal")
+        text:SetText("HealersMate has been succeeded by Puppeteer and no longer receives updates. Follow the link to download.\n\n"..
+            "Your settings from HealersMate will carry over to Puppeteer. Make sure to have both addons loaded and you'll "..
+            "be prompted to import your settings. After logging in on each character to import, you can remove HealersMate.")
+        text:SetPoint("TOP", dialog.titleHeader, "BOTTOM", 0, 20)
+        text:SetWidth(350)
+
+        local editbox = CreateFrame("Editbox", "$parentLink", dialog, "InputBoxTemplate")
+        editbox:SetPoint("TOP", text, "BOTTOM", 0, -10)
+        editbox:SetWidth(300)
+        editbox:SetHeight(20)
+        editbox:SetText("https://github.com/OldManAlpha/Puppeteer")
+        editbox:SetJustifyH("CENTER")
+        editbox:SetAutoFocus(false)
+        editbox:SetScript("OnTextChanged", function()
+            this:SetText("https://github.com/OldManAlpha/Puppeteer")
+        end)
+
+        local dontRemindCheckbox
+
+        local okay = CreateFrame("Button", "$parentOkayButton", dialog, "UIPanelButtonTemplate")
+        okay:SetPoint("BOTTOM", dialog, "BOTTOM", 0, 25)
+        okay:SetWidth(200)
+        okay:SetHeight(20)
+        okay:SetText("Okay")
+        okay:SetScript("OnClick", function()
+            if dontRemindCheckbox:GetChecked() == 1 then
+                _G.HMNoPuppeteerNotify = true
+            end
+            dialog:Hide()
+        end)
+
+        local dontRemindText = dialog:CreateFontString(nil, "MEDIUM", "GameFontNormal")
+        dontRemindText:SetPoint("BOTTOMLEFT", okay, "TOPLEFT", 0, 15)
+        dontRemindText:SetText("Don't Show This Again")
+
+        dontRemindCheckbox = CreateFrame("CheckButton", "$parentCheckbox", dialog, "UICheckButtonTemplate")
+        dontRemindCheckbox:SetPoint("LEFT", dontRemindText, "RIGHT", 5, 0)
+        dontRemindCheckbox:SetWidth(30)
+        dontRemindCheckbox:SetHeight(30)
+    end
+end
+
 function CheckPartyFramesEnabled()
     local shouldBeDisabled = (CurrentlyInRaid and HMOptions.DisablePartyFrames.InRaid) or 
         (not CurrentlyInRaid and HMOptions.DisablePartyFrames.InParty)
@@ -1061,6 +1135,76 @@ function SetPartyFramesEnabled(enabled)
             end
         end
     end
+end
+
+LFTAutoRoleFrame = CreateFrame("Frame", "HM_LFTAutoRoleFrame")
+function SetLFTAutoRoleEnabled(enabled)
+    if not LFT_ADDON_PREFIX then -- Must not be Turtle WoW, or LFT has changed
+        return
+    end
+
+    if not enabled then
+        LFTAutoRoleFrame:SetScript("OnEvent", nil)
+        LFTAutoRoleFrame:SetScript("OnUpdate", nil)
+        LFTAutoRoleFrame:UnregisterAllEvents()
+        return
+    end
+
+    if LFTAutoRoleFrame:GetScript("OnEvent") ~= nil then -- Already enabled
+        return
+    end
+    
+    local roleMap = {
+        ["t"] = "Tank",
+        ["h"] = "Healer",
+        ["d"] = "Damage"
+    }
+    local offerCompleteTime = -1 -- The time the offer is completed, used to verify rolecheck info is valid
+    local alreadyAssigned = {} -- The Tank & Healer names
+    local scanDPSTime = -1
+    local AutoRoleFrame_OnUpdate = function()
+        if scanDPSTime > GetTime() then
+            return
+        end
+
+        for _, unit in ipairs(PartyUnits) do
+            local name = UnitName(unit)
+            if name ~= "Unknown" and not util.ArrayContains(alreadyAssigned, name) then
+                hmprint("Assuming "..name.." is Damage")
+                SetAssignedRole(name, "Damage")
+            end
+        end
+        UpdateUnitFrameGroups()
+        LFTAutoRoleFrame:SetScript("OnUpdate", nil)
+    end
+    LFTAutoRoleFrame:RegisterEvent("CHAT_MSG_ADDON")
+    LFTAutoRoleFrame:SetScript("OnEvent", function()
+        if arg1 == LFT_ADDON_PREFIX then
+            -- After an offer is complete, it is immediately followed by rolecheck info for the tank and healer
+            if strfind(arg2, "S2C_ROLECHECK_INFO") then
+                if GetNumPartyMembers() == 4 then
+                    local params = util.SplitString(arg2, LFT_ADDON_FIELD_DELIMITER)
+                    local member = params[2]
+                    params = util.SplitString(params[3], ":") -- get confirmed roles
+                    if offerCompleteTime + 0.5 > GetTime() and table.getn(params) == 1 then
+                        local role = roleMap[params[1]]
+                        table.insert(alreadyAssigned, member)
+                        SetAssignedRole(member, role) -- Tank & Healer is sent after the offer is complete
+                        hmprint("Assigning "..member.." to "..role)
+                        if table.getn(alreadyAssigned) == 2 then -- Set rest as Damage after Tank & Healer is sent
+                            -- Delay scanning party members because their names might not be loaded yet
+                            scanDPSTime = GetTime() + 1.5
+                            LFTAutoRoleFrame:SetScript("OnUpdate", AutoRoleFrame_OnUpdate)
+                        end
+                        UpdateUnitFrameGroups()
+                    end
+                end
+            elseif strfind(arg2, "S2C_OFFER_COMPLETE") then
+                alreadyAssigned = {}
+                offerCompleteTime = GetTime()
+            end
+        end
+    end)
 end
 
 function GetAssignedRole(name)
@@ -1428,17 +1572,11 @@ function ClickHandler(buttonType, unit, ui)
     local isMacro = util.StartsWith(spell, MACRO_PREFIX)
     local isNonSpell = isItem or isMacro
 
-    -- Auto targeting requires no special logic to cast spells
-    if HMOptions.AutoTarget then
-        if not UnitIsUnit("target", unit) then
-            TargetUnit(unit)
-        end
-        CastSpellByName(spell)
-        return
-    end
-
     -- Not a special bind
     if util.IsSuperWowPresent() and not isNonSpell then -- No target changing shenanigans required with SuperWoW
+        if HMOptions.AutoTarget and not UnitIsUnit("target", unit) then
+            TargetUnit(unit)
+        end
         CastSpellByName(spell, unit)
     else
         local currentTarget = UnitName("target")
@@ -1462,7 +1600,7 @@ function ClickHandler(buttonType, unit, ui)
         end
 
         --Put Target of player back to whatever it was before casting spell
-        if targetChanged then
+        if targetChanged and not HMOptions.AutoTarget then
             if currentTarget == nil then
                 --Player wasn't targeting anything before casting spell
                 local Sound_Enabled = PlaySound
@@ -1582,6 +1720,8 @@ function EventHandler()
         if HMOptions.DisablePartyFrames.InParty then
             SetPartyFramesEnabled(false)
         end
+
+        PuppeteerNotify()
         
     elseif event == "PLAYER_LOGOUT" or event == "PLAYER_QUITING" then
         
@@ -1632,7 +1772,7 @@ function EventHandler()
             ui:EvaluateTarget()
         end
         local exists, guid = UnitExists("target")
-        if guid then
+        if util.IsSuperWowPresent() then
             HMUnit.UpdateGuidCaches()
         end
         

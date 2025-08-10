@@ -84,6 +84,10 @@ function HealersMateSettings.SetDefaults()
             },
             ["SpellsTooltip"] = {
                 ["Enabled"] = isHealer,
+                ["AttachTo"] = "Button", -- "Button", "Frame", "Group", "Screen"
+                ["OffsetX"] = 0,
+                ["OffsetY"] = 0,
+                ["Anchor"] = "Top Right", -- "Top Left", "Top Right", "Bottom Left", "Bottom Right"
                 ["ShowManaCost"] = false,
                 ["ShowManaPercentCost"] = true,
                 ["HideCastsAbove"] = 3,
@@ -102,6 +106,7 @@ function HealersMateSettings.SetDefaults()
             ["AutoResurrect"] = HealersMate.ResurrectionSpells[util.GetClass("player")] ~= nil,
             ["UseHealPredictions"] = true,
             ["SetMouseover"] = true,
+            ["LFTAutoRole"] = true, -- Turtle WoW
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["ChosenProfiles"] = {
@@ -221,8 +226,8 @@ do
     -- Tracked buffs for specific classes
     local defaultClassTrackedBuffs = {
         ["PALADIN"] = {"Blessing of Wisdom", "Blessing of Might", "Blessing of Salvation", "Blessing of Sanctuary", 
-            "Blessing of Kings", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
-            "Greater Blssing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Daybreak", 
+            "Blessing of Kings", "Blessing of Light", "Greater Blessing of Wisdom", "Greater Blessing of Might", 
+            "Greater Blessing of Salvation", "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Greater Blessing of Light", "Daybreak", 
             "Blessing of Freedom", "Hand of Freedom", "Redoubt", "Holy Shield"},
         ["PRIEST"] = {"Prayer of Fortitude", "Power Word: Fortitude", "Prayer of Spirit", "Divine Spirit", 
             "Prayer of Shadow Protection", "Shadow Protection", "Holy Champion", "Champion's Grace", "Empower Champion", 
@@ -840,6 +845,80 @@ function InitSettings()
     yOffset = yOffset - 30
 
     do
+        local attachToDropdown = CreateFrame("Frame", "$parentAttachToDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        attachToDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        attachToDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", attachToDropdown, "RIGHT", -30, 5)
+        label:SetText("Attach To")
+
+        local states = {"Button", "Frame", "Group", "Screen"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(attachToDropdown, targetArg, false)
+                    HMOptions.SpellsTooltip.AttachTo = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(attachToDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(attachToDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(attachToDropdown, HMOptions.SpellsTooltip.AttachTo, false)
+            end
+        end)
+    end
+
+    yOffset = yOffset - 25
+
+    do
+        local anchorDropdown = CreateFrame("Frame", "$parentAnchorDropdown", optionsFrame, "UIDropDownMenuTemplate")
+        anchorDropdown:Show()
+        --castWhenDropdown:SetPoint("TOP", -65, -100)
+        anchorDropdown:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset + xDropdownOffset, yOffset + yDropdownOffset)
+
+        local label = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("RIGHT", anchorDropdown, "RIGHT", -30, 5)
+        label:SetText("Anchor")
+
+        local states = {"Top Left", "Top Right", "Bottom Left", "Bottom Right"}
+        local options = {}
+
+        for _, key in ipairs(states) do
+            table.insert(options, {
+                text = key,
+                arg1 = key,
+                func = function(targetArg)
+                    UIDropDownMenu_SetSelectedName(anchorDropdown, targetArg, false)
+                    HMOptions.SpellsTooltip.Anchor = targetArg
+                end
+            })
+        end
+
+        UIDropDownMenu_Initialize(anchorDropdown, function(self, level)
+            for _, targetOption in ipairs(options) do
+                targetOption.checked = false
+                UIDropDownMenu_AddButton(targetOption)
+            end
+            if UIDropDownMenu_GetSelectedName(anchorDropdown) == nil then
+                UIDropDownMenu_SetSelectedName(anchorDropdown, HMOptions.SpellsTooltip.Anchor, false)
+            end
+        end)
+    end
+
+    yOffset = yOffset - 30
+
+    do
         local OtherSettingsLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         OtherSettingsLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
         OtherSettingsLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
@@ -961,6 +1040,39 @@ function InitSettings()
             HealersMate.CheckPartyFramesEnabled()
         end)
         ApplyTooltip(CheckboxInRaid, "Hide default party frames while in raid", "This may cause issues with other addons")
+    end
+
+    if util.IsTurtleWow() then
+        yOffset = yOffset - 40
+
+        do
+            local TurtleWoWLabel = optionsFrame:CreateFontString("$parentSuperWoWLabel", "OVERLAY", "GameFontNormal")
+            TurtleWoWLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 0, yOffset)
+            TurtleWoWLabel:SetFont("Fonts\\FRIZQT__.TTF", 14)
+            TurtleWoWLabel:SetWidth(optionsFrame:GetWidth())
+            TurtleWoWLabel:SetJustifyH("CENTER")
+            TurtleWoWLabel:SetText("Turtle WoW Settings")
+        end
+
+        yOffset = yOffset - 30
+
+        do
+            local LFTAutoRoleLabel = optionsFrame:CreateFontString("$parentMouseoverLabel", "OVERLAY", "GameFontNormal")
+            LFTAutoRoleLabel:SetPoint("RIGHT", optionsFrame, "TOPLEFT", xOffset, yOffset)
+            LFTAutoRoleLabel:SetText("LFT Auto Role")
+
+            local CheckboxLFTAutoRole = CreateFrame("CheckButton", "$parentMouseover", optionsFrame, "UICheckButtonTemplate")
+            CheckboxLFTAutoRole:SetPoint("LEFT", LFTAutoRoleLabel, "RIGHT", 5, yCheckboxOffset)
+            CheckboxLFTAutoRole:SetWidth(20)
+            CheckboxLFTAutoRole:SetHeight(20)
+            CheckboxLFTAutoRole:SetChecked(HMOptions.LFTAutoRole)
+            CheckboxLFTAutoRole:SetScript("OnClick", function()
+                HMOptions.LFTAutoRole = CheckboxLFTAutoRole:GetChecked() == 1
+                HealersMate.SetLFTAutoRoleEnabled(HMOptions.LFTAutoRole)
+            end)
+            ApplyTooltip(CheckboxLFTAutoRole, "Automatically assign roles when joining LFT groups", 
+                "This functionality was created for 1.17.2 and may break in future updates")
+        end
     end
 
     yOffset = yOffset - 40

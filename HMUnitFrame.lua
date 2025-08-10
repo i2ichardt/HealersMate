@@ -191,10 +191,20 @@ function HMUnitFrame:UpdateAll()
     self:UpdateRaidMark()
 end
 
+function HMUnitFrame:GetShowDistanceThreshold()
+    local threshold = self:GetProfile().ShowDistanceThreshold
+    return self:IsEnemy() and threshold.Hostile or threshold.Friendly
+end
+
+function HMUnitFrame:GetOutOfRangeThreshold()
+    local threshold = self:GetProfile().OutOfRangeThreshold
+    return self:IsEnemy() and threshold.Hostile or threshold.Friendly
+end
+
 function HMUnitFrame:UpdateRange()
     local wasInRange = self.inRange
     self.distance = self:GetCache():GetDistance()
-    self.inRange = self.distance <= 40
+    self.inRange = math.ceil(self.distance) < self:GetOutOfRangeThreshold()
     if wasInRange ~= self.inRange then
         self:UpdateOpacity()
     end
@@ -220,11 +230,11 @@ function HMUnitFrame:UpdateRangeText()
     local dist = math.ceil(self.distance)
     local distanceText = self.distanceText
     local text = ""
-    if dist >= (preciseDistance and 30 or 28) and dist < 9999 then
+    if dist >= (preciseDistance and self:GetShowDistanceThreshold() or 28) and dist < 9999 then
         local r, g, b
         if dist > 80 then
             r, g, b = 0.75, 0.75, 0.75
-        elseif dist > 40 then
+        elseif dist >= self:GetOutOfRangeThreshold() then
             r, g, b = 1, 0.3, 0.3
         else
             r, g, b = 1, 0.6, 0
@@ -654,6 +664,10 @@ function HMUnitFrame:SetHealthBarValue(value)
     
     if profile.ShowDebuffColorsOn == "Health Bar" then
         r, g, b = self:GetDebuffColor()
+    end
+
+    if UnitIsCharmed(unit) and enemy then
+        r, g, b = 0.25, 0.25, 0.25
     end
     
     if r == nil then -- If there's no debuff color, proceed to normal colors
@@ -1249,7 +1263,17 @@ function HMUnitFrame:Initialize()
         self:AdjustHealthPosition()
     end)
     button:SetScript("OnEnter", function()
-        HM.ApplySpellsTooltip(button, unit)
+        local attachTooltipTo
+        if HMOptions.SpellsTooltip.AttachTo == "Frame" then
+            attachTooltipTo = self.rootContainer
+        elseif HMOptions.SpellsTooltip.AttachTo == "Group" then
+            attachTooltipTo = self.owningGroup:GetContainer()
+        elseif HMOptions.SpellsTooltip.AttachTo == "Screen" then
+            attachTooltipTo = UIParent
+        else
+            attachTooltipTo = self.button
+        end
+        HM.ApplySpellsTooltip(attachTooltipTo, unit, self.button)
         self.hovered = true
         self:UpdateHealth()
         if HMOptions.SetMouseover and util.IsSuperWowPresent() then

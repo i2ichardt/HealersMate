@@ -100,10 +100,21 @@ function HMUnitFrameGroup:Hide()
     self.container:Hide()
 end
 
+-- Used while moving frames to avoid the lag while moving over other toplevel frames
+function HMUnitFrameGroup:RemoveToplevel()
+    self.container:SetToplevel(false)
+    self.container:SetFrameStrata("HIGH")
+end
+
+function HMUnitFrameGroup:ApplyToplevel()
+    self.container:SetToplevel(true)
+    self.container:SetFrameStrata("MEDIUM")
+end
+
 function HMUnitFrameGroup:Initialize()
     local container = CreateFrame("Frame", self.name.."HMUnitFrameGroupContainer", UIParent) --type, name, parent
     self.container = container
-    container:SetToplevel(true)
+    self:ApplyToplevel()
     if container:GetNumPoints() == 0 then
         container:SetPoint(util.GetCenterScreenPoint(0, 0))
     end
@@ -123,6 +134,7 @@ function HMUnitFrameGroup:Initialize()
 
         if (util.GetKeyModifier() == HMOptions.FrameDrag.AltMoveKey) == HMOptions.FrameDrag.MoveAll then
             container:StartMoving()
+            self:RemoveToplevel()
             return
         end
 
@@ -135,10 +147,12 @@ function HMUnitFrameGroup:Initialize()
         moveContainer:SetWidth(1)
         moveContainer:SetHeight(1)
         for _, group in pairs(HealersMate.UnitFrameGroups) do
+            group:RemoveToplevel()
             local gc = group:GetContainer()
-            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            local xOffset = gc:GetLeft()
+            local yOffset = gc:GetTop() - GetScreenHeight()
             gc:ClearAllPoints()
-            gc:SetPoint("TOPLEFT", moveContainer, relativePoint, xofs, yofs)
+            gc:SetPoint("TOPLEFT", moveContainer, "TOPLEFT", xOffset, yOffset)
         end
         moveContainer:StartMoving()
     end)
@@ -154,6 +168,7 @@ function HMUnitFrameGroup:Initialize()
 
         if not container.bulkMovement then
             container:StopMovingOrSizing()
+            self:ApplyToplevel()
             return
         end
 
@@ -162,11 +177,12 @@ function HMUnitFrameGroup:Initialize()
         local moveContainer = HMUnitFrameGroup.moveContainer
         moveContainer:StopMovingOrSizing()
         for _, group in pairs(HealersMate.UnitFrameGroups) do
+            group:ApplyToplevel()
             local gc = group:GetContainer()
-            local mcpoint, mcrelativeTo, mcrelativePoint, mcxofs, mcyofs = moveContainer:GetPoint(1)
-            local point, relativeTo, relativePoint, xofs, yofs = gc:GetPoint(1)
+            local xOffset = gc:GetLeft()
+            local yOffset = gc:GetTop() - GetScreenHeight()
             gc:ClearAllPoints()
-            gc:SetPoint("TOPLEFT", UIParent, mcrelativePoint, mcxofs + xofs, mcyofs + yofs)
+            gc:SetPoint("TOPLEFT", UIParent, "TOPLEFT", xOffset, yOffset)
         end
         -- Prevent container from potentially blocking mouse by setting it back to 0 size
         moveContainer:SetWidth(0)
@@ -245,7 +261,7 @@ function HMUnitFrameGroup:UpdateUIPositions()
     end
 
     -- IMPORTANT: "Column" does not necessarily mean vertical!
-    local largestColumn = 0
+    local largestColumn = orientation == "Vertical" and profile.MinUnitsY or profile.MinUnitsX
     for _, column in ipairs(splitSortedUIs) do
         largestColumn = math.max(largestColumn, table.getn(column))
     end
@@ -261,7 +277,7 @@ function HMUnitFrameGroup:UpdateUIPositions()
         end
     end
 
-    local largestRow = table.getn(splitSortedUIs)
+    local largestRow = math.max(table.getn(splitSortedUIs), orientation == "Vertical" and profile.MinUnitsX or profile.MinUnitsY)
 
     
     --largestRow = math.max(largestRow, 1)

@@ -52,11 +52,13 @@ local trackedCastedAuras = {
     ["Blessing of Salvation"] = (turtle and 10 or 5) * 60,
     ["Blessing of Sanctuary"] = (turtle and 10 or 5) * 60,
     ["Blessing of Kings"] = (turtle and 10 or 5) * 60,
+    ["Blessing of Light"] = (turtle and 10 or 5) * 60,
     ["Greater Blessing of Wisdom"] = (turtle and 30 or 15) * 60,
     ["Greater Blessing of Might"] = (turtle and 30 or 15) * 60,
     ["Greater Blessing of Salvation"] = (turtle and 30 or 15) * 60,
     ["Greater Blessing of Sanctuary"] = (turtle and 30 or 15) * 60,
     ["Greater Blessing of Kings"] = (turtle and 30 or 15) * 60,
+    ["Greater Blessing of Light"] = (turtle and 30 or 15) * 60,
     -- Shaman
     ["Water Walking"] = 10 * 60,
     -- Mage
@@ -129,8 +131,8 @@ local aoeAuras = {
 -- Paladins always get their own special stuff..
 -- Their buffs are aoe but apply to the whole raid for a specific class
 local aoeClassAuras = HMUtil.ToSet({
-    "Greater Blessing of Wisdom", "Greater Blessing of Might", "Greater Blssing of Salvation", 
-    "Greater Blessing of Sanctuary", "Greater Blessing of Kings"
+    "Greater Blessing of Wisdom", "Greater Blessing of Might", "Greater Blessing of Salvation", 
+    "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Greater Blessing of Light"
 })
 
 local function applyTimedAura(spellName, units)
