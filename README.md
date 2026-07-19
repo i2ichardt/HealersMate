@@ -6,7 +6,7 @@ HealersMate provides customizable healing frames, click-casting support, buff tr
 
 > Current Version: **1.0.0**
 
-> Specifically designed to work with ![Conquest of Azeroth](https://ascension.gg/en/news/conquest-of-azeroth-alpha/332)
+> Specifically designed to work with [Conquest of Azeroth](https://ascension.gg/en/news/conquest-of-azeroth-alpha/332)
 
 ---
 
