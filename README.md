@@ -149,12 +149,6 @@ Optional mouse-over tooltip support showing:
 
 ---
 
-## Buff & Debuff Tracking
-
-![Buff Tracking](screenshots/buffs-debuffs.png)
-
----
-
 # Installation
 
 1. Download the latest release.
