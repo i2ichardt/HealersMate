@@ -127,7 +127,7 @@ Optional mouse-over tooltip support showing:
 
 ## Main Party Frames
 
-![Party Frames](screenshots/party-frames.png)
+<img src="screenshots/party-frames.png" alt="Alt text">
 
 ---
 
