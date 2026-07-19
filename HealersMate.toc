@@ -1,0 +1,9 @@
+## Interface: 100105
+## Version: 1.0.0
+## Title: HealersMate
+## Notes: Healing Addon for WoW Client version 3.3.5a
+## Author: Richard Truax(i2ichardt)
+## SavedVariables:
+## SavedVariablesPerCharacter: LeftClickSpell, MiddleClickSpell, RightClickSpell, ShiftLeftClickSpell, ShiftMiddleClickSpell, ShiftRightClickSpell, ControlLeftClickSpell, ControlMiddleClickSpell, ControlRightClickSpell, FreshInstall, ShowTargetUI, ShowTargetFriendly, ShowTargetEnemy, ShowMinusValue, ShowPercentageHealth, ShowScrollingText, ShowDamage, ShowHeal
+
+HealersMate.lua
