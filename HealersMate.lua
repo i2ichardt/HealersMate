@@ -146,7 +146,6 @@ end
 
 EventHandlerFrame:RegisterEvent("ADDON_LOADED")          -- Triggers once for every addon loaded after this one
 EventHandlerFrame:RegisterEvent("PLAYER_LOGOUT")          -- Fired when about to log out
-EventHandlerFrame:RegisterEvent("PLAYER_QUITTING")        -- FIXED TYPO: Fired when a player has the quit option on screen
 EventHandlerFrame:RegisterEvent("UNIT_HEALTH")            -- Fires when a unit’s health changes
 EventHandlerFrame:RegisterEvent("UNIT_AURA")              -- Update buffs and debuffs
 EventHandlerFrame:RegisterEvent("PLAYER_ENTERING_WORLD")  -- Fired when entering world, reloading UI, or zoning
@@ -312,13 +311,31 @@ local function SetHealthDisplayMode(mode)
     if Check4Group then Check4Group() end
 end
 
+-- Shared handler for the Above Bar / On Bar name-position radios.
+local function SetNamePosition(position)
+    NamePosition = position
+    if HM_RadioNameAboveBar then HM_RadioNameAboveBar:SetChecked(position == "above") end
+    if HM_RadioNameOnBar    then HM_RadioNameOnBar:SetChecked(position == "onbar") end
+    if HM_ApplyNamePositionToAll then HM_ApplyNamePositionToAll() end
+end
+
+-- Shared handler for the Heal Prediction Off/Mine radios.
+local function SetHealPredictionMode(mode)
+    HealPredictionMode = mode
+    if HM_RadioHealPredictOff      then HM_RadioHealPredictOff:SetChecked(mode == "off") end
+    if HM_RadioHealPredictMine     then HM_RadioHealPredictMine:SetChecked(mode == "mine") end
+    -- Clear any predictions already on screen so switching modes (or turning
+    -- it off) doesn't leave a stale overlay from before the change.
+    if HM_ClearAllHealPredictions then HM_ClearAllHealPredictions() end
+end
+
 --END -- Checkbox Logic
 
 -- Create the main SETTINGS frame
 local HM_SettingsContainer = CreateFrame("Frame", "HM_SettingsContainer", UIParent)
 HM_SettingsContainer:SetFrameLevel(10)
 HM_SettingsContainer:SetWidth(425) 
-HM_SettingsContainer:SetHeight(430) 
+HM_SettingsContainer:SetHeight(480) 
 HM_SettingsContainer:SetPoint("CENTER", UIParent, "CENTER")
 HM_SettingsContainer:EnableMouse(true)
 HM_SettingsContainer:SetMovable(true)
@@ -386,7 +403,7 @@ local function ShowFrame(frameName)
 end
 
 local dropdownOptions = {
-    { text = "Checkboxes", func = function() ShowFrame("checkboxFrame") end },
+    { text = "Display & Targets", func = function() ShowFrame("checkboxFrame") end },
     { text = "Spells", func = function() ShowFrame("spellsFrame") end },
     { text = "Appearance", func = function() ShowFrame("scalingFrame") end },
 }
@@ -397,7 +414,7 @@ dropdownList:SetPoint("TOPLEFT", HM_SettingsContainer, "TOPLEFT", 0, -30)
 
 -- 3.3.5 FIXED: Standard :SetWidth() breaks the background texture of a UIDropDownMenu.
 -- You must use the built-in global function instead.
-UIDropDownMenu_SetWidth(dropdownList, 120) 
+UIDropDownMenu_SetWidth(dropdownList, 160) 
 dropdownList:SetHeight(150)
 dropdownList:Show()
 
@@ -424,26 +441,26 @@ UIDropDownMenu_SetText(dropdownList, "Select option")
 -- Adjusted heights to 300 so they sit perfectly inside the 365-height parent container
 local AboutFrame = CreateFrame("Frame", "HM_AboutFrame", HM_SettingsContainer)
 AboutFrame:SetWidth(425)
-AboutFrame:SetHeight(430)
+AboutFrame:SetHeight(480)
 AboutFrame:SetPoint("TOPLEFT", HM_SettingsContainer, "TOPLEFT", 0, 0)
 AboutFrame:Show()
 
 -- Pointing these to the remaining space on the right side of the menu
 local checkboxFrame = CreateFrame("Frame", "HM_CheckboxFrame", HM_SettingsContainer)
 checkboxFrame:SetWidth(250)
-checkboxFrame:SetHeight(365)
+checkboxFrame:SetHeight(415)
 checkboxFrame:SetPoint("TOPLEFT", HM_SettingsContainer, "TOPLEFT", 20, -55)
 checkboxFrame:Hide() -- Initially hidden
 
 local spellsFrame = CreateFrame("Frame", "HM_SpellsFrame", HM_SettingsContainer)
 spellsFrame:SetWidth(250)
-spellsFrame:SetHeight(365)
+spellsFrame:SetHeight(415)
 spellsFrame:SetPoint("BOTTOMRIGHT", HM_SettingsContainer, "BOTTOMRIGHT", -20, 20)
 spellsFrame:Hide() -- Initially hidden
 
 local scalingFrame = CreateFrame("Frame", "HM_ScalingFrame", HM_SettingsContainer)
 scalingFrame:SetWidth(250)
-scalingFrame:SetHeight(365)
+scalingFrame:SetHeight(415)
 scalingFrame:SetPoint("TOPLEFT", HM_SettingsContainer, "TOPLEFT", 130, -75) -- x,y
 scalingFrame:Hide() -- Initially hidden
 
@@ -459,7 +476,7 @@ AboutFrame = HM_AboutFrame
 local TxtAboutLabel = AboutFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 TxtAboutLabel:SetPoint("CENTER", AboutFrame, "CENTER", 0, 0)
 TxtAboutLabel:SetJustifyH("CENTER") -- Ensures clean multi-line text alignment in 3.3.5
-TxtAboutLabel:SetText("HealersMate Version 1.3.0\ni2ichardt, Claude/ChatGPT/Gemini\nrj299@yahoo.com\n\nCheck for Updates @:\nhttps://github.com/i2ichardt/HealersMate")
+TxtAboutLabel:SetText("HealersMate Version 1.4.0\ni2ichardt, Claude/ChatGPT/Gemini\nrj299@yahoo.com\n\nCheck for Updates @:\nhttps://github.com/i2ichardt/HealersMate")
 -- END -- AboutFrame Contents
 
 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -810,7 +827,7 @@ end)
 local CheckboxHideBorder = CreateFrame("CheckButton", "HM_CheckboxHideBorder", HM_ScalingFrame, "UICheckButtonTemplate")
 CheckboxHideBorder:SetWidth(24)
 CheckboxHideBorder:SetHeight(24)
-CheckboxHideBorder:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 235)
+CheckboxHideBorder:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 260)
 CheckboxHideBorder:SetScript("OnClick", function(self)
     HideBorder = (self:GetChecked() == 1) and "true" or "false"
     if HM_ApplyFrameAppearance then HM_ApplyFrameAppearance() end
@@ -820,11 +837,63 @@ local CheckboxHideBorderLabel = HM_ScalingFrame:CreateFontString(nil, "OVERLAY",
 CheckboxHideBorderLabel:SetPoint("LEFT", CheckboxHideBorder, "RIGHT", 5, 0)
 CheckboxHideBorderLabel:SetText("Hide Frame Border")
 
+-- Lock Buff Icon Size: by default, buff/debuff icons scale automatically
+-- with the frame's width (and height, if "Use Custom Height" leaves extra
+-- room). This lets you pin them to a fixed size instead, independent of
+-- frame size -- icons still wrap to a new row based on how many fit at that
+-- fixed size, they just won't grow or shrink as the frame is resized.
+local CheckboxLockBuffIconSize = CreateFrame("CheckButton", "HM_CheckboxLockBuffIconSize", HM_ScalingFrame, "UICheckButtonTemplate")
+CheckboxLockBuffIconSize:SetWidth(24)
+CheckboxLockBuffIconSize:SetHeight(24)
+CheckboxLockBuffIconSize:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 295)
+CheckboxLockBuffIconSize:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Check to lock buff/debuff icons to a fixed size", "instead of scaling them with the frame's width/height.")
+end)
+CheckboxLockBuffIconSize:SetScript("OnLeave", HideTooltip)
+
+local CheckboxLockBuffIconSizeLabel = HM_ScalingFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+CheckboxLockBuffIconSizeLabel:SetPoint("LEFT", CheckboxLockBuffIconSize, "RIGHT", 5, 0)
+CheckboxLockBuffIconSizeLabel:SetText("Lock Buff Icon Size")
+
+local BuffIconSizeSlider = CreateFrame("Slider", "HM_BuffIconSizeSlider", HM_ScalingFrame, "OptionsSliderTemplate")
+BuffIconSizeSlider:SetWidth(190)
+BuffIconSizeSlider:SetHeight(16)
+BuffIconSizeSlider:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX, AppearanceY - 330)
+BuffIconSizeSlider:SetMinMaxValues(10, 50)
+BuffIconSizeSlider:SetValueStep(1)
+HM_BuffIconSizeSliderText:SetText("Buff Icon Size")
+HM_BuffIconSizeSliderLow:SetText("10")
+HM_BuffIconSizeSliderHigh:SetText("50")
+
+local BuffIconSizeValueText = HM_ScalingFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+BuffIconSizeValueText:SetPoint("TOP", BuffIconSizeSlider, "BOTTOM", 0, -2)
+
+local function RefreshBuffIconSize()
+    if HM_RefreshAllAuraLayout then
+        HM_RefreshAllAuraLayout()
+    elseif Check4Group then
+        Check4Group()
+    end
+end
+
+BuffIconSizeSlider:SetScript("OnValueChanged", function(self, value)
+    BuffIconSizeValue = math.floor(value + 0.5)
+    BuffIconSizeValueText:SetText(tostring(BuffIconSizeValue) .. " px")
+    RefreshBuffIconSize()
+end)
+
+CheckboxLockBuffIconSize:SetScript("OnClick", function(self)
+    local checked = (self:GetChecked() == 1)
+    LockBuffIconSize = checked and "true" or "false"
+    if checked then BuffIconSizeSlider:Enable() else BuffIconSizeSlider:Disable() end
+    RefreshBuffIconSize()
+end)
+
 -- Reset to defaults button
 local ResetAppearanceButton = CreateFrame("Button", "HM_ResetAppearanceButton", HM_ScalingFrame, "UIPanelButtonTemplate")
 ResetAppearanceButton:SetWidth(150)
 ResetAppearanceButton:SetHeight(22)
-ResetAppearanceButton:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 270)
+ResetAppearanceButton:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 365)
 ResetAppearanceButton:SetText("Reset to Default")
 ResetAppearanceButton:SetScript("OnClick", function()
     FrameWidth = 200
@@ -833,6 +902,9 @@ ResetAppearanceButton:SetScript("OnClick", function()
     FrameBGColorR, FrameBGColorG, FrameBGColorB = 1, 1, 1
     FrameBGAlpha = 1
     HideBorder = "false"
+    HideBackground = "false"
+    LockBuffIconSize = "false"
+    BuffIconSizeValue = 20
 
     WidthSlider:SetValue(FrameWidth)
     CheckboxCustomHeight:SetChecked(false)
@@ -841,6 +913,10 @@ ResetAppearanceButton:SetScript("OnClick", function()
     AlphaSlider:SetValue(100)
     swatchTex:SetTexture(1, 1, 1)
     CheckboxHideBorder:SetChecked(false)
+    if HM_CheckboxHideBackground then HM_CheckboxHideBackground:SetChecked(false) end
+    CheckboxLockBuffIconSize:SetChecked(false)
+    BuffIconSizeSlider:SetValue(BuffIconSizeValue)
+    BuffIconSizeSlider:Disable()
 
     if HM_ApplyFrameAppearance then HM_ApplyFrameAppearance() end
 end)
@@ -853,7 +929,7 @@ end)
 
 -- Layout: two columns of grouped sections with headers, matching the
 -- requested settings-page mockup:
---   GENERAL         APPEARANCE
+--   GENERAL         DISPLAY & AURAS
 --   HEALTH          TARGETS
 --   SCROLLING TEXT
 
@@ -876,10 +952,10 @@ local function CreateSectionHeader(name, xOffset, yOffset)
 end
 
 -- ========================================================================
--- ROW 0: Section headers -- GENERAL / APPEARANCE
+-- ROW 0: Section headers -- GENERAL / DISPLAY & AURAS
 -- ========================================================================
 CreateSectionHeader("GENERAL", CheckboxTopX, CheckboxTopY + 0)
-CreateSectionHeader("APPEARANCE", Col2X - 5, CheckboxTopY + 0)
+CreateSectionHeader("NAMES & AURAS", Col2X - 5, CheckboxTopY + 0)
 
 -- ---- GENERAL: Show Target ----
 local CheckboxShowTarget = CreateFrame("CheckButton", "HM_CheckboxShowTarget", HM_CheckboxFrame, "UICheckButtonTemplate")
@@ -921,7 +997,6 @@ CheckboxShowPowerBar:SetScript("OnEnter", function(self)
 end)
 CheckboxShowPowerBar:SetScript("OnLeave", HideTooltip)
 CheckboxShowPowerBar:SetScript("OnClick", CheckboxShowPowerBarOnClick)
-
 local CheckboxShowPowerBarLabel = HM_CheckboxFrame:CreateFontString("HM_CheckboxShowPowerBarLabel", "OVERLAY", "GameFontNormal")
 CheckboxShowPowerBarLabel:SetPoint("LEFT", CheckboxShowPowerBar, "RIGHT", 5, 0)
 CheckboxShowPowerBarLabel:SetText("Show Energy")
@@ -941,26 +1016,26 @@ local CheckboxShowClickTooltipLabel = HM_CheckboxFrame:CreateFontString("HM_Chec
 CheckboxShowClickTooltipLabel:SetPoint("LEFT", CheckboxShowClickTooltip, "RIGHT", 5, 0)
 CheckboxShowClickTooltipLabel:SetText("Show Click Tooltip")
 
--- ---- APPEARANCE: Hide Background ----
-local CheckboxHideBackground = CreateFrame("CheckButton", "HM_CheckboxHideBackground", HM_CheckboxFrame, "UICheckButtonTemplate")
+-- ---- DISPLAY: Hide Background ----
+local CheckboxHideBackground = CreateFrame("CheckButton", "HM_CheckboxHideBackground", HM_ScalingFrame, "UICheckButtonTemplate")
 CheckboxHideBackground:SetWidth(CB_SIZE)
 CheckboxHideBackground:SetHeight(CB_SIZE)
-CheckboxHideBackground:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 22)
+CheckboxHideBackground:SetPoint("TOPLEFT", HM_ScalingFrame, "TOPLEFT", AppearanceX - 5, AppearanceY - 235)
 CheckboxHideBackground:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Hide the background of all unit frames.")
 end)
 CheckboxHideBackground:SetScript("OnLeave", HideTooltip)
 CheckboxHideBackground:SetScript("OnClick", CheckboxHideBackgroundOnClick)
 
-local CheckboxHideBackgroundLabel = HM_CheckboxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+local CheckboxHideBackgroundLabel = HM_ScalingFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 CheckboxHideBackgroundLabel:SetPoint("LEFT", CheckboxHideBackground, "RIGHT", 5, 0)
-CheckboxHideBackgroundLabel:SetText("Hide Background")
+CheckboxHideBackgroundLabel:SetText("Hide Frame Background")
 
--- ---- APPEARANCE: Color by Class ----
+-- ---- DISPLAY: Color by Class ----
 local CheckboxColorNameByClass = CreateFrame("CheckButton", "HM_CheckboxColorNameByClass", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxColorNameByClass:SetWidth(CB_SIZE)
 CheckboxColorNameByClass:SetHeight(CB_SIZE)
-CheckboxColorNameByClass:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 46)
+CheckboxColorNameByClass:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 22)
 CheckboxColorNameByClass:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Check to color the unit's name using their class color.")
 end)
@@ -971,11 +1046,11 @@ local CheckboxColorNameByClassLabel = HM_CheckboxFrame:CreateFontString("HM_Chec
 CheckboxColorNameByClassLabel:SetPoint("LEFT", CheckboxColorNameByClass, "RIGHT", 5, 0)
 CheckboxColorNameByClassLabel:SetText("Color by Class")
 
--- ---- APPEARANCE: Show Buffs ----
+-- ---- AURAS: Show Buffs ----
 local CheckboxShowBuffs = CreateFrame("CheckButton", "HM_CheckboxShowBuffs", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxShowBuffs:SetWidth(CB_SIZE)
 CheckboxShowBuffs:SetHeight(CB_SIZE)
-CheckboxShowBuffs:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 70)
+CheckboxShowBuffs:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 46)
 CheckboxShowBuffs:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Check to show buff/debuff icons on unit frames.")
 end)
@@ -986,11 +1061,11 @@ local CheckboxShowBuffsLabel = HM_CheckboxFrame:CreateFontString("HM_CheckboxSho
 CheckboxShowBuffsLabel:SetPoint("LEFT", CheckboxShowBuffs, "RIGHT", 5, 0)
 CheckboxShowBuffsLabel:SetText("Show Buffs")
 
--- ---- APPEARANCE: Player Cast Buffs Only ----
+-- ---- AURAS: Player Cast Buffs Only ----
 local CheckboxPlayerOnlyBuffs = CreateFrame("CheckButton", "HM_CheckboxPlayerOnlyBuffs", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxPlayerOnlyBuffs:SetWidth(CB_SIZE)
 CheckboxPlayerOnlyBuffs:SetHeight(CB_SIZE)
-CheckboxPlayerOnlyBuffs:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 94)
+CheckboxPlayerOnlyBuffs:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 70)
 CheckboxPlayerOnlyBuffs:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Only show buffs/debuffs that you (the player) cast.")
 end)
@@ -1065,6 +1140,40 @@ local RadioHealthBothLabel = HM_CheckboxFrame:CreateFontString("HM_RadioHealthBo
 RadioHealthBothLabel:SetPoint("LEFT", RadioHealthBoth, "RIGHT", 5, 0)
 RadioHealthBothLabel:SetText("Both")
 
+-- ---- HEALTH: Name Position (Above Bar / On Bar) ----
+local NamePositionLabel = HM_CheckboxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+NamePositionLabel:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col1X, CheckboxTopY - 244)
+NamePositionLabel:SetText("Name Position:")
+NamePositionLabel:SetTextColor(0.85, 0.85, 0.85)
+
+local RadioNameAboveBar = CreateFrame("CheckButton", "HM_RadioNameAboveBar", HM_CheckboxFrame, "UIRadioButtonTemplate")
+RadioNameAboveBar:SetWidth(CB_SIZE_SMALL)
+RadioNameAboveBar:SetHeight(CB_SIZE_SMALL)
+RadioNameAboveBar:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 262)
+RadioNameAboveBar:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Show the name in its own row above the health bar (default).")
+end)
+RadioNameAboveBar:SetScript("OnLeave", HideTooltip)
+RadioNameAboveBar:SetScript("OnClick", function() SetNamePosition("above") end)
+
+local RadioNameAboveBarLabel = HM_CheckboxFrame:CreateFontString("HM_RadioNameAboveBarLabel", "OVERLAY", "GameFontNormal")
+RadioNameAboveBarLabel:SetPoint("LEFT", RadioNameAboveBar, "RIGHT", 5, 0)
+RadioNameAboveBarLabel:SetText("Above Bar")
+
+local RadioNameOnBar = CreateFrame("CheckButton", "HM_RadioNameOnBar", HM_CheckboxFrame, "UIRadioButtonTemplate")
+RadioNameOnBar:SetWidth(CB_SIZE_SMALL)
+RadioNameOnBar:SetHeight(CB_SIZE_SMALL)
+RadioNameOnBar:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 284)
+RadioNameOnBar:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Show the name on the health bar itself, as a second", "line above the health value -- saves vertical space.")
+end)
+RadioNameOnBar:SetScript("OnLeave", HideTooltip)
+RadioNameOnBar:SetScript("OnClick", function() SetNamePosition("onbar") end)
+
+local RadioNameOnBarLabel = HM_CheckboxFrame:CreateFontString("HM_RadioNameOnBarLabel", "OVERLAY", "GameFontNormal")
+RadioNameOnBarLabel:SetPoint("LEFT", RadioNameOnBar, "RIGHT", 5, 0)
+RadioNameOnBarLabel:SetText("On Bar")
+
 -- ---- TARGETS: Friendly ----
 local CheckboxFriendly = CreateFrame("CheckButton", "HM_CheckboxFriendly", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxFriendly:SetWidth(CB_SIZE)
@@ -1087,16 +1196,56 @@ local CheckboxEnemyLabel = HM_CheckboxFrame:CreateFontString("HM_CheckboxEnemyLa
 CheckboxEnemyLabel:SetPoint("LEFT", CheckboxEnemy, "RIGHT", 5, 0)
 CheckboxEnemyLabel:SetText("Enemy")
 
+-- ---- TARGETS column: Heal Prediction (Off / Mine Only) ----
+-- Shows a lighter overlay on the health bar for heals currently in flight,
+-- based on a rolling average of each caster's recent non-crit heals for
+-- that spell (learned live, since Ascension's custom spells have no public
+-- healing-coefficient formula to calculate from).
+local HealPredictionLabel = HM_CheckboxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+HealPredictionLabel:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X - 5, CheckboxTopY - 210)
+HealPredictionLabel:SetText("Heal Prediction:")
+HealPredictionLabel:SetTextColor(0.85, 0.85, 0.85)
+
+local RadioHealPredictOff = CreateFrame("CheckButton", "HM_RadioHealPredictOff", HM_CheckboxFrame, "UIRadioButtonTemplate")
+RadioHealPredictOff:SetWidth(CB_SIZE_SMALL)
+RadioHealPredictOff:SetHeight(CB_SIZE_SMALL)
+RadioHealPredictOff:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 228)
+RadioHealPredictOff:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Don't show incoming heal predictions.")
+end)
+RadioHealPredictOff:SetScript("OnLeave", HideTooltip)
+RadioHealPredictOff:SetScript("OnClick", function() SetHealPredictionMode("off") end)
+
+local RadioHealPredictOffLabel = HM_CheckboxFrame:CreateFontString("HM_RadioHealPredictOffLabel", "OVERLAY", "GameFontNormal")
+RadioHealPredictOffLabel:SetPoint("LEFT", RadioHealPredictOff, "RIGHT", 5, 0)
+RadioHealPredictOffLabel:SetText("Off")
+
+local RadioHealPredictMine = CreateFrame("CheckButton", "HM_RadioHealPredictMine", HM_CheckboxFrame, "UIRadioButtonTemplate")
+RadioHealPredictMine:SetWidth(CB_SIZE_SMALL)
+RadioHealPredictMine:SetHeight(CB_SIZE_SMALL)
+RadioHealPredictMine:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col2X, CheckboxTopY - 248)
+RadioHealPredictMine:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Predict incoming heals from your own casts only.")
+end)
+RadioHealPredictMine:SetScript("OnLeave", HideTooltip)
+RadioHealPredictMine:SetScript("OnClick", function() SetHealPredictionMode("mine") end)
+
+local RadioHealPredictMineLabel = HM_CheckboxFrame:CreateFontString("HM_RadioHealPredictMineLabel", "OVERLAY", "GameFontNormal")
+RadioHealPredictMineLabel:SetPoint("LEFT", RadioHealPredictMine, "RIGHT", 5, 0)
+RadioHealPredictMineLabel:SetText("Mine Only")
+
+
+
 -- ========================================================================
 -- ROW: Section header -- SCROLLING TEXT
 -- ========================================================================
-CreateSectionHeader("SCROLLING TEXT", CheckboxTopX, CheckboxTopY - 246)
+CreateSectionHeader("SCROLLING TEXT", CheckboxTopX, CheckboxTopY - 296)
 
 -- ---- SCROLLING TEXT: Enable SCT (master toggle) ----
 local CheckboxShowScrollingText = CreateFrame("CheckButton", "HM_CheckboxShowScrollingText", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxShowScrollingText:SetWidth(CB_SIZE)
 CheckboxShowScrollingText:SetHeight(CB_SIZE)
-CheckboxShowScrollingText:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col1X, CheckboxTopY - 268)
+CheckboxShowScrollingText:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", Col1X, CheckboxTopY - 318)
 CheckboxShowScrollingText:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Check to show Damage and/or Healing taken on UI Frames.", "Note: You also need to check Damage and/or Healing to determine which to display.")
 end)
@@ -1111,7 +1260,7 @@ CheckboxShowScrollingTextLabel:SetText("Enable SCT")
 local CheckboxShowDamage = CreateFrame("CheckButton", "HM_CheckboxShowDamage", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxShowDamage:SetWidth(CB_SIZE)
 CheckboxShowDamage:SetHeight(CB_SIZE)
-CheckboxShowDamage:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 291)
+CheckboxShowDamage:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 341)
 CheckboxShowDamage:SetScript("OnClick", CheckboxShowDamageOnClick)
 
 local CheckboxShowDamageLabel = HM_CheckboxFrame:CreateFontString("HM_CheckboxShowDamageLabel", "OVERLAY", "GameFontNormal")
@@ -1122,7 +1271,7 @@ CheckboxShowDamageLabel:SetText("Damage")
 local CheckboxShowHeal = CreateFrame("CheckButton", "HM_CheckboxShowHeal", HM_CheckboxFrame, "UICheckButtonTemplate")
 CheckboxShowHeal:SetWidth(CB_SIZE)
 CheckboxShowHeal:SetHeight(CB_SIZE)
-CheckboxShowHeal:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 314)
+CheckboxShowHeal:SetPoint("TOPLEFT", HM_CheckboxFrame, "TOPLEFT", IndentX, CheckboxTopY - 364)
 CheckboxShowHeal:SetScript("OnClick", CheckboxShowHealOnClick)
 
 local CheckboxShowHealLabel = HM_CheckboxFrame:CreateFontString("HM_CheckboxHealLabel", "OVERLAY", "GameFontNormal")
@@ -1161,6 +1310,14 @@ CheckboxShowHealLabel:SetText("Healing")
 SLASH_HEALERSMATE1 = "/hm"
 SLASH_HEALERSMATE2 = "/healersmate"
 SLASH_HMDRAGRESET1 = "/hmdrag"
+SLASH_HMHEALDEBUG1 = "/hmhealdebug"
+
+HM_HealPredictDebug = false
+
+SlashCmdList["HMHEALDEBUG"] = function()
+    HM_HealPredictDebug = not HM_HealPredictDebug
+    Debug("HealersMate: heal prediction debug output " .. (HM_HealPredictDebug and "ON" or "OFF"))
+end
 
 SlashCmdList["HEALERSMATE"] = function()
     if HM_SettingsContainer then
@@ -1282,6 +1439,417 @@ function HM_ApplyClickBindings(secureBtn, unitId)
     end
 end
 
+-- ========================================================================
+-- INCOMING HEAL PREDICTION
+-- ========================================================================
+-- Settings > Display & Targets > Targets > "Heal Prediction" (Off / Mine Only).
+-- Shows a lighter overlay on a unit's health bar for heals
+-- currently in flight, sized from a rolling average of that caster's recent
+-- NON-CRIT heals for that specific spell. This is learned live from the
+-- combat log rather than calculated from a healing-coefficient formula,
+-- since Ascension's custom class spells (e.g. the Chronomancer's "Reverse
+-- Wound") have no public formula to calculate from -- observed data is the
+-- only thing that actually works here.
+--
+-- Only the non-crit average is tracked/shown: blending crits into the same
+-- average would skew the prediction for both cases, and the non-crit number
+-- is also more useful as a conservative "floor" for judging overheal risk.
+
+local HEAL_HISTORY_SIZE = 5      -- exactly the last five non-crit heals per (caster, spell)
+HM_HEAL_HISTORY_TTL = 1800    -- discard spell histories unused for 30 minutes
+HM_HEAL_HISTORY_MAX_SPELLS = 64 -- hard cap per caster as a second safety net
+local HEAL_PREDICTION_TIMEOUT = 10 -- seconds -- safety net in case a heal is
+                                   -- never reconciled (resisted, target died,
+                                   -- log event missed, etc.)
+
+HM_HealHistory = HM_HealHistory or {}             -- HM_HealHistory[casterGUID][spellName] = { amounts... }
+HM_PendingHealPrediction = HM_PendingHealPrediction or {} -- HM_PendingHealPrediction[unitId] = { amount, expires }
+HM_TrackedGUIDToUnit = HM_TrackedGUIDToUnit or {}
+
+local CLICK_BUTTON_NUMBERS = { LeftButton = 1, RightButton = 2, MiddleButton = 3 }
+
+-- Resolves which spell (if any) is bound to the mouse button + modifier
+-- combination just clicked. Returns nil for empty bindings or special
+-- actions (target/follow/etc -- those don't heal, so aren't predictable).
+local function HM_ResolveClickSpell(mouseButton)
+    local buttonNum = CLICK_BUTTON_NUMBERS[mouseButton]
+    if not buttonNum then return nil end
+
+    local modPrefix = ""
+    if IsShiftKeyDown() then modPrefix = "shift"
+    elseif IsControlKeyDown() then modPrefix = "ctrl" end
+
+    for _, bind in ipairs(CLICK_BINDINGS) do
+        if bind[1] == buttonNum and bind[2] == modPrefix then
+            local spellName = _G[bind[3]]
+            if spellName and spellName ~= "" then
+                local trimmed = strtrim(tostring(spellName))
+                if not SPECIAL_ACTIONS[trimmed:lower()] then
+                    return trimmed
+                end
+            end
+            return nil
+        end
+    end
+    return nil
+end
+
+-- Keeps a GUID -> unitId lookup for every unit we currently display, so
+-- combat log source/dest GUIDs (and other party members' cast targets, via
+-- "partyNtarget") can be resolved back to one of our frames. Cheap; call
+-- whenever the group or target changes.
+function HM_RefreshTrackedGUIDs()
+    -- Rebuild instead of only adding: GUIDs for departed party members and
+    -- replaced targets must not remain reachable indefinitely.
+    local current = {}
+    local units = { "player", "party1", "party2", "party3", "party4", "target" }
+    for _, u in ipairs(units) do
+        if UnitExists(u) then
+            local guid = UnitGUID(u)
+            if guid then current[guid] = u end
+        end
+    end
+    HM_TrackedGUIDToUnit = current
+end
+
+function HM_PruneHealHistory(now)
+    now = now or GetTime()
+    for casterGUID, spells in pairs(HM_HealHistory) do
+        local count = 0
+        local oldestName, oldestTime
+        for spellName, list in pairs(spells) do
+            local lastSeen = (type(list) == "table" and list.lastSeen) or now
+            if now - lastSeen > HM_HEAL_HISTORY_TTL then
+                spells[spellName] = nil
+            else
+                count = count + 1
+                if not oldestTime or lastSeen < oldestTime then
+                    oldestName, oldestTime = spellName, lastSeen
+                end
+            end
+        end
+        -- Bound unusual/custom spell-name churn even if entries remain active.
+        while count > HM_HEAL_HISTORY_MAX_SPELLS and oldestName do
+            spells[oldestName] = nil
+            count = count - 1
+            oldestName, oldestTime = nil, nil
+            for spellName, list in pairs(spells) do
+                local lastSeen = (type(list) == "table" and list.lastSeen) or now
+                if not oldestTime or lastSeen < oldestTime then
+                    oldestName, oldestTime = spellName, lastSeen
+                end
+            end
+        end
+        if not next(spells) then HM_HealHistory[casterGUID] = nil end
+    end
+end
+
+local function HM_RecordHealAmount(casterGUID, spellName, amount, isCrit)
+    if not casterGUID or not spellName or not amount then return end
+    -- IMPORTANT: WotLK's combat log passes this as a number (1 = crit, 0 =
+    -- not), not a boolean. In Lua, 0 is truthy (only nil/false are falsy),
+    -- so `if isCrit then` alone treated every heal as a crit and silently
+    -- discarded it -- nothing was ever actually being recorded because of
+    -- this, even though the debug print (which fires before this check)
+    -- made it look like recording was happening.
+    if isCrit and isCrit ~= 0 then return end -- only non-crit heals inform the average
+    local now = GetTime()
+    HM_PruneHealHistory(now)
+    HM_HealHistory[casterGUID] = HM_HealHistory[casterGUID] or {}
+    local list = HM_HealHistory[casterGUID][spellName]
+    if not list then
+        list = {}
+        HM_HealHistory[casterGUID][spellName] = list
+    end
+    list.lastSeen = now
+    table.insert(list, amount)
+    if #list > HEAL_HISTORY_SIZE then table.remove(list, 1) end
+end
+
+local function HM_GetAverageHeal(casterGUID, spellName)
+    HM_PruneHealHistory(GetTime())
+    local list = HM_HealHistory[casterGUID] and HM_HealHistory[casterGUID][spellName]
+    if not list or #list == 0 then return nil end
+    list.lastSeen = GetTime()
+    local sum = 0
+    for _, v in ipairs(list) do sum = sum + v end
+    return sum / #list
+end
+
+-- Repositions/resizes/shows-or-hides unitId's prediction overlay texture
+-- based on its current real health plus whatever's pending. Self-contained
+-- (only needs UnitHealth/UnitHealthMax), so it doesn't depend on
+-- UpdateHealthValues having already run.
+function HM_UpdateHealPredictionOverlay(unitId)
+    local camelKey = unitId:sub(1,1):upper() .. unitId:sub(2)
+    local healthBar = _G[camelKey .. "StatusBar"]
+    local overlay   = _G[camelKey .. "HealPrediction"]
+    if not healthBar or not overlay then return end
+
+    local pending = HM_PendingHealPrediction[unitId]
+    if not pending or not UnitExists(unitId) then
+        HM_PendingHealPrediction[unitId] = nil
+        overlay:Hide()
+        return
+    end
+    if pending.expires and GetTime() > pending.expires then
+        HM_PendingHealPrediction[unitId] = nil
+        overlay:Hide()
+        return
+    end
+
+    local current = UnitHealth(unitId) or 0
+    local max = UnitHealthMax(unitId) or 0
+    if max <= 0 or current >= max then
+        overlay:Hide()
+        return
+    end
+
+    local barWidth = healthBar:GetWidth()
+    local currentFraction   = math.min(1, current / max)
+    local predictedFraction = math.min(1, (current + pending.amount) / max)
+
+    local startX = currentFraction * barWidth
+    local endX   = predictedFraction * barWidth
+
+    if endX <= startX then
+        overlay:Hide()
+        return
+    end
+
+    overlay:ClearAllPoints()
+    overlay:SetPoint("TOPLEFT", healthBar, "TOPLEFT", startX, 0)
+    overlay:SetPoint("BOTTOMLEFT", healthBar, "BOTTOMLEFT", startX, 0)
+    overlay:SetWidth(endX - startX)
+    overlay:Show()
+end
+
+function HM_ShowHealPrediction(unitId, amount, casterGUID, spellName)
+    if HealPredictionMode == "off" or HealPredictionMode == nil then return end
+    if not unitId or not amount or amount <= 0 then return end
+    HM_PendingHealPrediction[unitId] = {
+        amount = amount,
+        expires = GetTime() + HEAL_PREDICTION_TIMEOUT,
+        casterGUID = casterGUID,
+        spellName = spellName,
+    }
+    HM_UpdateHealPredictionOverlay(unitId)
+    if HM_HealPredictionTicker then HM_HealPredictionTicker:Show() end
+    if HM_HealPredictDebug then
+        local camelKey = unitId:sub(1,1):upper() .. unitId:sub(2)
+        local overlay = _G[camelKey .. "HealPrediction"]
+        Debug(string.format("|cff888888[HealPredict]|r HM_ShowHealPrediction(%s, %d) -- overlay exists=%s, shown=%s",
+            tostring(unitId), amount, tostring(overlay ~= nil), tostring(overlay and overlay:IsShown())))
+    end
+end
+
+-- Clears whatever pending prediction was caused by this specific caster
+-- casting this specific spell, if any -- used when a cast is cancelled,
+-- interrupted, or fails, so a heal that never actually happens doesn't keep
+-- showing as "incoming" until the safety timeout expires.
+function HM_ClearHealPredictionIfMatches(casterGUID, spellName)
+    if not casterGUID or not spellName then return end
+    for unitId, pending in pairs(HM_PendingHealPrediction) do
+        if pending.casterGUID == casterGUID and pending.spellName == spellName then
+            if HM_HealPredictDebug then
+                Debug(string.format("|cff888888[HealPredict]|r Clearing prediction on %s -- %s's %s was cancelled/interrupted/failed.",
+                    tostring(unitId), tostring(casterGUID), tostring(spellName)))
+            end
+            HM_ClearHealPrediction(unitId)
+        end
+    end
+end
+
+function HM_ClearHealPrediction(unitId)
+    if HM_PendingHealPrediction[unitId] then
+        HM_PendingHealPrediction[unitId] = nil
+        HM_UpdateHealPredictionOverlay(unitId)
+    end
+end
+
+function HM_ClearAllHealPredictions()
+    for unitId in pairs(HM_PendingHealPrediction) do
+        HM_PendingHealPrediction[unitId] = nil
+        HM_UpdateHealPredictionOverlay(unitId)
+    end
+    if HM_HealPredictionTicker then HM_HealPredictionTicker:Hide() end
+end
+
+-- Pending predictions must expire even when a unit's health never changes.
+-- This ticker is enabled only while at least one prediction is pending, so it
+-- does not create a permanent per-frame CPU cost.
+HM_HealPredictionTicker = CreateFrame("Frame")
+local HM_HealPredictionTickElapsed = 0
+HM_HealPredictionTicker:Hide()
+HM_HealPredictionTicker:SetScript("OnUpdate", function(self, elapsed)
+    HM_HealPredictionTickElapsed = HM_HealPredictionTickElapsed + elapsed
+    if HM_HealPredictionTickElapsed < 0.10 then return end
+    HM_HealPredictionTickElapsed = 0
+    local now = GetTime()
+    local anyPending = false
+    for unitId, pending in pairs(HM_PendingHealPrediction) do
+        if not UnitExists(unitId) or (pending.expires and now >= pending.expires) then
+            HM_PendingHealPrediction[unitId] = nil
+            local camelKey = unitId:sub(1,1):upper() .. unitId:sub(2)
+            local overlay = _G[camelKey .. "HealPrediction"]
+            if overlay then overlay:Hide() end
+        else
+            anyPending = true
+            HM_UpdateHealPredictionOverlay(unitId)
+        end
+    end
+    if not anyPending then self:Hide() end
+end)
+
+-- ---- Combat log: records real heal amounts and reconciles predictions ----
+local HM_CombatLogFrame = CreateFrame("Frame")
+HM_CombatLogFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+HM_CombatLogFrame:SetScript("OnEvent", function(self, event, timestamp, subevent,
+                                                 sourceGUID, sourceName, sourceFlags,
+                                                 destGUID, destName, destFlags, ...)
+    if HealPredictionMode == "off" or HealPredictionMode == nil then return end
+    if subevent ~= "SPELL_HEAL" and subevent ~= "SPELL_PERIODIC_HEAL" then return end
+
+    if HM_HealPredictDebug then
+        Debug(string.format("|cff888888[HealPredict]|r %s from %s (GUID %s) to %s (GUID %s)",
+            subevent, tostring(sourceName), tostring(sourceGUID), tostring(destName), tostring(destGUID)))
+    end
+
+    if not sourceGUID or not HM_TrackedGUIDToUnit[sourceGUID] then
+        if HM_HealPredictDebug then
+            Debug("|cff888888[HealPredict]|r Ignored: source GUID isn't one of your tracked frames (not in HM_TrackedGUIDToUnit).")
+        end
+        return
+    end
+
+    if HealPredictionMode == "mine" and sourceGUID ~= UnitGUID("player") then
+        if HM_HealPredictDebug then
+            Debug("|cff888888[HealPredict]|r Ignored: mode is 'Mine Only' and this heal wasn't from you.")
+        end
+        return
+    end
+
+    -- SPELL_HEAL / SPELL_PERIODIC_HEAL suffix in 3.3.5: spellId, spellName,
+    -- spellSchool, amount, overhealing, critical (no "absorbed" field yet --
+    -- that's a later addition).
+    local spellId, spellName, spellSchool, amount, overhealing, critical = ...
+    if not spellName or not amount then
+        if HM_HealPredictDebug then
+            Debug("|cff888888[HealPredict]|r Ignored: couldn't read spellName/amount from event args -- field layout may be wrong.")
+        end
+        return
+    end
+
+    if HM_HealPredictDebug then
+        Debug(string.format("|cff888888[HealPredict]|r Heal event: spell=%s amount=%d crit=%s (checking whether to store...)",
+            tostring(spellName), amount, tostring(critical)))
+    end
+
+    HM_RecordHealAmount(sourceGUID, spellName, amount, critical)
+
+    if HM_HealPredictDebug then
+        local newAvg = HM_GetAverageHeal(sourceGUID, spellName)
+        Debug(string.format("|cff888888[HealPredict]|r Current average for this caster/spell is now: %s",
+            newAvg and string.format("%.0f", newAvg) or "nil (still no non-crit data)"))
+    end
+
+    -- Only clear the prediction if THIS landed heal actually matches it
+    -- (same caster + spell) -- not just because *some* heal landed on the
+    -- target. Clearing unconditionally meant an unrelated heal (from
+    -- someone else, or even a different spell of your own, like a HoT tick
+    -- landing while a separate direct heal is also in flight) would wipe
+    -- out a still-pending, unrelated prediction instead of leaving it alone
+    -- to keep tracking against the target's updated health.
+    HM_ClearHealPredictionIfMatches(sourceGUID, spellName)
+end)
+
+-- ---- Your own casts ----
+-- Covers casts made any way: action bars, keybinds, mouseover macros, or by
+-- clicking HealersMate's own frame buttons. (The click-capture on secureBtn
+-- in HM_CreateUnitFrame only sees the last of those, so this handler is what
+-- makes the rest work.)
+--
+-- UNIT_SPELLCAST_START only fires for spells with a cast time (giving actual
+-- advance warning, which is the whole point for slow heals); instant casts
+-- skip straight to UNIT_SPELLCAST_SUCCEEDED, so both are handled here.
+local HM_SpellCastFrame = CreateFrame("Frame")
+HM_SpellCastFrame:RegisterEvent("UNIT_SPELLCAST_START")
+HM_SpellCastFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+HM_SpellCastFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
+HM_SpellCastFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+HM_SpellCastFrame:SetScript("OnEvent", function(self, event, unit, spellName)
+    if HM_HealPredictDebug then
+        Debug(string.format("|cff888888[HealPredict]|r RAW EVENT: %s unit=%s spell=%s",
+            tostring(event), tostring(unit), tostring(spellName)))
+    end
+    if HealPredictionMode == "off" or HealPredictionMode == nil then return end
+    if unit ~= "player" then return end -- only your own casts are tracked
+
+    -- A cast that failed or was interrupted means whatever we were
+    -- predicting from it (if anything) never actually happens -- clear it
+    -- instead of leaving it to show as "incoming" until the safety timeout
+    -- expires. IMPORTANT: UNIT_SPELLCAST_STOP is deliberately NOT included
+    -- here -- unlike FAILED/INTERRUPTED, it fires on ANY cast-ending
+    -- scenario, including normal successful completion (it's the general
+    -- counterpart to START, not a failure-specific signal). Treating it as
+    -- a cancellation cleared the prediction from every successful cast
+    -- almost immediately after showing it.
+    if event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
+        if spellName then
+            HM_ClearHealPredictionIfMatches(UnitGUID("player"), spellName)
+        end
+        return
+    end
+
+    if not spellName then return end
+
+    local casterGUID = UnitGUID("player")
+    if not casterGUID then return end
+
+    local predicted = HM_GetAverageHeal(casterGUID, spellName)
+    if not predicted then
+        if HM_HealPredictDebug then
+            Debug(string.format("|cff888888[HealPredict]|r player cast %s -- no learned average yet (need a non-crit heal from this spell recorded first).",
+                tostring(spellName)))
+        end
+        return
+    end
+
+    -- Figure out who this cast was actually aimed at, in priority order:
+    --   1) mouseover -- covers mouseover macros, which is how most healers
+    --      actually cast (hover over a unit frame -- ours, Blizzard's
+    --      default, or any other -- and press a keybind). This was the gap
+    --      that made predictions only ever show on the player frame:
+    --      mouseover was never checked at all before this.
+    --   2) your current target -- covers normal explicit targeting.
+    --   3) player (self) -- sensible fallback when neither of the above
+    --      points at a friendly unit, since a heal with nothing else
+    --      selected very commonly just means "heal myself".
+    -- Hostile units are never used, since heals don't go to enemies.
+    local function friendlyOrNil(tok)
+        if UnitExists(tok) and not UnitCanAttack("player", tok) then
+            return tok
+        end
+        return nil
+    end
+
+    local targetToken = friendlyOrNil("mouseover") or friendlyOrNil("target") or "player"
+
+    local targetGUID = UnitGUID(targetToken)
+    local frameUnit = targetGUID and HM_TrackedGUIDToUnit[targetGUID]
+    if frameUnit then
+        if HM_HealPredictDebug then
+            Debug(string.format("|cff888888[HealPredict]|r player cast %s on %s (via %s) -- showing predicted +%d",
+                tostring(spellName), tostring(frameUnit), tostring(targetToken), predicted))
+        end
+        HM_ShowHealPrediction(frameUnit, predicted, casterGUID, spellName)
+    elseif HM_HealPredictDebug then
+        Debug(string.format("|cff888888[HealPredict]|r player cast %s on %s -- that unit isn't one of your visible frames.",
+            tostring(spellName), tostring(targetToken)))
+    end
+end)
+
+
 -- Re-applies bindings to every unit frame's button. Call this after the
 -- player changes a spell name in the settings UI, or after login.
 function HM_RefreshAllSpellBindings()
@@ -1382,10 +1950,17 @@ function HM_RecalculateFrameLayout(unitId)
         end
     end
 
-    local naturalHeight = 6                             -- Name padding top
-                 + nameString:GetHeight()
-                 + (24 - nameString:GetHeight())         -- Gap offset to health bar
-                 + healthBar:GetHeight()
+    local topOffset
+    if NamePosition == "onbar" then
+        -- Name sits as a second line on the health bar itself -- no separate
+        -- row is reserved for it, just the top margin before the bar starts.
+        topOffset = 6
+    else
+        -- Default: name has its own row above the health bar.
+        topOffset = 6 + nameString:GetHeight() + (24 - nameString:GetHeight()) -- = 30
+    end
+
+    local naturalHeight = topOffset + healthBar:GetHeight()
 
     if showPower and powerBar then
         naturalHeight = naturalHeight + 2 + powerBar:GetHeight()
@@ -1421,13 +1996,100 @@ function HM_RecalculateFrameLayout(unitId)
     -- used to also apply it separately afterward with no such floor, which
     -- is what let a too-small custom height cause the overflow).
     if FrameCustomHeight == "true" then
-        local customHeight = tonumber(FrameHeightValue) or 150
-        container:SetHeight(math.max(customHeight, naturalHeight))
+        local customHeight = tonumber(FrameHeightValue) or 150        container:SetHeight(math.max(customHeight, naturalHeight))
     else
         container:SetHeight(naturalHeight)
     end
 end
 
+-- ========================================================================
+-- NAME POSITION (above the health bar, or on the health bar as 2 lines)
+-- ========================================================================
+-- Settings > Checkboxes > Health > "Name Position" (Above Bar / On Bar).
+-- "On Bar" moves the name onto the health bar itself as a second line above
+-- the health value text, instead of giving it its own row above the bar --
+-- saves vertical space, at the cost of a smaller, tighter font.
+function HM_ApplyNamePosition(unitId)
+    local camelKey = unitId:sub(1,1):upper() .. unitId:sub(2)
+    local container  = _G[camelKey .. "Container"]
+    local nameString = _G[camelKey .. "Name"]
+    local healthBar  = _G[camelKey .. "StatusBar"]
+    local secureBtn  = _G[camelKey .. "Button"]
+    local nameOverlayFrame = _G[camelKey .. "NameOverlayFrame"]
+
+    if not (container and nameString and healthBar) then return end
+
+    -- healthBar is a sibling of the secure click-to-cast button and gets
+    -- resized/repositioned here, so it's subject to the same combat
+    -- restriction as container:SetHeight() elsewhere in this file. Skip and
+    -- catch up once combat ends instead of getting blocked.
+    if InCombatLockdown() then
+        HM_PendingNamePositionUnits = HM_PendingNamePositionUnits or {}
+        HM_PendingNamePositionUnits[unitId] = true
+        return
+    end
+
+    local onBar = (NamePosition == "onbar")
+
+    nameString:ClearAllPoints()
+    healthBar:ClearAllPoints()
+
+    if onBar then
+        -- Health bar reclaims the row that used to be reserved for the name
+        -- above it, and grows a little taller to comfortably fit two lines.
+        healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 6, -6)
+        healthBar:SetHeight(30)
+
+        -- IMPORTANT: reparent the name text onto nameOverlayFrame, an
+        -- independent HIGH-strata frame that isn't connected to secureBtn
+        -- or healthBar at all -- it's just visually positioned to overlap
+        -- the bar. Reparenting onto secureBtn directly still rendered it
+        -- underneath in some configurations, so this avoids any dependency
+        -- on the secure button whatsoever.
+        if nameOverlayFrame then
+            nameOverlayFrame:ClearAllPoints()
+            nameOverlayFrame:SetPoint("TOPLEFT", healthBar, "TOPLEFT", 0, 0)
+            nameOverlayFrame:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0)
+            nameString:SetParent(nameOverlayFrame)
+        end
+        nameString:SetPoint("TOP", healthBar, "TOP", 0, -2)
+
+        if secureBtn and secureBtn.GetFontString then
+            local fs = secureBtn:GetFontString()
+            if fs then
+                fs:ClearAllPoints()
+                fs:SetPoint("BOTTOM", healthBar, "BOTTOM", 0, 2)
+            end
+        end
+    else
+        -- Default: name has its own row above the health bar, back on
+        -- container where it started.
+        nameString:SetParent(container)
+        nameString:SetPoint("TOPLEFT", container, "TOPLEFT", 6, -6)
+        healthBar:SetPoint("TOPLEFT", container, "TOPLEFT", 6, -24)
+        healthBar:SetHeight(25)
+
+        if secureBtn and secureBtn.GetFontString then
+            local fs = secureBtn:GetFontString()
+            if fs then
+                fs:ClearAllPoints()
+                fs:SetPoint("CENTER", healthBar, "CENTER", 0, 0)
+            end
+        end
+    end
+
+    -- powerBar is anchored relative to healthBar (not container), so it
+    -- follows automatically without needing to be touched here.
+
+    if HM_RecalculateFrameLayout then HM_RecalculateFrameLayout(unitId) end
+end
+
+function HM_ApplyNamePositionToAll()
+    local units = { "player", "party1", "party2", "party3", "party4", "target" }
+    for _, unitId in ipairs(units) do
+        HM_ApplyNamePosition(unitId)
+    end
+end
 -- ========================================================================
 -- SNAP-DOCKING FOR UNIT FRAMES
 -- ========================================================================
@@ -1479,6 +2141,17 @@ end
 
 function HM_TrySnapContainer(movedFrame)
     if not movedFrame then return end
+
+    -- Same restriction as SetHeight/SetWidth/Show/Hide elsewhere in this
+    -- file: these containers have a secure click-to-cast child, so
+    -- Blizzard blocks position-changing calls (ClearAllPoints/SetPoint) on
+    -- them for the whole time you're in combat. Skip entirely and retry
+    -- once combat ends (see PLAYER_REGEN_ENABLED) rather than getting
+    -- blocked partway through.
+    if InCombatLockdown() then
+        HM_PendingDockRefresh = true
+        return
+    end
 
     local mLeft, mBottom = movedFrame:GetLeft(), movedFrame:GetBottom()
     if not mLeft or not mBottom then return end
@@ -1566,6 +2239,11 @@ function HM_TrySnapContainer(movedFrame)
 end
 
 function HM_ReapplyAllDocking()
+    if InCombatLockdown() then
+        HM_PendingDockRefresh = true
+        return
+    end
+
     local allFrames = {
         PlayerContainer, Party1Container, Party2Container,
         Party3Container, Party4Container, TargetContainer
@@ -1600,11 +2278,12 @@ end
 -- size (cached as .baseFontPath/.baseFontSize/.baseFontFlags at creation
 -- time) so repeated calls don't compound shrinkage. Used for the player
 -- name+class label, which can otherwise run off narrow custom frame widths.
-function HM_FitTextToWidth(fontString, maxWidth)
+function HM_FitTextToWidth(fontString, maxWidth, overrideBaseSize)
     if not fontString or not maxWidth or maxWidth <= 0 then return end
 
     local basePath, baseSize, baseFlags = fontString.baseFontPath, fontString.baseFontSize, fontString.baseFontFlags
     if not basePath or not baseSize then return end -- no cached baseline; nothing safe to do
+    baseSize = overrideBaseSize or baseSize
 
     -- Always reset to the original size first so we're measuring/shrinking
     -- from a consistent baseline rather than an already-shrunk size.
@@ -1724,23 +2403,34 @@ function HM_CreateUnitFrame(unitId, displayName, relativeToFrame, defaultYOffset
     
     -- 3. Attach 3.3.5 Drag Scripts safely without global arg1 leaks
     container:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" and not self.isMoving then
-            -- If this frame is currently docked to another frame, detach it
-            -- the moment you pick it up again so it moves independently
-            -- during this drag -- it'll only re-dock if you drop it near
-            -- another frame's edge again (see HM_TrySnapContainer).
-            if self.dockedTo then
-                local curLeft, curBottom = self:GetLeft(), self:GetBottom()
-                if curLeft and curBottom then
-                    self:ClearAllPoints()
-                    self:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", curLeft, curBottom)
-                end
-                self.dockedTo = nil
-            end
+        if button ~= "LeftButton" or self.isMoving then return end
 
-            self:StartMoving()
-            self.isMoving = true
+        -- These containers have a secure click-to-cast child, so
+        -- StartMoving/StopMovingOrSizing/SetPoint on them are all subject to
+        -- the same combat restriction as SetHeight/SetWidth elsewhere in
+        -- this file. Unlike those, there's no sensible way to "queue" a
+        -- drag and replay it once combat ends -- so just refuse to start
+        -- the drag at all while in combat, with a clear one-time message.
+        if InCombatLockdown() then
+            Debug("HealersMate: frames can't be moved while in combat.")
+            return
         end
+
+        -- If this frame is currently docked to another frame, detach it
+        -- the moment you pick it up again so it moves independently
+        -- during this drag -- it'll only re-dock if you drop it near
+        -- another frame's edge again (see HM_TrySnapContainer).
+        if self.dockedTo then
+            local curLeft, curBottom = self:GetLeft(), self:GetBottom()
+            if curLeft and curBottom then
+                self:ClearAllPoints()
+                self:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", curLeft, curBottom)
+            end
+            self.dockedTo = nil
+        end
+
+        self:StartMoving()
+        self.isMoving = true
     end)
 	
 	container:SetScript("OnHide", function(self)
@@ -1804,6 +2494,36 @@ function HM_CreateUnitFrame(unitId, displayName, relativeToFrame, defaultYOffset
     
     -- 7. Overlay the Combat-Safe SecureActionButton Target Layer
     local secureBtn = CreateFrame("Button", "HM_" .. camelKey .. "Button", healthBar, "SecureActionButtonTemplate")
+
+    -- Incoming heal prediction overlay (Settings > Checkboxes > Targets >
+    -- "Heal Prediction"). IMPORTANT: this is a fully independent frame, NOT
+    -- parented to secureBtn or healthBar at all -- it's parented to
+    -- container (a plain, non-secure frame) and just visually positioned to
+    -- overlap healthBar's current-health-to-predicted-health region each
+    -- update. Using "HIGH" frame strata guarantees it renders above
+    -- healthBar/secureBtn regardless of their own frame levels, without
+    -- needing any actual parent/child relationship to either -- so nothing
+    -- about it can ever be affected by the secure button's combat-lockdown
+    -- restrictions. Positioned/sized each update by
+    -- HM_UpdateHealPredictionOverlay; hidden whenever nothing's pending.
+    local healPredictionFrame = CreateFrame("Frame", "HM_" .. camelKey .. "HealPredictionFrame", container)
+    healPredictionFrame:SetFrameStrata("HIGH")
+    healPredictionFrame:Hide()
+
+    local healPrediction = healPredictionFrame:CreateTexture(nil, "OVERLAY")
+    healPrediction:SetAllPoints(true)
+    healPrediction:SetTexture(0.4, 1, 0.6, 0.55) -- light green, semi-transparent
+
+    _G[camelKey .. "HealPrediction"] = healPredictionFrame
+
+    -- Independent overlay frame for the "Name On Bar" position option (see
+    -- HM_ApplyNamePosition). Same reasoning as the heal prediction frame
+    -- above: not parented to secureBtn or healthBar at all, just visually
+    -- positioned on top of the bar via "HIGH" strata, so it can't be
+    -- affected by anything to do with the secure button.
+    local nameOverlayFrame = CreateFrame("Frame", "HM_" .. camelKey .. "NameOverlayFrame", container)
+    nameOverlayFrame:SetFrameStrata("HIGH")
+    _G[camelKey .. "NameOverlayFrame"] = nameOverlayFrame
   
     -- Register clicks: 1 is Left, 2 is Right, 3 is Middle
     secureBtn:RegisterForClicks("AnyUp")
@@ -1834,6 +2554,47 @@ function HM_CreateUnitFrame(unitId, displayName, relativeToFrame, defaultYOffset
     secureBtn:SetScript("OnLeave", function()
         GameTooltip:Hide()
     end)
+
+    -- Incoming heal prediction (own casts): this is a plain, non-protected
+    -- side effect (reading state and recording data), which is fine to add
+    -- to a secure button alongside its normal attribute-driven click action
+    -- -- it doesn't touch anything protected itself. We already know exactly
+    -- who this click is targeting (this button's own unit) and can resolve
+    -- exactly which spell is bound to this click/modifier combo, so unlike
+    -- guessing another player's cast target, our own casts can be predicted
+    -- immediately and reliably at the moment of the click.
+    --
+    -- IMPORTANT: HookScript, not SetScript. SetScript *replaces* whatever
+    -- click handling the button already had, which is exactly what broke
+    -- actual spellcasting last time -- HookScript adds this as an extra
+    -- handler that runs alongside the existing one instead of overwriting
+    -- it. The pcall is an extra safety net so an error in this tracking
+    -- code can never interfere with anything else the click does.
+    secureBtn:HookScript("OnClick", function(self, button)
+        local ok, err = pcall(function()
+            if HM_HealPredictDebug then
+                Debug(string.format("|cff888888[HealPredict]|r Frame click captured: unit=%s button=%s",
+                    tostring(unitId), tostring(button)))
+            end
+            if HealPredictionMode == "off" or HealPredictionMode == nil then return end
+            if not HM_ResolveClickSpell then return end
+
+            local spellName = HM_ResolveClickSpell(button)
+            if HM_HealPredictDebug then
+                Debug(string.format("|cff888888[HealPredict]|r Resolved click to spell: %s", tostring(spellName)))
+            end
+            if not spellName then return end -- empty binding, or a non-heal special action
+
+            local casterGUID = UnitGUID("player")
+            local predicted = HM_GetAverageHeal and HM_GetAverageHeal(casterGUID, spellName)
+            if predicted and HM_ShowHealPrediction then
+                HM_ShowHealPrediction(unitId, predicted, casterGUID, spellName)
+            end
+        end)
+        if not ok then
+            Debug("HealersMate: heal prediction click-tracking error (recovered): " .. tostring(err))
+        end
+    end)
     
     -- 8. Append Aura Buff Panel Display Base
     local buffPanel = CreateFrame("Frame", "HM_" .. camelKey .. "BuffPanel", container)
@@ -1856,6 +2617,7 @@ function HM_CreateUnitFrame(unitId, displayName, relativeToFrame, defaultYOffset
     _G[camelKey .. "PowerStatusBar"] = powerBar
     _G[camelKey .. "Button"]         = secureBtn
     _G[camelKey .. "BuffPanel"]      = buffPanel
+    if HM_ApplyNamePosition then HM_ApplyNamePosition(unitId) end
     if HM_RecalculateFrameLayout then
         HM_RecalculateFrameLayout(unitId)
     else
@@ -2024,6 +2786,7 @@ function eventAddonLoaded()
         ShowPowerBar = "true"
         ShowBuffs = "true"
         ShowClickTooltip = "false"
+        NamePosition = "above"
 
         -- NEW defaults
         HideBackground = "false"
@@ -2037,6 +2800,10 @@ function eventAddonLoaded()
         FrameBGColorG = 1
         FrameBGColorB = 1
         FrameBGAlpha = 1
+
+        LockBuffIconSize = "false"
+        BuffIconSizeValue = 20
+        HealPredictionMode = "off"
     
         FreshInstall = false
     end
@@ -2065,11 +2832,15 @@ function eventAddonLoaded()
     if ShowPowerBar == nil then ShowPowerBar = "true" end
     if ShowBuffs == nil then ShowBuffs = "true" end
     if ShowClickTooltip == nil then ShowClickTooltip = "false" end
+    if NamePosition == nil then NamePosition = "above" end
     
     -- NEW backward compatibility
     if HideBackground == nil then HideBackground = "false" end
     if PlayerOnlyBuffs == nil then PlayerOnlyBuffs = "false" end
     if HideBorder == nil then HideBorder = "false" end
+    if LockBuffIconSize == nil then LockBuffIconSize = "false" end
+    if BuffIconSizeValue == nil then BuffIconSizeValue = 20 end
+    if HealPredictionMode == nil then HealPredictionMode = "off" end
     --## END ## Create Default Values for Settings
     
     
@@ -2161,6 +2932,10 @@ function eventAddonLoaded()
     if HM_RadioHealthValue   then HM_RadioHealthValue:SetChecked(HealthDisplayMode == "value") end
     if HM_RadioHealthPercent then HM_RadioHealthPercent:SetChecked(HealthDisplayMode == "percent") end
     if HM_RadioHealthBoth    then HM_RadioHealthBoth:SetChecked(HealthDisplayMode == "both") end
+
+    if HM_RadioNameAboveBar then HM_RadioNameAboveBar:SetChecked(NamePosition ~= "onbar") end
+    if HM_RadioNameOnBar    then HM_RadioNameOnBar:SetChecked(NamePosition == "onbar") end
+    if HM_ApplyNamePositionToAll then HM_ApplyNamePositionToAll() end
     --## END ## - Set Health Text Checkboxes
 
     --## START ## - New Display Toggle Checkboxes
@@ -2198,16 +2973,29 @@ function eventAddonLoaded()
     if HM_FrameColorButton and HM_FrameColorButton.swatchTex then
         HM_FrameColorButton.swatchTex:SetTexture(tonumber(FrameBGColorR) or 1, tonumber(FrameBGColorG) or 1, tonumber(FrameBGColorB) or 1)
     end
+    if HM_BuffIconSizeSlider then HM_BuffIconSizeSlider:SetValue(tonumber(BuffIconSizeValue) or 20) end
+    if HM_CheckboxLockBuffIconSize then
+        local lockOn = (LockBuffIconSize == "true")
+        HM_CheckboxLockBuffIconSize:SetChecked(lockOn)
+        if HM_BuffIconSizeSlider then
+            if lockOn then HM_BuffIconSizeSlider:Enable() else HM_BuffIconSizeSlider:Disable() end
+        end
+    end
     if HM_ApplyFrameAppearance then HM_ApplyFrameAppearance() end
     --## END ## - Frame Appearance controls
+
+    --## START ## - Heal Prediction
+    if HM_RadioHealPredictOff      then HM_RadioHealPredictOff:SetChecked(HealPredictionMode == "off" or HealPredictionMode == nil) end
+    if HM_RadioHealPredictMine     then HM_RadioHealPredictMine:SetChecked(HealPredictionMode == "mine") end
+    --## END ## - Heal Prediction
+
 DEFAULT_CHAT_FRAME:AddMessage("|cff33ccff[HealersMate]|r |cff00ff00Loaded Successfully!|r Configure with |cffffff00/hm|r or |cffffff00/healersmate|r")
 end
 
 local function eventPlayerLogout()
     --## START ## Save Settings
     -- Consolidated into an array loop to keep code structure uniform with eventAddonLoaded
-    local saveMappings = {
-        { control = TxtLeftClick,         varName = "LeftClickSpell" },
+    local saveMappings = {        { control = TxtLeftClick,         varName = "LeftClickSpell" },
         { control = TxtMiddleClick,       varName = "MiddleClickSpell" },
         { control = TxtRightClick,        varName = "RightClickSpell" },
         { control = TxtShiftLeftClick,    varName = "ShiftLeftClickSpell" },
@@ -2431,6 +3219,22 @@ local function UpdateHealthValues(person, TriggerScrollingText)
     
     -- Cache PlayerNames globally for external tracking matrix verification
     if not PlayerNames then PlayerNames = {} end
+
+    -- IMPORTANT: "party1".."party4" are positional slots that can end up
+    -- occupied by a completely different person whenever the group roster
+    -- changes (someone leaves/joins, or the game just reorders them). If the
+    -- name in this slot just changed, PreviouseHealth[SpecifiedPerson] is
+    -- still the *old* occupant's leftover health value -- comparing the new
+    -- person's health against that produces a bogus, often huge "damage" or
+    -- "healing" number that has nothing to do with anything that actually
+    -- happened. Reset the baseline whenever the occupant changes so the
+    -- next tick starts fresh instead of diffing across two different people.
+    local previousOccupant = PlayerNames[SpecifiedPerson]
+    if previousOccupant and previousOccupant ~= personName then
+        if not PreviouseHealth then PreviouseHealth = {} end
+        PreviouseHealth[SpecifiedPerson] = -1
+    end
+
     PlayerNames[SpecifiedPerson] = personName
     
     -- Route Scrolling Combat Text updates
@@ -2454,10 +3258,13 @@ local function UpdateHealthValues(person, TriggerScrollingText)
     -- ========================================================================
     if not UnitIsConnected(SpecifiedPerson) then
         nameFrame:SetText(personName .. " is Offline")
-        if HM_FitTextToWidth then HM_FitTextToWidth(nameFrame, healthBar:GetWidth()) end
+        if HM_FitTextToWidth then
+            HM_FitTextToWidth(nameFrame, healthBar:GetWidth(), (NamePosition == "onbar") and 9 or nil)
+        end
         buttonFrame:SetText("<< Offline >>")
         healthBar:SetValue(0)
         if powerBar then powerBar:SetValue(0) end
+        if HM_ClearHealPrediction then HM_ClearHealPrediction(SpecifiedPerson) end
         return
     end
     
@@ -2485,7 +3292,9 @@ local function UpdateHealthValues(person, TriggerScrollingText)
     nameFrame:SetText(nameText)
     -- Shrink the font just enough to fit the current frame width (matters a
     -- lot for long name+class combos, and for narrower custom Frame Widths).
-    if HM_FitTextToWidth then HM_FitTextToWidth(nameFrame, healthBar:GetWidth()) end
+    if HM_FitTextToWidth then
+        HM_FitTextToWidth(nameFrame, healthBar:GetWidth(), (NamePosition == "onbar") and 9 or nil)
+    end
 
     -- ========================================================================
     -- HEALTH STATES (DEAD VS ALIVE)
@@ -2494,6 +3303,7 @@ local function UpdateHealthValues(person, TriggerScrollingText)
         buttonFrame:SetText("<< DEAD >>")
         healthBar:SetValue(0)
         if powerBar then powerBar:SetValue(0) end
+        if HM_ClearHealPrediction then HM_ClearHealPrediction(SpecifiedPerson) end
     else
         -- ALIVE: Standardized Consolidated Health String Builder
         local healthString = ""
@@ -2519,6 +3329,8 @@ local function UpdateHealthValues(person, TriggerScrollingText)
         -- Safe calculation guard against division-by-zero crashes
         healthBar:SetValue(maxHealth > 0 and (currentHealth / maxHealth) or 0)
     end
+
+    if HM_UpdateHealPredictionOverlay then HM_UpdateHealPredictionOverlay(SpecifiedPerson) end
 end
 
 
@@ -2740,74 +3552,92 @@ local function UpdateUnitBuffDebuffIcons(unit)
 
     local auraTotal = #auras
 
-    -- ---- PASS 2: figure out the biggest icon scale that fits both the
-    -- available width AND the available height ----
-    -- Width-only baseline (relative to the default 200px width where the
-    -- original fixed 20px cell / 15px icon size was designed to look right).
-    local frameWidth = (container and container:GetWidth()) or 200
-    local widthScale = math.max(0.6, math.min(frameWidth / 200, 2.0))
+    -- ---- PASS 2: figure out the icon size ----
+    -- Two modes: auto-scale (default) fits the biggest icon size that fits
+    -- both the available width AND the available height; "Lock Buff Icon
+    -- Size" instead uses a fixed, user-set size regardless of frame
+    -- dimensions -- icons still wrap to a new row based on how many fit at
+    -- that fixed size within the current width, they just don't grow or
+    -- shrink as the frame is resized.
+    local iconCell, iconsPerRow, iconSize, playerIconSize
 
-    local panelWidth = (buffPanel and buffPanel:GetWidth()) or (ICONS_PER_ROW_DEFAULT * ICON_CELL_BASE * widthScale)
+    if LockBuffIconSize == "true" then
+        local lockedCell = tonumber(BuffIconSizeValue) or ICON_CELL_BASE
+        lockedCell = math.max(10, math.min(lockedCell, 50)) -- sane bounds regardless of what's saved
+        iconCell = lockedCell
+        iconSize = lockedCell * (ICON_SIZE_BASE / ICON_CELL_BASE)
+        playerIconSize = lockedCell * (PLAYER_ICON_SIZE_BASE / ICON_CELL_BASE)
 
-    local function gridAt(scale)
-        local cell = ICON_CELL_BASE * scale
-        local cols = math.max(1, math.floor(panelWidth / cell))
-        local rows = (auraTotal > 0) and math.ceil(auraTotal / cols) or 1
-        return cell, cols, rows
-    end
+        local panelWidth = (buffPanel and buffPanel:GetWidth()) or (ICONS_PER_ROW_DEFAULT * ICON_CELL_BASE)
+        iconsPerRow = math.max(1, math.floor(panelWidth / iconCell))
+    else
+        -- Width-only baseline (relative to the default 200px width where the
+        -- original fixed 20px cell / 15px icon size was designed to look right).
+        local frameWidth = (container and container:GetWidth()) or 200
+        local widthScale = math.max(0.6, math.min(frameWidth / 200, 2.0))
 
-    local finalScale = widthScale
+        local panelWidth = (buffPanel and buffPanel:GetWidth()) or (ICONS_PER_ROW_DEFAULT * ICON_CELL_BASE * widthScale)
 
-    -- If "Use Custom Height" is on and leaves extra vertical room beyond what
-    -- the buff panel actually needs at widthScale, use that extra room to
-    -- scale icons up further (never below widthScale) so buffs fill the
-    -- frame vertically too, not just horizontally.
-    if FrameCustomHeight == "true" and auraTotal > 0 then
-        local nameString = _G[titleUnit .. "Name"]
-        local healthBar  = _G[titleUnit .. "StatusBar"]
-        local powerBar   = _G[titleUnit .. "PowerStatusBar"]
-        local showPower  = (ShowPowerBar ~= "false")
+        local function gridAt(scale)
+            local cell = ICON_CELL_BASE * scale
+            local cols = math.max(1, math.floor(panelWidth / cell))
+            local rows = (auraTotal > 0) and math.ceil(auraTotal / cols) or 1
+            return cell, cols, rows
+        end
 
-        if nameString and healthBar then
-            -- Same fixed-overhead formula as HM_RecalculateFrameLayout, minus
-            -- the buff panel's own contribution (that's what we're solving for).
-            local overhead = 6 + nameString:GetHeight() + (24 - nameString:GetHeight()) + healthBar:GetHeight()
-            if showPower and powerBar then overhead = overhead + 2 + powerBar:GetHeight() end
-            overhead = overhead + 4 -- gap before the buff panel
-            overhead = overhead + 8 -- bottom buffer margin
+        local finalScale = widthScale
 
-            local customHeight = tonumber(FrameHeightValue) or 150
-            local availableForBuffs = customHeight - overhead
+        -- If "Use Custom Height" is on and leaves extra vertical room beyond what
+        -- the buff panel actually needs at widthScale, use that extra room to
+        -- scale icons up further (never below widthScale) so buffs fill the
+        -- frame vertically too, not just horizontally.
+        if FrameCustomHeight == "true" and auraTotal > 0 then
+            local nameString = _G[titleUnit .. "Name"]
+            local healthBar  = _G[titleUnit .. "StatusBar"]
+            local powerBar   = _G[titleUnit .. "PowerStatusBar"]
+            local showPower  = (ShowPowerBar ~= "false")
 
-            local _, _, baseRows = gridAt(widthScale)
-            local baseNeeded = math.max(ICON_CELL_BASE * widthScale, baseRows * ICON_CELL_BASE * widthScale) + 5
+            if nameString and healthBar then
+                -- Same fixed-overhead formula as HM_RecalculateFrameLayout, minus
+                -- the buff panel's own contribution (that's what we're solving for).
+                local overhead = 6 + nameString:GetHeight() + (24 - nameString:GetHeight()) + healthBar:GetHeight()
+                if showPower and powerBar then overhead = overhead + 2 + powerBar:GetHeight() end
+                overhead = overhead + 4 -- gap before the buff panel
+                overhead = overhead + 8 -- bottom buffer margin
 
-            if availableForBuffs > baseNeeded then
-                -- Binary-search upward for the largest scale whose resulting
-                -- grid (recomputed at each candidate scale, since a bigger
-                -- icon means fewer columns and therefore possibly more rows)
-                -- still fits within availableForBuffs.
-                local lo, hi = widthScale, 3.0
-                for _ = 1, 14 do
-                    local mid = (lo + hi) / 2
-                    local cell, _, rows = gridAt(mid)
-                    local neededHeight = math.max(cell, rows * cell) + 5
-                    if neededHeight <= availableForBuffs then
-                        lo = mid
-                    else
-                        hi = mid
+                local customHeight = tonumber(FrameHeightValue) or 150
+                local availableForBuffs = customHeight - overhead
+
+                local _, _, baseRows = gridAt(widthScale)
+                local baseNeeded = math.max(ICON_CELL_BASE * widthScale, baseRows * ICON_CELL_BASE * widthScale) + 5
+
+                if availableForBuffs > baseNeeded then
+                    -- Binary-search upward for the largest scale whose resulting
+                    -- grid (recomputed at each candidate scale, since a bigger
+                    -- icon means fewer columns and therefore possibly more rows)
+                    -- still fits within availableForBuffs.
+                    local lo, hi = widthScale, 3.0
+                    for _ = 1, 14 do
+                        local mid = (lo + hi) / 2
+                        local cell, _, rows = gridAt(mid)
+                        local neededHeight = math.max(cell, rows * cell) + 5
+                        if neededHeight <= availableForBuffs then
+                            lo = mid
+                        else
+                            hi = mid
+                        end
                     end
+                    finalScale = lo
                 end
-                finalScale = lo
             end
         end
+
+        finalScale = math.max(0.6, math.min(finalScale, 3.0))
+
+        iconCell, iconsPerRow = gridAt(finalScale)
+        iconSize       = ICON_SIZE_BASE * finalScale
+        playerIconSize = PLAYER_ICON_SIZE_BASE * finalScale
     end
-
-    finalScale = math.max(0.6, math.min(finalScale, 3.0))
-
-    local iconCell, iconsPerRow, _ = gridAt(finalScale)
-    local iconSize       = ICON_SIZE_BASE * finalScale
-    local playerIconSize = PLAYER_ICON_SIZE_BASE * finalScale
 
     -- ---- PASS 3: actually create the icons at the final scale ----
     for i, aura in ipairs(auras) do
@@ -2910,6 +3740,10 @@ end
 -- ========================================================================
 
 function Check4Group()
+    -- Keep GUID -> unitId lookups current for heal prediction (combat log
+    -- source/dest resolution, and other healers' "partyNtarget" lookups).
+    if HM_RefreshTrackedGUIDs then HM_RefreshTrackedGUIDs() end
+
     -- 1. Always update player frame values regardless of group configuration state
     UpdateHealthValues("player", false)
     UpdateUnitBuffDebuffIcons("player") -- Calls the master engine from prior steps
@@ -2940,7 +3774,8 @@ end
 
 
 local function ManageTargetFrame()
-	
+    if HM_RefreshTrackedGUIDs then HM_RefreshTrackedGUIDs() end
+
 local isTargetVisible = false
         -- Guard Clause: Only evaluate tracking if the user configuration allows it and a target exists
         if ShowTargetUI == "true" and UnitExists("target") then
@@ -3029,7 +3864,6 @@ local function eventHandler(self, eventParam, arg1Param)
             eventAddonLoaded()
             self:RegisterEvent("UNIT_HEALTH")
             self:RegisterEvent("UNIT_MAXHEALTH")
-            self:RegisterEvent("UNIT_POWER")
         end
     
     elseif currentEvent == "PLAYER_ENTERING_WORLD" or currentEvent == "PARTY_MEMBERS_CHANGED" then
@@ -3041,13 +3875,14 @@ local function eventHandler(self, eventParam, arg1Param)
         -- exactly what was blocking SetHeight() on the Target frame here.
         HM_Defer(Check4Group)
         
-    elseif currentEvent == "PLAYER_LOGOUT" or currentEvent == "PLAYER_QUITING" then
+    elseif currentEvent == "PLAYER_LOGOUT" then
         eventPlayerLogout()
         
-    elseif currentEvent == "UNIT_HEALTH" then
+    elseif currentEvent == "UNIT_HEALTH" or currentEvent == "UNIT_MAXHEALTH" then
         UpdateHealthValues(currentArg1, true)
 		
-    elseif currentEvent == "UNIT_MANA" or currentEvent == "UNIT_RAGE" or currentEvent == "UNIT_ENERGY" then
+    elseif currentEvent == "UNIT_MANA" or currentEvent == "UNIT_RAGE" or currentEvent == "UNIT_ENERGY"
+        or currentEvent == "UNIT_FOCUS" or currentEvent == "UNIT_RUNIC_POWER" then
         UpdatePowerValues(currentArg1)
         
     elseif currentEvent == "UNIT_AURA" then
@@ -3107,6 +3942,24 @@ local function eventHandler(self, eventParam, arg1Param)
                 end
             end
             HM_PendingVisibility = {}
+        end
+        -- 5) Any Name Position (Above Bar / On Bar) change skipped during
+        --    combat (HM_ApplyNamePosition resizes/repositions the health
+        --    bar, same restriction as everything else here) -- apply now.
+        if HM_PendingNamePositionUnits then
+            for unitId in pairs(HM_PendingNamePositionUnits) do
+                if HM_ApplyNamePosition then
+                    HM_ApplyNamePosition(unitId)
+                end
+            end
+            HM_PendingNamePositionUnits = {}
+        end
+        -- 6) Any docking/snap repositioning skipped during combat (same
+        --    secure-child restriction -- ClearAllPoints/SetPoint on these
+        --    containers is blocked in combat too) -- reapply now.
+        if HM_PendingDockRefresh and HM_ReapplyAllDocking then
+            HM_PendingDockRefresh = false
+            HM_ReapplyAllDocking()
         end
     end
 end
