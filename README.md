@@ -4,7 +4,7 @@ A lightweight healing-focused party and target frame addon for **World of Warcra
 
 HealersMate provides customizable healing frames, click-casting support, buff tracking, health monitoring, power bars, scrolling combat text, and extensive appearance options—all designed to keep critical healing information visible without requiring large raid-frame addons.
 
-> Current Version: **1.0.0**
+> Current Version: **1.4.0**
 
 > Specifically designed to work with [Conquest of Azeroth](https://ascension.gg/en/news/conquest-of-azeroth-alpha/332)
 
@@ -78,6 +78,12 @@ Optional secondary resource bars:
 ## Scrolling Combat Text
 
 Display healing and damage directly on unit frames.
+
+## Incoming Heal Prediction
+
+- Predicts incoming heals from your own casts with the **Mine Only** option.
+- Learns a rolling average from the last five non-critical heals for each caster and spell.
+- Tracks multiple pending heals independently and clears predictions when the matching heal lands.
 
 Options include:
 
